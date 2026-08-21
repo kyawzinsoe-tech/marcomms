@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creative Subscription Report</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">C</div><div><b>Creative Hub</b><small>Subscription Manager</small></div></div>
+  <nav><a href="#dashboard" class="active">⌂ Dashboard</a><a href="#alerts">⚠ Alerts</a><a href="#subscriptions">▣ Subscriptions</a><a href="#tokens">⚡ Token Usage</a><a href="#reports">▤ Reports</a></nav>
+  <div class="save-box"><span class="save-dot"></span><div><b id="saveStatus">Saved</b><small>Realtime local save</small></div></div>
+</aside>
+
+<main>
+<header class="topbar">
+  <div><span class="eyebrow">ALL-IN-ONE CREATIVE TOOLS</span><h1>Creative Subscription Report</h1><p>Subscriptions, overdue alerts, email reminders and Magnific AI token usage.</p></div>
+  <div class="header-actions"><label><span>Report month</span><input id="reportMonth" type="month"></label><button class="btn soft" id="monthlyPdf">Monthly PDF</button><button class="btn soft" id="yearlyPdf">Yearly PDF</button></div>
+</header>
+
+<section class="kpis" id="dashboard">
+<div class="kpi"><span>Total Subscriptions</span><strong id="totalSubs">0</strong><small>All records</small></div>
+<div class="kpi"><span>Active</span><strong id="activeSubs">0</strong><small id="activePct">0% of total</small></div>
+<div class="kpi danger-kpi"><span>Overdue</span><strong id="overdueSubs">0</strong><small>Needs attention</small></div>
+<div class="kpi"><span>Known Monthly Cost</span><strong id="monthlyCost">$0</strong><small>USD</small></div>
+<div class="kpi"><span>Selected Month Tokens</span><strong id="monthTokens">0</strong><small>Magnific AI used</small></div>
+</section>
+
+<section class="card alert-card" id="alerts">
+<div class="card-head"><div><h2>Subscription Due / Overdue Alerts</h2><p>Expired subscriptions and renewals coming soon.</p></div><div class="count-pill danger-pill" id="alertCount">0 alerts</div></div>
+<div id="alertList" class="alert-list"></div>
+</section>
+
+<section class="card" id="subscriptions">
+<div class="card-head"><div><h2>Subscription Overview</h2><p>Manage plans, expiry, reminder email and initial Magnific token allocation.</p></div><button class="btn primary" id="newSubscriptionBtn">+ Add Subscription</button></div>
+<div class="table-wrap"><table><thead><tr><th>Product</th><th>Tool</th><th>Plan</th><th>Status</th><th>Start</th><th>Expiry</th><th>Cost</th><th>Initial Tokens</th><th>Account</th><th>Actions</th></tr></thead><tbody id="subRows"></tbody></table></div>
+</section>
+
+<section class="grid-main" id="tokens">
+<article class="card">
+<div class="card-head"><div><h2>Magnific AI — Token Usage</h2><p>Every usage entry is stored separately.</p></div><button class="btn primary" id="newTokenBtn">+ New Token Entry</button></div>
+<div class="token-summary"><div><span>Usage Entries</span><strong id="tokenEntryCount">0</strong></div><div><span>Tokens Used</span><strong id="tokenUsedTotal">0</strong></div><div><span>Initial Allocation</span><strong id="tokenAllocationTotal">0</strong></div><div><span>Estimated Cost</span><strong id="tokenCostTotal">$0</strong></div></div>
+<div class="chart-card"><div class="chart-title"><b>Usage Trend</b><span id="trendLabel"></span></div><canvas id="trendCanvas" height="260"></canvas></div>
+</article>
+<aside class="card"><h2>Quick Reports</h2><p class="muted">Generate report for selected month or year.</p><button class="report-btn" id="monthlyPdf2"><b>Monthly PDF</b><span id="monthlyReportLabel"></span></button><button class="report-btn" id="yearlyPdf2"><b>Yearly PDF</b><span id="yearlyReportLabel"></span></button><div class="info-box"><b>Realtime save</b><p>Changes are saved immediately in this browser.</p></div></aside>
+</section>
+
+<section class="card">
+<div class="card-head"><div><h2>Magnific AI — Entry History</h2><p>Selected report month.</p></div><div class="count-pill" id="historyCount">0 entries</div></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Account</th><th>Project / Usage</th><th>Tokens Used</th><th>Cost</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="tokenRows"></tbody></table></div>
+</section>
+
+<section class="card" id="reports"><div class="card-head"><div><h2>Data Backup</h2><p>Export/import all dashboard records.</p></div></div><div class="backup-actions"><button class="btn soft" id="exportJson">Export JSON</button><label class="btn soft file-btn">Import JSON<input id="importJson" type="file" accept=".json"></label><button class="btn danger" id="resetData">Reset Demo Data</button></div></section>
+<footer>Creative Subscription Report • Netlify-ready</footer>
+</main></div>
+
+<dialog id="subscriptionDialog"><form method="dialog" class="modal" id="subscriptionForm">
+<div class="modal-head"><div><h2 id="subModalTitle">Add Subscription</h2><p>Subscription + Magnific purchase tokens</p></div><button class="x" value="cancel">×</button></div>
+<input type="hidden" id="subEditId">
+<div class="form-grid">
+<label><span>Product *</span><input id="subProduct" required placeholder="Magnific"></label>
+<label><span>Tool / Service *</span><input id="subTool" required></label>
+<label><span>Plan</span><select id="subPlan"><option>Monthly</option><option>Yearly</option><option>Other</option></select></label>
+<label><span>Status</span><select id="subStatus"><option>Active</option><option>Inactive</option></select></label>
+<label><span>Start Date</span><input id="subStart" type="date"></label>
+<label><span>Expire Date</span><input id="subExpiry" type="date"></label>
+<label><span>Cost USD</span><input id="subCost" type="number" min="0" step="0.01"></label>
+<label><span>Email / Account</span><input id="subEmail" type="email"></label>
+<label><span>Reminder Email</span><input id="subReminderEmail" type="email" placeholder="manager@example.com"></label>
+<label><span>Alert Before Expiry (days)</span><input id="subAlertDays" type="number" min="0" step="1" value="7"></label>
+<label><span>Magnific Initial AI Token Allocation</span><input id="subInitialTokens" type="number" min="0" step="1"></label>
+<label><span>Purchase / Token Note</span><input id="subPurchaseNote"></label>
+</div>
+<div class="modal-actions"><button class="btn soft" value="cancel">Cancel</button><button class="btn primary" type="submit" value="default">Save Subscription</button></div>
+</form></dialog>
+
+<dialog id="tokenDialog"><form method="dialog" class="modal" id="tokenForm">
+<div class="modal-head"><div><h2 id="tokenModalTitle">New Magnific AI Token Entry</h2><p>Separate usage record</p></div><button class="x" value="cancel">×</button></div>
+<input type="hidden" id="tokenEditId">
+<div class="form-grid">
+<label><span>Usage Date *</span><input id="tokenDate" type="date" required></label>
+<label><span>Account / Email *</span><input id="tokenAccount" required></label>
+<label><span>Project / Usage *</span><input id="tokenProject" required></label>
+<label><span>Tokens Used *</span><input id="tokenAmount" type="number" min="0" step="1" required></label>
+<label><span>Estimated Cost USD</span><input id="tokenCost" type="number" min="0" step="0.01"></label>
+<label class="wide"><span>Notes</span><textarea id="tokenNotes" rows="3"></textarea></label>
+</div>
+<div class="modal-actions"><button class="btn soft" value="cancel">Cancel</button><button class="btn primary" type="submit" value="default">Save Token Entry</button></div>
+</form></dialog>
+
+<div id="printReport" class="print-report"></div>
+<script src="app.js"></script>
+</body></html>

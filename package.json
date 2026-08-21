@@ -1,0 +1,23 @@
+{
+  "name": "marcomms-creative-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Creative Subscription Hub — Subscriptions & AI Token Manager",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend run start",
+    "install:all": "npm --prefix frontend install && npm --prefix backend install"
+  },
+  "keywords": [
+    "creative-hub",
+    "subscription-manager",
+    "react",
+    "vite",
+    "netlify"
+  ],
+  "author": "KBZ Marcomms Team",
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: KBZ Marcomms Creative Subscription Hub - Serverless API Backend
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        MONGODB_URI: "mongodb+srv://kzsoe86_db_user:oKdKfVuO2EO9ZzRe@marcomms.aydgfu8.mongodb.net/marcomms_db?retryWrites=true&w=majority"
+        JWT_SECRET: "kbz_marcomms_creative_hub_jwt_super_secret_key_2026!"
+        JWT_EXPIRES_IN: "7d"
+        NODE_ENV: "production"
+        AWS_S3_BUCKET: !Ref BackupBucket
+
+Resources:
+  # S3 Bucket for JSON Backups
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "kbz-marcomms-backups-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Lambda Function
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/lambda.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref BackupBucket
+        - SESCrudPolicy:
+            IdentityName: "*"
+      Events:
+        RootApi:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+        ProxyApi:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  BackupBucketName:
+    Description: "S3 Bucket for backups"
+    Value: !Ref BackupBucket

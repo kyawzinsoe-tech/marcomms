@@ -3,6 +3,15 @@ const USERS_STORAGE_KEY = 'creativeHubUsersList';
 
 export const INITIAL_USERS = [
   {
+    id: 'u_suhnin',
+    name: 'Su Hnin Phway',
+    email: 'suhnin.phway@kbzbank.com',
+    password: 'admin123',
+    role: 'admin',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
+    createdAt: '2026-08-01'
+  },
+  {
     id: 'u_admin',
     name: 'Sarah Admin',
     email: 'admin@creativehub.com',
@@ -95,11 +104,19 @@ export async function loginUser(email, password) {
 export function getStoredUsers() {
   try {
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+    let users = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(users) && users.length > 0) {
+      let modified = false;
+      for (const initial of INITIAL_USERS) {
+        if (!users.some((u) => u.email && u.email.toLowerCase() === initial.email.toLowerCase())) {
+          users.unshift(initial);
+          modified = true;
+        }
       }
+      if (modified) {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      }
+      return users;
     }
   } catch (err) {
     console.error('Error reading users from storage:', err);

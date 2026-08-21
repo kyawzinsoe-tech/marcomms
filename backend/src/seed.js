@@ -6,6 +6,13 @@ const Setting = require('./models/Setting');
 
 const INITIAL_USERS = [
   {
+    name: 'Su Hnin Phway',
+    email: 'suhnin.phway@kbzbank.com',
+    password: 'admin123',
+    role: 'admin',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80'
+  },
+  {
     name: 'Sarah Admin',
     email: 'admin@creativehub.com',
     password: 'admin123',

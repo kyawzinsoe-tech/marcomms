@@ -95,6 +95,50 @@ export function LoginPage() {
             )}
           </button>
         </form>
+
+        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted, #64748b)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Quick Sign-In Accounts
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
+              onClick={() => {
+                setEmail('suhnin.phway@kbzbank.com');
+                setPassword('admin123');
+              }}
+            >
+              <span>👑 <strong>Su Hnin Phway</strong> (Admin)</span>
+              <span style={{ opacity: 0.7 }}>admin123</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
+              onClick={() => {
+                setEmail('admin@creativehub.com');
+                setPassword('admin123');
+              }}
+            >
+              <span>🔑 <strong>Sarah Admin</strong> (Admin)</span>
+              <span style={{ opacity: 0.7 }}>admin123</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
+              onClick={() => {
+                setEmail('user@creativehub.com');
+                setPassword('user123');
+              }}
+            >
+              <span>👀 <strong>Alex Viewer</strong> (Viewer)</span>
+              <span style={{ opacity: 0.7 }}>user123</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

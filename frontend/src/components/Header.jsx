@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Printer, Sparkles, Shield, Eye } from 'lucide-react';
+import { Calendar, Printer, Sparkles, Crown, Shield, Eye } from 'lucide-react';
 
 export function Header({
   reportMonth,
@@ -7,6 +7,7 @@ export function Header({
   onPrintMonthly,
   onPrintYearly,
   user,
+  isSuperAdmin,
   isAdmin
 }) {
   return (
@@ -17,16 +18,31 @@ export function Header({
             <Sparkles size={13} /> ALL-IN-ONE CREATIVE TOOLS
           </span>
           {user && (
-            <span className={`user-role-badge ${isAdmin ? 'badge-role-admin' : 'badge-role-user'}`}>
-              {isAdmin ? <Shield size={10} /> : <Eye size={10} />}
-              {isAdmin ? 'ADMINISTRATOR' : 'VIEWER (READ-ONLY)'}
+            <span
+              className={`user-role-badge ${
+                isSuperAdmin
+                  ? 'badge-role-superadmin'
+                  : isAdmin
+                  ? 'badge-role-admin'
+                  : 'badge-role-user'
+              }`}
+              style={{
+                background: isSuperAdmin ? '#f3e8ff' : undefined,
+                color: isSuperAdmin ? '#7e22ce' : undefined,
+                border: isSuperAdmin ? '1px solid #d8b4fe' : undefined
+              }}
+            >
+              {isSuperAdmin ? <Crown size={11} color="#9333ea" /> : isAdmin ? <Shield size={10} /> : <Eye size={10} />}
+              {isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMINISTRATOR' : 'VIEWER (READ-ONLY)'}
             </span>
           )}
         </div>
         <h1>Creative Subscription Report</h1>
         <p>
-          {isAdmin
-            ? 'Full administrative control over subscriptions, AI token allocation, and user roles.'
+          {isSuperAdmin
+            ? 'Super Administrator control: provision all user roles, subscriptions, AI token budgets, and system data.'
+            : isAdmin
+            ? 'Administrator control: manage subscriptions, AI token allocations, email reminders, and viewer accounts.'
             : 'Read-only overview of creative tool subscriptions, plans, and Magnific AI token usage.'}
         </p>
       </div>

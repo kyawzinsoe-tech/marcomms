@@ -118,42 +118,42 @@ export function LoginPage() {
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #8b5cf6' }}
               onClick={() => handleQuickLogin('kyawzin.soe@kbzbank.com', 'admin123')}
               disabled={isLoading}
             >
-              <span>👑 <strong>Kyaw Zin Soe</strong> (Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
+              <span>👑 <strong>Kyaw Zin Soe</strong> (Super Admin)</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Full Authority →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #8b5cf6' }}
               onClick={() => handleQuickLogin('suhnin.phway@kbzbank.com', 'admin123')}
               disabled={isLoading}
             >
-              <span>👑 <strong>Su Hnin Phway</strong> (Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
+              <span>👑 <strong>Su Hnin Phway</strong> (Super Admin)</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Full Authority →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #6366f1' }}
               onClick={() => handleQuickLogin('admin@creativehub.com', 'admin123')}
               disabled={isLoading}
             >
-              <span>🔑 <strong>Sarah Admin</strong> (Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
+              <span>🛡️ <strong>Sarah Admin</strong> (Admin)</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Operations & Viewers →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #3b82f6' }}
               onClick={() => handleQuickLogin('user@creativehub.com', 'user123')}
               disabled={isLoading}
             >
-              <span>👀 <strong>Alex Viewer</strong> (Viewer)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
+              <span>👁️ <strong>Alex Viewer</strong> (Viewer)</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Read-Only View →</span>
             </button>
           </div>
         </div>

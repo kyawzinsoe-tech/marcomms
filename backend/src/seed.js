@@ -9,14 +9,14 @@ const INITIAL_USERS = [
     name: 'Kyaw Zin Soe',
     email: 'kyawzin.soe@kbzbank.com',
     password: 'admin123',
-    role: 'admin',
+    role: 'super_admin',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'
   },
   {
     name: 'Su Hnin Phway',
     email: 'suhnin.phway@kbzbank.com',
     password: 'admin123',
-    role: 'admin',
+    role: 'super_admin',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80'
   },
   {
@@ -30,7 +30,7 @@ const INITIAL_USERS = [
     name: 'Alex Viewer',
     email: 'user@creativehub.com',
     password: 'user123',
-    role: 'user',
+    role: 'viewer',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
   }
 ];

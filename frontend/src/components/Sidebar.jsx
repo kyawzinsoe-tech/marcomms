@@ -17,6 +17,7 @@ export function Sidebar({
   alertCount,
   saveStatus,
   user,
+  isSuperAdmin,
   isAdmin,
   onLogout
 }) {
@@ -89,7 +90,7 @@ export function Sidebar({
             <div className="pulse-dot" />
             <div>
               <b>{saveStatus}</b>
-              <small>Realtime cloud & local sync</small>
+              <small>{isSuperAdmin ? 'Super Admin authority' : 'Realtime cloud & local sync'}</small>
             </div>
           </div>
         ) : (
@@ -119,8 +120,23 @@ export function Sidebar({
             <div className="user-meta">
               <div className="user-name-row">
                 <span className="user-name">{user.name}</span>
-                <span className={`user-role-badge ${isAdmin ? 'badge-role-admin' : 'badge-role-user'}`}>
-                  {isAdmin ? 'ADMIN' : 'VIEWER'}
+                <span
+                  className={`user-role-badge ${
+                    isSuperAdmin
+                      ? 'badge-role-superadmin'
+                      : isAdmin
+                      ? 'badge-role-admin'
+                      : 'badge-role-user'
+                  }`}
+                  style={{
+                    background: isSuperAdmin ? '#f3e8ff' : undefined,
+                    color: isSuperAdmin ? '#7e22ce' : undefined,
+                    border: isSuperAdmin ? '1px solid #d8b4fe' : undefined,
+                    fontSize: '9.5px',
+                    padding: '2px 6px'
+                  }}
+                >
+                  {isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMIN' : 'VIEWER'}
                 </span>
               </div>
               <span className="user-email">{user.email}</span>

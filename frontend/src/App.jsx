@@ -25,7 +25,7 @@ import { PrintReport } from './components/PrintReport';
 import { Toast } from './components/Toast';
 
 function DashboardApp() {
-  const { user, isAdmin, isAuthenticated, logout } = useAuth();
+  const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
 
   const {
     state,
@@ -122,7 +122,7 @@ function DashboardApp() {
     }
   };
 
-  // User Management Handlers
+  // User Management Handlers (3-Tier RBAC Protected)
   const handleOpenAddUser = () => {
     if (!isAdmin) return;
     setEditingUser(null);
@@ -130,36 +130,47 @@ function DashboardApp() {
   };
 
   const handleOpenEditUser = (targetUser) => {
-    if (!isAdmin) return;
+    if (!can('edit_user', targetUser)) {
+      showToast('You do not have permission to edit this account.', 'error');
+      return;
+    }
     setEditingUser(targetUser);
     setIsUserModalOpen(true);
   };
 
-  const handleSaveUser = (userData) => {
+  const handleSaveUser = async (userData) => {
     if (!isAdmin) return;
     try {
       if (editingUser) {
-        updateUser(editingUser.id, userData);
+        await updateUser(editingUser.id, userData, user);
         setUsersList(getStoredUsers());
         showToast(`User "${userData.name}" updated successfully.`, 'success');
       } else {
-        createUser(userData);
+        await createUser(userData, user);
         setUsersList(getStoredUsers());
-        showToast(`New user "${userData.name}" (${userData.role}) created!`, 'success');
+        showToast(`New user "${userData.name}" (${userData.role.toUpperCase()}) created!`, 'success');
       }
     } catch (err) {
       showToast(err.message, 'error');
     }
   };
 
-  const handleDeleteUser = (userId) => {
-    if (!isAdmin) return;
-    const updated = deleteUser(userId);
-    setUsersList(updated);
-    showToast('User account removed.', 'info');
+  const handleDeleteUser = async (userId) => {
+    const targetUser = usersList.find((u) => u.id === userId);
+    if (!can('delete_user', targetUser)) {
+      showToast('You do not have permission to delete this account.', 'error');
+      return;
+    }
+    try {
+      const updated = await deleteUser(userId, user);
+      setUsersList(updated || getStoredUsers());
+      showToast('User account removed successfully.', 'info');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
-  // PDF / Print Generation (Allowed for both Admin and Viewer)
+  // PDF / Print Generation (Allowed for all authenticated roles)
   const handlePrint = (type) => {
     setPrintType(type);
     setTimeout(() => {
@@ -204,6 +215,7 @@ function DashboardApp() {
         alertCount={alerts.length}
         saveStatus={saveStatus}
         user={user}
+        isSuperAdmin={isSuperAdmin}
         isAdmin={isAdmin}
         onLogout={logout}
       />
@@ -215,6 +227,7 @@ function DashboardApp() {
           onPrintMonthly={() => handlePrint('month')}
           onPrintYearly={() => handlePrint('year')}
           user={user}
+          isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
         />
 
@@ -285,6 +298,8 @@ function DashboardApp() {
           <UserManagementSection
             users={usersList}
             currentUserId={user?.id}
+            currentUserRole={user?.role}
+            isSuperAdmin={isSuperAdmin}
             onAddUser={handleOpenAddUser}
             onEditUser={handleOpenEditUser}
             onDeleteUser={handleDeleteUser}
@@ -300,7 +315,14 @@ function DashboardApp() {
         />
 
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
-          Creative Subscription Hub &bull; RBAC Active: <strong>{isAdmin ? '👑 Administrator (Full Access)' : '👁️ Viewer (Read-Only Access)'}</strong>
+          Creative Subscription Hub &bull; Active Role:{' '}
+          <strong>
+            {isSuperAdmin
+              ? '👑 Super Administrator (Full System Authority)'
+              : isAdmin
+              ? '🛡️ Administrator (Operations & Viewer Management)'
+              : '👁️ Viewer (Read-Only Access)'}
+          </strong>
         </footer>
       </main>
 
@@ -326,6 +348,7 @@ function DashboardApp() {
             onClose={() => setIsUserModalOpen(false)}
             onSave={handleSaveUser}
             editingUser={editingUser}
+            isSuperAdmin={isSuperAdmin}
           />
         </>
       )}

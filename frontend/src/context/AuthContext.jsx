@@ -26,16 +26,75 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const isAdmin = user?.role === 'admin';
-  const isViewer = user?.role === 'viewer' || user?.role === 'user';
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const isViewer = user?.role === 'viewer' || user?.role === 'user' || (!isSuperAdmin && !isAdmin);
 
-  // Role-Based Access Control (RBAC) permission resolver
+  // Granular Role-Based Access Control (RBAC) permission resolver
   const can = useCallback(
-    (action) => {
+    (action, target = null) => {
       if (!user) return false;
-      if (isAdmin) return true; // Admin has full access to all capabilities
 
-      // Viewer permissions (Read-only access)
+      // 1. Super Admin: full unrestricted system access
+      if (isSuperAdmin) {
+        return true;
+      }
+
+      // 2. Admin: operational access + viewer user management
+      if (isAdmin) {
+        switch (action) {
+          // System Operations
+          case 'view_dashboard':
+          case 'view_subscriptions':
+          case 'view_tokens':
+          case 'view_trends':
+          case 'export_data':
+          case 'print_report':
+          case 'create_subscription':
+          case 'edit_subscription':
+          case 'delete_subscription':
+          case 'archive_subscription':
+          case 'create_token':
+          case 'edit_token':
+          case 'delete_token':
+          case 'archive_token':
+          case 'send_reminder':
+            return true;
+
+          // User Management Permissions for Admin
+          case 'manage_users':
+          case 'create_user':
+          case 'create_viewer':
+            return true;
+          
+          case 'create_super_admin':
+          case 'create_admin':
+          case 'assign_super_admin':
+          case 'assign_admin':
+          case 'manage_roles':
+          case 'import_data':
+          case 'reset_data':
+            return false;
+
+          case 'edit_user':
+            // Admin can edit Viewer accounts, or edit self (without role change)
+            if (!target) return true;
+            if (target.role === 'super_admin') return false;
+            if (target.role === 'admin' && String(target.id) !== String(user.id)) return false;
+            return true;
+
+          case 'delete_user':
+            // Admin can only delete Viewer accounts
+            if (!target) return false;
+            if (target.role === 'super_admin' || target.role === 'admin') return false;
+            return true;
+
+          default:
+            return false;
+        }
+      }
+
+      // 3. Viewer: strictly read-only access
       switch (action) {
         case 'view_dashboard':
         case 'view_subscriptions':
@@ -44,32 +103,17 @@ export function AuthProvider({ children }) {
         case 'export_data':
         case 'print_report':
           return true;
-        case 'manage_users':
-        case 'create_user':
-        case 'edit_user':
-        case 'delete_user':
-        case 'create_subscription':
-        case 'edit_subscription':
-        case 'delete_subscription':
-        case 'archive_subscription':
-        case 'create_token':
-        case 'edit_token':
-        case 'delete_token':
-        case 'archive_token':
-        case 'send_reminder':
-        case 'import_data':
-        case 'reset_data':
-          return false;
         default:
           return false;
       }
     },
-    [user, isAdmin]
+    [user, isSuperAdmin, isAdmin]
   );
 
   const value = {
     user,
-    role: isAdmin ? 'admin' : (isViewer ? 'viewer' : null),
+    role: user?.role || null,
+    isSuperAdmin,
     isAdmin,
     isViewer,
     can,

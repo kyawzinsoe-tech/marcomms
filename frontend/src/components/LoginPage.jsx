@@ -23,6 +23,20 @@ export function LoginPage() {
     }
   };
 
+  const handleQuickLogin = async (quickEmail, quickPassword) => {
+    setEmail(quickEmail);
+    setPassword(quickPassword);
+    setError('');
+    setIsLoading(true);
+    try {
+      await login(quickEmail, quickPassword);
+    } catch (err) {
+      setError(err.message || 'Login failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="login-screen">
       <div className="login-backdrop-glow" />
@@ -98,56 +112,48 @@ export function LoginPage() {
 
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted, #64748b)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Quick Sign-In Accounts
+            Instant 1-Click Sign-In
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
-              onClick={() => {
-                setEmail('kyawzin.soe@kbzbank.com');
-                setPassword('admin123');
-              }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              onClick={() => handleQuickLogin('kyawzin.soe@kbzbank.com', 'admin123')}
+              disabled={isLoading}
             >
               <span>👑 <strong>Kyaw Zin Soe</strong> (Admin)</span>
-              <span style={{ opacity: 0.7 }}>admin123</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
-              onClick={() => {
-                setEmail('suhnin.phway@kbzbank.com');
-                setPassword('admin123');
-              }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              onClick={() => handleQuickLogin('suhnin.phway@kbzbank.com', 'admin123')}
+              disabled={isLoading}
             >
               <span>👑 <strong>Su Hnin Phway</strong> (Admin)</span>
-              <span style={{ opacity: 0.7 }}>admin123</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
-              onClick={() => {
-                setEmail('admin@creativehub.com');
-                setPassword('admin123');
-              }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              onClick={() => handleQuickLogin('admin@creativehub.com', 'admin123')}
+              disabled={isLoading}
             >
               <span>🔑 <strong>Sarah Admin</strong> (Admin)</span>
-              <span style={{ opacity: 0.7 }}>admin123</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
-              onClick={() => {
-                setEmail('user@creativehub.com');
-                setPassword('user123');
-              }}
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer' }}
+              onClick={() => handleQuickLogin('user@creativehub.com', 'user123')}
+              disabled={isLoading}
             >
               <span>👀 <strong>Alex Viewer</strong> (Viewer)</span>
-              <span style={{ opacity: 0.7 }}>user123</span>
+              <span style={{ opacity: 0.7, fontSize: '11px' }}>Click to Enter →</span>
             </button>
           </div>
         </div>

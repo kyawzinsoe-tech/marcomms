@@ -106,6 +106,18 @@ export function LoginPage() {
               className="btn btn-secondary"
               style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
               onClick={() => {
+                setEmail('kyawzin.soe@kbzbank.com');
+                setPassword('admin123');
+              }}
+            >
+              <span>👑 <strong>Kyaw Zin Soe</strong> (Admin)</span>
+              <span style={{ opacity: 0.7 }}>admin123</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between' }}
+              onClick={() => {
                 setEmail('suhnin.phway@kbzbank.com');
                 setPassword('admin123');
               }}

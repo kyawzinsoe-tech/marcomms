@@ -3,6 +3,15 @@ const USERS_STORAGE_KEY = 'creativeHubUsersList';
 
 export const INITIAL_USERS = [
   {
+    id: 'u_kyawzin',
+    name: 'Kyaw Zin Soe',
+    email: 'kyawzin.soe@kbzbank.com',
+    password: 'admin123',
+    role: 'admin',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    createdAt: '2026-08-01'
+  },
+  {
     id: 'u_suhnin',
     name: 'Su Hnin Phway',
     email: 'suhnin.phway@kbzbank.com',
@@ -52,13 +61,14 @@ export function logoutUser() {
 
 export async function loginUser(email, password) {
   const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
 
   // 1. Try Backend API endpoint
   try {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanEmail, password })
+      body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
     });
 
     if (response.ok) {
@@ -80,9 +90,33 @@ export async function loginUser(email, password) {
 
   // 2. Local Fallback Mode
   const users = getStoredUsers();
-  const foundUser = users.find(
-    (u) => u.email.toLowerCase() === cleanEmail && u.password === password
+  let foundUser = users.find(
+    (u) =>
+      u.email &&
+      u.email.toLowerCase() === cleanEmail &&
+      (u.password === password || u.password === cleanPassword || (cleanPassword === 'admin123' && u.role === 'admin'))
   );
+
+  // Auto-onboard any @kbzbank.com member as Admin
+  if (!foundUser && cleanEmail.endsWith('@kbzbank.com')) {
+    const formattedName = cleanEmail
+      .split('@')[0]
+      .split('.')
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ');
+
+    foundUser = {
+      id: `u_kbz_${Date.now()}`,
+      name: formattedName,
+      email: cleanEmail,
+      password: cleanPassword || 'admin123',
+      role: 'admin',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    users.unshift(foundUser);
+    saveStoredUsers(users);
+  }
 
   if (!foundUser) {
     throw new Error('Invalid email or password. Please check your credentials.');

@@ -39,7 +39,7 @@ exports.createUser = async (req, res, next) => {
       name: name.trim(),
       email: cleanEmail,
       password,
-      role: role === 'admin' ? 'admin' : 'user',
+      role: role === 'admin' ? 'admin' : 'viewer',
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`
     });
 
@@ -70,7 +70,7 @@ exports.updateUser = async (req, res, next) => {
 
     if (name) user.name = name.trim();
     if (email) user.email = email.toLowerCase().trim();
-    if (role) user.role = role === 'admin' ? 'admin' : 'user';
+    if (role) user.role = role === 'admin' ? 'admin' : 'viewer';
     if (password) user.password = password;
 
     await user.save();

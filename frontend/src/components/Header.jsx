@@ -19,15 +19,15 @@ export function Header({
           {user && (
             <span className={`user-role-badge ${isAdmin ? 'badge-role-admin' : 'badge-role-user'}`}>
               {isAdmin ? <Shield size={10} /> : <Eye size={10} />}
-              {isAdmin ? 'Admin View' : 'Viewer Mode'}
+              {isAdmin ? 'ADMINISTRATOR' : 'VIEWER (READ-ONLY)'}
             </span>
           )}
         </div>
         <h1>Creative Subscription Report</h1>
         <p>
           {isAdmin
-            ? 'Subscriptions, overdue alerts, email reminders and Magnific AI token usage.'
-            : 'Overview dashboard of creative subscriptions, plans, and token usage summary.'}
+            ? 'Full administrative control over subscriptions, AI token allocation, and user roles.'
+            : 'Read-only overview of creative tool subscriptions, plans, and Magnific AI token usage.'}
         </p>
       </div>
 

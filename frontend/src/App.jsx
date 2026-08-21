@@ -159,9 +159,8 @@ function DashboardApp() {
     showToast('User account removed.', 'info');
   };
 
-  // PDF / Print Generation
+  // PDF / Print Generation (Allowed for both Admin and Viewer)
   const handlePrint = (type) => {
-    if (!isAdmin) return;
     setPrintType(type);
     setTimeout(() => {
       window.print();
@@ -171,8 +170,8 @@ function DashboardApp() {
   // Observe scroll to update active section in sidebar
   useEffect(() => {
     const sectionIds = isAdmin
-      ? ['dashboard', 'alerts', 'subscriptions', 'tokens', 'users', 'reports']
-      : ['dashboard', 'subscriptions', 'tokens'];
+      ? ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports', 'users']
+      : ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports'];
 
     const handleScroll = () => {
       const scrollPos = window.scrollY + 200;
@@ -228,13 +227,12 @@ function DashboardApp() {
           monthTokensUsed={selectedMonthTokensUsed}
         />
 
-        {isAdmin && (
-          <AlertsSection
-            alerts={alerts}
-            onEditSubscription={handleOpenEditSubscription}
-            onNotify={showToast}
-          />
-        )}
+        <AlertsSection
+          alerts={alerts}
+          isAdmin={isAdmin}
+          onEditSubscription={handleOpenEditSubscription}
+          onNotify={showToast}
+        />
 
         <SubscriptionsTable
           subscriptions={subscriptions}
@@ -242,10 +240,12 @@ function DashboardApp() {
           onAddSubscription={handleOpenAddSubscription}
           onEditSubscription={handleOpenEditSubscription}
           onArchiveSubscription={(id) => {
+            if (!isAdmin) return;
             archiveSubscription(id);
             showToast('Subscription archived from active view.', 'info');
           }}
           onDeleteSubscription={(id) => {
+            if (!isAdmin) return;
             deleteSubscription(id);
             showToast('Subscription deleted.', 'info');
           }}
@@ -270,36 +270,37 @@ function DashboardApp() {
           isAdmin={isAdmin}
           onEditToken={handleOpenEditToken}
           onArchiveToken={(id) => {
+            if (!isAdmin) return;
             archiveTokenEntry(id);
             showToast('Token entry archived.', 'info');
           }}
           onDeleteToken={(id) => {
+            if (!isAdmin) return;
             deleteTokenEntry(id);
             showToast('Token entry deleted.', 'info');
           }}
         />
 
         {isAdmin && (
-          <>
-            <UserManagementSection
-              users={usersList}
-              currentUserId={user?.id}
-              onAddUser={handleOpenAddUser}
-              onEditUser={handleOpenEditUser}
-              onDeleteUser={handleDeleteUser}
-            />
-
-            <DataBackup
-              fullState={state}
-              onImport={importBackup}
-              onReset={resetToDemo}
-              onNotify={showToast}
-            />
-          </>
+          <UserManagementSection
+            users={usersList}
+            currentUserId={user?.id}
+            onAddUser={handleOpenAddUser}
+            onEditUser={handleOpenEditUser}
+            onDeleteUser={handleDeleteUser}
+          />
         )}
 
+        <DataBackup
+          fullState={state}
+          isAdmin={isAdmin}
+          onImport={importBackup}
+          onReset={resetToDemo}
+          onNotify={showToast}
+        />
+
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
-          Creative Subscription Report &bull; React &bull; {isAdmin ? 'Admin Mode' : 'User (Viewer) Mode'}
+          Creative Subscription Hub &bull; RBAC Active: <strong>{isAdmin ? '👑 Administrator (Full Access)' : '👁️ Viewer (Read-Only Access)'}</strong>
         </footer>
       </main>
 
@@ -326,18 +327,18 @@ function DashboardApp() {
             onSave={handleSaveUser}
             editingUser={editingUser}
           />
-
-          {printType && (
-            <PrintReport
-              type={printType}
-              reportMonth={reportMonth}
-              selectedYear={selectedYear}
-              subscriptions={subscriptions}
-              tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
-              alerts={alerts}
-            />
-          )}
         </>
+      )}
+
+      {printType && (
+        <PrintReport
+          type={printType}
+          reportMonth={reportMonth}
+          selectedYear={selectedYear}
+          subscriptions={subscriptions}
+          tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
+          alerts={alerts}
+        />
       )}
 
       {toast && (

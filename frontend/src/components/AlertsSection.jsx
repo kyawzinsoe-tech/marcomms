@@ -3,10 +3,11 @@ import { AlertTriangle, Mail, Edit, CheckCircle2, Loader2 } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
 import { sendEmailReminder } from '../services/emailService';
 
-export function AlertsSection({ alerts, onEditSubscription, onNotify }) {
+export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNotify }) {
   const [sendingId, setSendingId] = useState(null);
 
   const handleSendReminder = async (sub, diff) => {
+    if (!isAdmin) return;
     const targetEmail = sub.reminderEmail || sub.email;
     if (!targetEmail) {
       onNotify('Please specify a reminder or account email first.', 'error');
@@ -43,7 +44,11 @@ export function AlertsSection({ alerts, onEditSubscription, onNotify }) {
             <AlertTriangle size={20} color="#ef4444" />
             Subscription Due / Overdue Alerts
           </h2>
-          <p>Expired subscriptions and renewals coming within the alert window.</p>
+          <p>
+            {isAdmin
+              ? 'Expired subscriptions and renewals coming within the alert window.'
+              : 'Overview of subscriptions currently due or overdue for renewal.'}
+          </p>
         </div>
         <div
           className={`count-pill ${alerts.length > 0 ? 'count-pill-danger' : 'count-pill-primary'}`}
@@ -90,32 +95,34 @@ export function AlertsSection({ alerts, onEditSubscription, onNotify }) {
                   </div>
                 </div>
 
-                <div className="alert-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={sendingId === sub.id}
-                    onClick={() => handleSendReminder(sub, diff)}
-                  >
-                    {sendingId === sub.id ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" /> Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Mail size={13} /> Send Email Alert
-                      </>
-                    )}
-                  </button>
+                {isAdmin && (
+                  <div className="alert-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={sendingId === sub.id}
+                      onClick={() => handleSendReminder(sub, diff)}
+                    >
+                      {sendingId === sub.id ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" /> Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail size={13} /> Send Email Alert
+                        </>
+                      )}
+                    </button>
 
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => onEditSubscription(sub)}
-                  >
-                    <Edit size={13} /> Edit
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => onEditSubscription(sub)}
+                    >
+                      <Edit size={13} /> Edit
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

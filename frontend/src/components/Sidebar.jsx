@@ -22,11 +22,11 @@ export function Sidebar({
 }) {
   const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount, adminOnly: true },
-    { id: 'subscriptions', label: 'Subscriptions', icon: Layers, adminOnly: true },
-    { id: 'tokens', label: 'Token Usage', icon: Zap, adminOnly: true },
-    { id: 'users', label: 'User Management', icon: Users, adminOnly: true },
-    { id: 'reports', label: 'Reports & Data', icon: FileText, adminOnly: true }
+    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount, adminOnly: false },
+    { id: 'subscriptions', label: 'Subscriptions', icon: Layers, adminOnly: false },
+    { id: 'tokens', label: 'Token Usage', icon: Zap, adminOnly: false },
+    { id: 'reports', label: 'Reports & Data', icon: FileText, adminOnly: false },
+    { id: 'users', label: 'User Management', icon: Users, adminOnly: true }
   ];
 
   const visibleNavItems = allNavItems.filter(
@@ -74,7 +74,7 @@ export function Sidebar({
                   <Icon size={18} />
                   <span>{item.label}</span>
                 </div>
-                {Boolean(item.badge) && isAdmin && (
+                {Boolean(item.badge) && (
                   <span className="nav-badge">{item.badge}</span>
                 )}
               </a>
@@ -84,12 +84,22 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-footer">
-        {isAdmin && (
+        {isAdmin ? (
           <div className="save-status-card">
             <div className="pulse-dot" />
             <div>
               <b>{saveStatus}</b>
-              <small>Realtime local sync</small>
+              <small>Realtime cloud & local sync</small>
+            </div>
+          </div>
+        ) : (
+          <div className="save-status-card" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ color: '#3b82f6', display: 'flex', alignItems: 'center' }}>
+              <Eye size={14} />
+            </div>
+            <div>
+              <b style={{ color: '#1e3a8a' }}>Viewer Mode</b>
+              <small>Read-only access active</small>
             </div>
           </div>
         )}
@@ -110,7 +120,7 @@ export function Sidebar({
               <div className="user-name-row">
                 <span className="user-name">{user.name}</span>
                 <span className={`user-role-badge ${isAdmin ? 'badge-role-admin' : 'badge-role-user'}`}>
-                  {isAdmin ? 'ADMIN' : 'USER'}
+                  {isAdmin ? 'ADMIN' : 'VIEWER'}
                 </span>
               </div>
               <span className="user-email">{user.email}</span>

@@ -114,7 +114,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, fontSize: '13px', color: '#1e293b' }}>
                       <Shield size={14} color="#6366f1" /> Admin
                     </div>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Full page & CRUD access</span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Full CRUD, users & alerts</span>
                   </div>
                 </label>
 
@@ -124,25 +124,25 @@ export function UserModal({ isOpen, onClose, onSave, editingUser }) {
                     alignItems: 'center',
                     gap: '8px',
                     padding: '12px',
-                    border: formData.role === 'user' ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                    border: formData.role === 'viewer' || formData.role === 'user' ? '2px solid #3b82f6' : '1px solid #e2e8f0',
                     borderRadius: '10px',
-                    background: formData.role === 'user' ? '#eef2ff' : '#ffffff',
+                    background: formData.role === 'viewer' || formData.role === 'user' ? '#eff6ff' : '#ffffff',
                     cursor: 'pointer'
                   }}
                 >
                   <input
                     type="radio"
                     name="role"
-                    value="user"
-                    checked={formData.role === 'user'}
-                    onChange={() => setFormData({ ...formData, role: 'user' })}
+                    value="viewer"
+                    checked={formData.role === 'viewer' || formData.role === 'user'}
+                    onChange={() => setFormData({ ...formData, role: 'viewer' })}
                     style={{ margin: 0 }}
                   />
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, fontSize: '13px', color: '#1e293b' }}>
-                      <Eye size={14} color="#64748b" /> User
+                      <Eye size={14} color="#3b82f6" /> Viewer
                     </div>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Dashboard view only</span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Read-only dashboard view</span>
                   </div>
                 </label>
               </div>

@@ -34,7 +34,7 @@ export const INITIAL_USERS = [
     name: 'Alex Viewer',
     email: 'user@creativehub.com',
     password: 'user123',
-    role: 'user',
+    role: 'viewer',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     createdAt: '2026-08-10'
   }
@@ -238,7 +238,7 @@ export async function createUser(userData) {
     name: userData.name.trim(),
     email: cleanEmail,
     password: userData.password || 'user123',
-    role: userData.role || 'user',
+    role: userData.role === 'admin' ? 'admin' : 'viewer',
     avatar: userData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
     createdAt: new Date().toISOString().slice(0, 10)
   };
@@ -276,6 +276,7 @@ export async function updateUser(id, updatedFields) {
       return {
         ...u,
         ...updatedFields,
+        role: updatedFields.role ? (updatedFields.role === 'admin' ? 'admin' : 'viewer') : u.role,
         email: updatedFields.email ? updatedFields.email.trim().toLowerCase() : u.email
       };
     }

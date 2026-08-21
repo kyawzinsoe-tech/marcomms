@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Database, Download, Upload, RotateCcw } from 'lucide-react';
 
-export function DataBackup({ fullState, onImport, onReset, onNotify }) {
+export function DataBackup({ fullState, isAdmin = true, onImport, onReset, onNotify }) {
   const fileInputRef = useRef(null);
 
   const handleExport = () => {
@@ -22,6 +22,7 @@ export function DataBackup({ fullState, onImport, onReset, onNotify }) {
   };
 
   const handleFileChange = (e) => {
+    if (!isAdmin) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -43,6 +44,7 @@ export function DataBackup({ fullState, onImport, onReset, onNotify }) {
   };
 
   const handleReset = () => {
+    if (!isAdmin) return;
     if (
       window.confirm(
         'Reset dashboard to default demo data? All current subscriptions and token logs will be replaced.'
@@ -59,9 +61,13 @@ export function DataBackup({ fullState, onImport, onReset, onNotify }) {
         <div>
           <h2>
             <Database size={20} color="#6366f1" />
-            Data Backup & Migration
+            Data Export & Backup
           </h2>
-          <p>Export full snapshots, restore previous JSON backups, or reset demo records.</p>
+          <p>
+            {isAdmin
+              ? 'Export snapshots, restore JSON backups, or reset demo database records.'
+              : 'Export current subscriptions and AI token logs as a JSON snapshot.'}
+          </p>
         </div>
       </div>
 
@@ -71,32 +77,36 @@ export function DataBackup({ fullState, onImport, onReset, onNotify }) {
           className="btn btn-soft"
           onClick={handleExport}
         >
-          <Download size={16} /> Export JSON Backup
+          <Download size={16} /> Export JSON Snapshot
         </button>
 
-        <button
-          type="button"
-          className="btn btn-soft"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload size={16} /> Import JSON File
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              className="btn btn-soft"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={16} /> Import JSON File
+            </button>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden-file-input"
-          onChange={handleFileChange}
-        />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden-file-input"
+              onChange={handleFileChange}
+            />
 
-        <button
-          type="button"
-          className="btn btn-danger"
-          onClick={handleReset}
-        >
-          <RotateCcw size={16} /> Reset Demo Data
-        </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleReset}
+            >
+              <RotateCcw size={16} /> Reset Demo Data
+            </button>
+          </>
+        )}
       </div>
     </section>
   );

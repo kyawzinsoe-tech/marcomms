@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Crown, Shield, Eye, Lock } from 'lucide-react';
+import { ROLES, normalizeRole } from '../config/rbac';
 
 export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin = false }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'viewer'
+    role: ROLES.VIEWER
   });
 
   useEffect(() => {
@@ -15,14 +16,14 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
         name: editingUser.name || '',
         email: editingUser.email || '',
         password: editingUser.password || '',
-        role: editingUser.role || 'viewer'
+        role: normalizeRole(editingUser.role)
       });
     } else {
       setFormData({
         name: '',
         email: '',
         password: isSuperAdmin ? 'admin123' : 'user123',
-        role: isSuperAdmin ? 'admin' : 'viewer'
+        role: isSuperAdmin ? ROLES.ADMIN : ROLES.VIEWER
       });
     }
   }, [editingUser, isOpen, isSuperAdmin]);
@@ -36,10 +37,10 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
       return;
     }
 
-    // Role enforcement based on requester privileges
+    // Role enforcement based on creator privileges
     let finalRole = formData.role;
     if (!isSuperAdmin) {
-      finalRole = 'viewer';
+      finalRole = ROLES.VIEWER;
     }
 
     onSave({
@@ -99,96 +100,96 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
 
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label style={{ margin: 0 }}>Assigned RBAC Role *</label>
+                <label style={{ margin: 0 }}>Assigned Role (RBAC) *</label>
                 {!isSuperAdmin && (
                   <span style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Lock size={11} /> Admin can only create Viewers
+                    <Lock size={11} /> Admin can only assign Viewer role
                   </span>
                 )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {/* 1. Super Admin Role */}
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 14px',
-                    border: formData.role === 'super_admin' ? '2px solid #8b5cf6' : '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    background: formData.role === 'super_admin' ? '#f5f3ff' : (!isSuperAdmin ? '#f8fafc' : '#ffffff'),
-                    opacity: !isSuperAdmin ? 0.55 : 1,
-                    cursor: isSuperAdmin ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="super_admin"
-                    disabled={!isSuperAdmin}
-                    checked={formData.role === 'super_admin'}
-                    onChange={() => isSuperAdmin && setFormData({ ...formData, role: 'super_admin' })}
-                    style={{ margin: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: '#6d28d9' }}>
-                      <Crown size={14} color="#8b5cf6" /> Super Admin
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Full system access: manage all accounts, roles, backups & system data</span>
-                  </div>
-                </label>
+                {isSuperAdmin ? (
+                  <>
+                    {/* Super Admin option (Only visible to Super Admin) */}
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 14px',
+                        border: formData.role === ROLES.SUPER_ADMIN ? '2px solid #8b5cf6' : '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        background: formData.role === ROLES.SUPER_ADMIN ? '#f5f3ff' : '#ffffff',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="role"
+                        value={ROLES.SUPER_ADMIN}
+                        checked={formData.role === ROLES.SUPER_ADMIN}
+                        onChange={() => setFormData({ ...formData, role: ROLES.SUPER_ADMIN })}
+                        style={{ margin: 0 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: '#6d28d9' }}>
+                          <Crown size={14} color="#8b5cf6" /> Super Admin
+                        </div>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Full system access: manage all accounts, roles, backups & system data</span>
+                      </div>
+                    </label>
 
-                {/* 2. Admin Role */}
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 14px',
-                    border: formData.role === 'admin' ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    background: formData.role === 'admin' ? '#eef2ff' : (!isSuperAdmin ? '#f8fafc' : '#ffffff'),
-                    opacity: !isSuperAdmin ? 0.55 : 1,
-                    cursor: isSuperAdmin ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    disabled={!isSuperAdmin}
-                    checked={formData.role === 'admin'}
-                    onChange={() => isSuperAdmin && setFormData({ ...formData, role: 'admin' })}
-                    style={{ margin: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: '#4338ca' }}>
-                      <Shield size={14} color="#6366f1" /> Admin
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Manage subscriptions, AI tokens, email alerts, and create Viewer accounts</span>
-                  </div>
-                </label>
+                    {/* Admin option (Only visible to Super Admin) */}
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 14px',
+                        border: formData.role === ROLES.ADMIN ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        background: formData.role === ROLES.ADMIN ? '#eef2ff' : '#ffffff',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="role"
+                        value={ROLES.ADMIN}
+                        checked={formData.role === ROLES.ADMIN}
+                        onChange={() => setFormData({ ...formData, role: ROLES.ADMIN })}
+                        style={{ margin: 0 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: '#4338ca' }}>
+                          <Shield size={14} color="#6366f1" /> Admin
+                        </div>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Manage subscriptions, AI tokens, email alerts, and create Viewer accounts</span>
+                      </div>
+                    </label>
+                  </>
+                ) : null}
 
-                {/* 3. Viewer Role */}
+                {/* Viewer option (Visible to Super Admin and Admin) */}
                 <label
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
                     padding: '10px 14px',
-                    border: formData.role === 'viewer' || formData.role === 'user' ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                    border: formData.role === ROLES.VIEWER ? '2px solid #3b82f6' : '1px solid #e2e8f0',
                     borderRadius: '10px',
-                    background: formData.role === 'viewer' || formData.role === 'user' ? '#eff6ff' : '#ffffff',
+                    background: formData.role === ROLES.VIEWER ? '#eff6ff' : '#ffffff',
                     cursor: 'pointer'
                   }}
                 >
                   <input
                     type="radio"
                     name="role"
-                    value="viewer"
-                    checked={formData.role === 'viewer' || formData.role === 'user'}
-                    onChange={() => setFormData({ ...formData, role: 'viewer' })}
+                    value={ROLES.VIEWER}
+                    checked={formData.role === ROLES.VIEWER}
+                    onChange={() => setFormData({ ...formData, role: ROLES.VIEWER })}
                     style={{ margin: 0 }}
                   />
                   <div style={{ flex: 1 }}>

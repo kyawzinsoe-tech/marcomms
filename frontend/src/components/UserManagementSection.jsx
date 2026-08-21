@@ -15,63 +15,64 @@ import {
   Lock
 } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
+import { ROLES, PERMISSIONS, normalizeRole } from '../config/rbac';
+import { useAuth } from '../context/useAuth';
 
 export function UserManagementSection({
   users,
   currentUserId,
-  currentUserRole,
-  isSuperAdmin = false,
   onAddUser,
   onEditUser,
   onDeleteUser
 }) {
+  const { can, user: currentUser, isSuperAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [deletingUser, setDeletingUser] = useState(null);
 
-  const superAdminCount = useMemo(() => users.filter((u) => u.role === 'super_admin').length, [users]);
-  const adminCount = useMemo(() => users.filter((u) => u.role === 'admin').length, [users]);
-  const viewerCount = useMemo(() => users.filter((u) => u.role === 'viewer' || u.role === 'user').length, [users]);
+  const superAdminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.SUPER_ADMIN).length, [users]);
+  const adminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.ADMIN).length, [users]);
+  const viewerCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.VIEWER).length, [users]);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
       const matchSearch =
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchTerm.toLowerCase());
+        (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-      const isViewer = u.role === 'viewer' || u.role === 'user';
+      const userRole = normalizeRole(u.role);
       const matchRole =
         roleFilter === 'All' ||
-        (roleFilter === 'super_admin' && u.role === 'super_admin') ||
-        (roleFilter === 'admin' && u.role === 'admin') ||
-        (roleFilter === 'viewer' && isViewer);
+        (roleFilter === ROLES.SUPER_ADMIN && userRole === ROLES.SUPER_ADMIN) ||
+        (roleFilter === ROLES.ADMIN && userRole === ROLES.ADMIN) ||
+        (roleFilter === ROLES.VIEWER && userRole === ROLES.VIEWER);
 
       return matchSearch && matchRole;
     });
   }, [users, searchTerm, roleFilter]);
 
-  // Check if current user can edit target
-  const canEditUser = (target) => {
-    if (isSuperAdmin) return true;
-    if (currentUserRole === 'admin') {
-      if (target.role === 'super_admin') return false;
-      if (target.role === 'admin' && target.id !== currentUserId) return false;
-      return true; // Admin can edit Viewers and self
+  // Evaluates if the current user can edit this target user
+  const canEdit = (target) => {
+    const targetRole = normalizeRole(target.role);
+    if (targetRole === ROLES.SUPER_ADMIN) {
+      return can(PERMISSIONS.USER_UPDATE_SUPER_ADMIN, target);
     }
-    return false;
+    if (targetRole === ROLES.ADMIN) {
+      return can(PERMISSIONS.USER_UPDATE_ADMIN, target);
+    }
+    return can(PERMISSIONS.USER_UPDATE_VIEWER, target);
   };
 
-  // Check if current user can delete target
-  const canDeleteUser = (target) => {
-    if (target.id === currentUserId) return false; // Cannot delete self
-    if (target.role === 'super_admin' && superAdminCount <= 1) return false; // Last Super Admin protection
-
-    if (isSuperAdmin) return true;
-    if (currentUserRole === 'admin') {
-      if (target.role === 'super_admin' || target.role === 'admin') return false;
-      return true; // Admin can only delete Viewers
+  // Evaluates if the current user can delete this target user
+  const canDelete = (target) => {
+    const targetRole = normalizeRole(target.role);
+    if (targetRole === ROLES.SUPER_ADMIN) {
+      return can(PERMISSIONS.USER_DELETE_SUPER_ADMIN, target, { superAdminCount });
     }
-    return false;
+    if (targetRole === ROLES.ADMIN) {
+      return can(PERMISSIONS.USER_DELETE_ADMIN, target);
+    }
+    return can(PERMISSIONS.USER_DELETE_VIEWER, target);
   };
 
   const handleConfirmDelete = () => {
@@ -91,8 +92,8 @@ export function UserManagementSection({
             </h2>
             <p>
               {isSuperAdmin
-                ? 'Manage all Super Admin, Admin, and Viewer roles with full system authority.'
-                : 'Manage Viewer accounts. Super Admin accounts have elevated permissions.'}
+                ? 'Super Administrator panel: provision and manage Super Admin, Admin, and Viewer roles with full system authority.'
+                : 'Administrator panel: provision and manage Viewer accounts.'}
             </p>
           </div>
 
@@ -101,7 +102,7 @@ export function UserManagementSection({
             className="btn btn-primary"
             onClick={onAddUser}
           >
-            <Plus size={16} /> Create User Account
+            <Plus size={16} /> {isSuperAdmin ? 'Create User Account' : 'Create Viewer Account'}
           </button>
         </div>
 
@@ -158,9 +159,9 @@ export function UserManagementSection({
             style={{ width: '190px' }}
           >
             <option value="All">All Roles ({users.length})</option>
-            <option value="super_admin">Super Admins ({superAdminCount})</option>
-            <option value="admin">Admins ({adminCount})</option>
-            <option value="viewer">Viewers ({viewerCount})</option>
+            <option value={ROLES.SUPER_ADMIN}>Super Admins ({superAdminCount})</option>
+            <option value={ROLES.ADMIN}>Admins ({adminCount})</option>
+            <option value={ROLES.VIEWER}>Viewers ({viewerCount})</option>
           </select>
         </div>
 
@@ -185,13 +186,14 @@ export function UserManagementSection({
                 </tr>
               ) : (
                 filtered.map((u) => {
-                  const isSelf = u.id === currentUserId;
-                  const isSuperAdminRole = u.role === 'super_admin';
-                  const isAdminRole = u.role === 'admin';
+                  const targetRole = normalizeRole(u.role);
+                  const isSelf = String(u.id) === String(currentUserId) || u.email.toLowerCase() === currentUser?.email?.toLowerCase();
+                  const isSuperAdminRole = targetRole === ROLES.SUPER_ADMIN;
+                  const isAdminRole = targetRole === ROLES.ADMIN;
                   const isLastSuperAdmin = isSuperAdminRole && superAdminCount <= 1;
 
-                  const editable = canEditUser(u);
-                  const deletable = canDeleteUser(u);
+                  const editable = canEdit(u);
+                  const deletable = canDelete(u);
 
                   return (
                     <tr key={u.id}>
@@ -308,7 +310,7 @@ export function UserManagementSection({
                             <button
                               type="button"
                               className="action-btn"
-                              style={{ opacity: 0.35, cursor: 'not-allowed' }}
+                              style={{ opacity: 0.3, cursor: 'not-allowed' }}
                               title="Insufficient permissions to edit this role"
                               disabled
                             >
@@ -329,10 +331,10 @@ export function UserManagementSection({
                             <button
                               type="button"
                               className="action-btn"
-                              style={{ opacity: 0.35, cursor: 'not-allowed' }}
+                              style={{ opacity: 0.3, cursor: 'not-allowed' }}
                               title={
                                 isLastSuperAdmin
-                                  ? 'Protected: Last remaining Super Admin'
+                                  ? 'Protection active: Final remaining Super Admin'
                                   : isSelf
                                   ? 'Cannot delete your own active account'
                                   : 'Insufficient permissions to delete this account'
@@ -353,190 +355,48 @@ export function UserManagementSection({
         </div>
       </section>
 
-      {/* 3-Tier RBAC Permissions Matrix Card */}
-      <section className="card">
-        <div className="card-header">
-          <div>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', margin: 0 }}>
-              <ShieldCheck size={18} color="#059669" />
-              Role-Based Access Control (RBAC) 3-Tier Matrix
-            </h3>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-              Summary of system authority across Super Admin, Admin, and Viewer roles.
-            </p>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>System Capability</th>
-                <th style={{ width: '160px', textAlign: 'center', color: '#6d28d9' }}>👑 Super Admin</th>
-                <th style={{ width: '160px', textAlign: 'center', color: '#4338ca' }}>🛡️ Admin</th>
-                <th style={{ width: '160px', textAlign: 'center', color: '#1d4ed8' }}>👁️ Viewer</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <strong>Dashboard & Analytics</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>View KPIs, trend charts, burn analytics, PDF reports</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full Access
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full Access
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Read-Only
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Subscriptions Management</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Create, modify, archive, and delete tool subscriptions</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full CRUD
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full CRUD
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> View Only
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>AI Token Entries & Budgets</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Record token expenditures, modify allotments</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full CRUD
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full CRUD
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> View Only
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Automated Email Alerts</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Dispatch serverless renewal reminder emails</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Restricted
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Create Super Admin Accounts</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Provision new Super Administrator users</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Create Admin Accounts</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Provision operational Administrator users</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Create / Manage Viewer Accounts</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Provision and manage read-only dashboard viewers</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Delete Any Account</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Delete Super Admin, Admin, and Viewer accounts</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Full Authority
-                </td>
-                <td style={{ textAlign: 'center', color: '#b45309', fontWeight: 600 }}>
-                  Viewers Only
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> No Access
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Data Import & System Reset</strong>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Restore JSON snapshots or reset database</div>
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#059669', fontWeight: 600 }}>
-                  <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Allowed
-                </td>
-                <td style={{ textAlign: 'center', color: '#dc2626', fontWeight: 600 }}>
-                  <XCircle size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Export Only
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       {/* Delete Confirmation Modal */}
       {deletingUser && (
         <div className="modal-overlay" onClick={() => setDeletingUser(null)}>
-          <div className="modal-card" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: 'center', padding: '12px 0 8px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <AlertTriangle size={24} />
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <AlertTriangle size={26} />
               </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: '18px', color: '#0f172a' }}>Delete User Account?</h3>
-              <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                Are you sure you want to permanently delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
+              <h3 style={{ margin: '0 0 6px', fontSize: '19px', color: '#0f172a' }}>Delete User Account?</h3>
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#64748b' }}>
+                Are you sure you want to permanently delete this user?
               </p>
             </div>
 
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '12px', color: '#475569' }}>
-              <div><strong>Role:</strong> {deletingUser.role.toUpperCase()}</div>
-              <div><strong>Created:</strong> {formatDate(deletingUser.createdAt)}</div>
-              <div style={{ color: '#dc2626', marginTop: '6px', fontWeight: 600 }}>
-                This user will immediately lose all access to Creative Subscription Hub.
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', margin: '16px 0', fontSize: '13px', color: '#334155' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <img
+                  src={deletingUser.avatar}
+                  alt={deletingUser.name}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #cbd5e1' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{deletingUser.name}</div>
+                  <div style={{ color: '#64748b', fontSize: '12px' }}>{deletingUser.email}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', fontSize: '12px' }}>
+                <span>Role:</span>
+                <strong style={{ color: normalizeRole(deletingUser.role) === ROLES.SUPER_ADMIN ? '#7e22ce' : '#0f172a' }}>
+                  {normalizeRole(deletingUser.role).toUpperCase()}
+                </strong>
+              </div>
+
+              {normalizeRole(deletingUser.role) === ROLES.SUPER_ADMIN && (
+                <div style={{ marginTop: '10px', padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
+                  ⚠️ Warning: You are deleting a Super Administrator account.
+                </div>
+              )}
+
+              <div style={{ color: '#dc2626', marginTop: '10px', fontSize: '12px', fontWeight: 600 }}>
+                This user will immediately lose all access to Creative Subscription Hub. This action cannot be undone.
               </div>
             </div>
 

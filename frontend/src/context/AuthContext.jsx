@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, loginUser, logoutUser } from '../services/authService';
+import { ROLES, PERMISSIONS, normalizeRole, hasPermission } from '../config/rbac';
 
 export const AuthContext = createContext(null);
 
@@ -26,97 +27,28 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
-  const isViewer = user?.role === 'viewer' || user?.role === 'user' || (!isSuperAdmin && !isAdmin);
+  const currentRole = user ? normalizeRole(user.role) : null;
+  const isSuperAdmin = currentRole === ROLES.SUPER_ADMIN;
+  const isAdmin = currentRole === ROLES.SUPER_ADMIN || currentRole === ROLES.ADMIN;
+  const isViewer = currentRole === ROLES.VIEWER;
 
-  // Granular Role-Based Access Control (RBAC) permission resolver
+  // Granular Single-Source-of-Truth RBAC permission evaluator
   const can = useCallback(
-    (action, target = null) => {
+    (permission, target = null, context = {}) => {
       if (!user) return false;
-
-      // 1. Super Admin: full unrestricted system access
-      if (isSuperAdmin) {
-        return true;
-      }
-
-      // 2. Admin: operational access + viewer user management
-      if (isAdmin) {
-        switch (action) {
-          // System Operations
-          case 'view_dashboard':
-          case 'view_subscriptions':
-          case 'view_tokens':
-          case 'view_trends':
-          case 'export_data':
-          case 'print_report':
-          case 'create_subscription':
-          case 'edit_subscription':
-          case 'delete_subscription':
-          case 'archive_subscription':
-          case 'create_token':
-          case 'edit_token':
-          case 'delete_token':
-          case 'archive_token':
-          case 'send_reminder':
-            return true;
-
-          // User Management Permissions for Admin
-          case 'manage_users':
-          case 'create_user':
-          case 'create_viewer':
-            return true;
-          
-          case 'create_super_admin':
-          case 'create_admin':
-          case 'assign_super_admin':
-          case 'assign_admin':
-          case 'manage_roles':
-          case 'import_data':
-          case 'reset_data':
-            return false;
-
-          case 'edit_user':
-            // Admin can edit Viewer accounts, or edit self (without role change)
-            if (!target) return true;
-            if (target.role === 'super_admin') return false;
-            if (target.role === 'admin' && String(target.id) !== String(user.id)) return false;
-            return true;
-
-          case 'delete_user':
-            // Admin can only delete Viewer accounts
-            if (!target) return false;
-            if (target.role === 'super_admin' || target.role === 'admin') return false;
-            return true;
-
-          default:
-            return false;
-        }
-      }
-
-      // 3. Viewer: strictly read-only access
-      switch (action) {
-        case 'view_dashboard':
-        case 'view_subscriptions':
-        case 'view_tokens':
-        case 'view_trends':
-        case 'export_data':
-        case 'print_report':
-          return true;
-        default:
-          return false;
-      }
+      return hasPermission(user, permission, target, context);
     },
-    [user, isSuperAdmin, isAdmin]
+    [user]
   );
 
   const value = {
     user,
-    role: user?.role || null,
+    role: currentRole,
     isSuperAdmin,
     isAdmin,
     isViewer,
     can,
+    hasPermission: can,
     isAuthenticated: !!user,
     loading,
     login,

@@ -23,20 +23,6 @@ export function LoginPage() {
     }
   };
 
-  const handleQuickLogin = async (quickEmail, quickPassword) => {
-    setEmail(quickEmail);
-    setPassword(quickPassword);
-    setError('');
-    setIsLoading(true);
-    try {
-      await login(quickEmail, quickPassword);
-    } catch (err) {
-      setError(err.message || 'Login failed.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="login-screen">
       <div className="login-backdrop-glow" />
@@ -109,54 +95,6 @@ export function LoginPage() {
             )}
           </button>
         </form>
-
-        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted, #64748b)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Instant 1-Click Sign-In
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #8b5cf6' }}
-              onClick={() => handleQuickLogin('kyawzin.soe@kbzbank.com', 'admin123')}
-              disabled={isLoading}
-            >
-              <span>👑 <strong>Kyaw Zin Soe</strong> (Super Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Full Authority →</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #8b5cf6' }}
-              onClick={() => handleQuickLogin('suhnin.phway@kbzbank.com', 'admin123')}
-              disabled={isLoading}
-            >
-              <span>👑 <strong>Su Hnin Phway</strong> (Super Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Full Authority →</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #6366f1' }}
-              onClick={() => handleQuickLogin('admin@creativehub.com', 'admin123')}
-              disabled={isLoading}
-            >
-              <span>🛡️ <strong>Sarah Admin</strong> (Admin)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Operations & Viewers →</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: '12px', padding: '8px 12px', justifyContent: 'space-between', cursor: 'pointer', borderLeft: '3px solid #3b82f6' }}
-              onClick={() => handleQuickLogin('user@creativehub.com', 'user123')}
-              disabled={isLoading}
-            >
-              <span>👁️ <strong>Alex Viewer</strong> (Viewer)</span>
-              <span style={{ opacity: 0.7, fontSize: '11px' }}>Read-Only View →</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

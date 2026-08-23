@@ -1,1 +1,2 @@
-/*    /index.html   200
+/api/*    https://lkdot6yxva.execute-api.us-east-1.amazonaws.com/api/:splat    200!
+/*        /index.html                                                          200

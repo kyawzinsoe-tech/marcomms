@@ -107,7 +107,7 @@ export function UserManagementSection({
         </div>
 
         {/* User stats summary */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        <div className="user-stats-grid">
           <div style={{ padding: '14px 16px', background: 'var(--bg-secondary, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
             <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Total Accounts</div>
             <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{users.length}</div>
@@ -132,8 +132,8 @@ export function UserManagementSection({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
+        <div className="user-filter-bar">
+          <div className="user-search-wrap">
             <Search
               size={16}
               style={{
@@ -156,7 +156,7 @@ export function UserManagementSection({
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            style={{ width: '190px' }}
+            className="user-role-select"
           >
             <option value="All">All Roles ({users.length})</option>
             <option value={ROLES.SUPER_ADMIN}>Super Admins ({superAdminCount})</option>

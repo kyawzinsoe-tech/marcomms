@@ -50,6 +50,10 @@ exports.createUser = async (req, res, next) => {
       return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
 
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
     const cleanEmail = email.toLowerCase().trim();
     const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
@@ -156,9 +160,23 @@ exports.updateUser = async (req, res, next) => {
       }
     }
 
-    if (name) user.name = name.trim();
-    if (email) user.email = email.toLowerCase().trim();
-    if (password) user.password = password;
+    if (name && name.trim()) user.name = name.trim();
+    if (email) {
+      const cleanEmail = email.toLowerCase().trim();
+      if (cleanEmail !== user.email) {
+        const existing = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } });
+        if (existing) {
+          return res.status(400).json({ error: `A user with email "${email}" already exists.` });
+        }
+        user.email = cleanEmail;
+      }
+    }
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      if (password.trim().length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
+      user.password = password.trim();
+    }
 
     await user.save();
 

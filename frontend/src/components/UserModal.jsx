@@ -22,7 +22,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
       setFormData({
         name: '',
         email: '',
-        password: isSuperAdmin ? 'admin123' : 'user123',
+        password: '',
         role: isSuperAdmin ? ROLES.ADMIN : ROLES.VIEWER
       });
     }
@@ -34,6 +34,11 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) {
       alert('Name and Email are required.');
+      return;
+    }
+
+    if (!editingUser && !formData.password.trim()) {
+      alert('Account password is required for new users.');
       return;
     }
 
@@ -88,11 +93,11 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
             </div>
 
             <div className="form-group">
-              <label>Account Password *</label>
+              <label>Account Password {editingUser ? '(leave blank to keep unchanged)' : '*'}</label>
               <input
-                type="text"
-                required
-                placeholder="••••••••"
+                type="password"
+                required={!editingUser}
+                placeholder={editingUser ? 'Leave blank to keep unchanged' : '••••••••'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />

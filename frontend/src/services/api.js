@@ -101,7 +101,7 @@ export async function fetchDashboardData() {
   const token = getAuthToken();
 
   // 1. Try Backend API
-  if (token && token !== 'local_jwt_token_demo') {
+  if (token) {
     try {
       const [subRes, tokRes] = await Promise.all([
         fetch('/api/subscriptions', {
@@ -158,7 +158,7 @@ export async function saveDashboardData(data) {
 
     // Also sync to Backend API if user is authenticated
     const token = getAuthToken();
-    if (token && token !== 'local_jwt_token_demo') {
+    if (token) {
       fetch('/api/backup/import', {
         method: 'POST',
         headers: {

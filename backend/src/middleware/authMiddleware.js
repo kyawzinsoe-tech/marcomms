@@ -17,11 +17,14 @@ async function protect(req, res, next) {
     });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({
+      error: 'JWT_SECRET is not configured on the server.'
+    });
+  }
+
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'fallback_secret_key'
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {

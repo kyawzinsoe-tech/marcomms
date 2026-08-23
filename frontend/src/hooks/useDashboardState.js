@@ -165,18 +165,7 @@ export function useDashboardState() {
     const total = activeSubscriptions.reduce((sum, s) => {
       const cost = Number(s.cost);
       if (isNaN(cost) || cost <= 0) return sum;
-
-      const plan = (s.plan || 'Monthly').trim().toLowerCase();
-      let monthlyAmount = cost;
-      if (plan === 'yearly' || plan === 'annual' || plan === 'annually' || plan === 'year') {
-        monthlyAmount = cost / 12;
-      } else if (plan === 'quarterly' || plan === 'quarter') {
-        monthlyAmount = cost / 3;
-      } else if (plan === 'weekly' || plan === 'week') {
-        monthlyAmount = (cost * 52) / 12;
-      }
-
-      return sum + monthlyAmount;
+      return sum + cost;
     }, 0);
 
     return Math.round((total + Number.EPSILON) * 100) / 100;

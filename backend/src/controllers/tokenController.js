@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const TokenEntry = require('../models/TokenEntry');
 
 // GET /api/tokens
@@ -17,7 +18,7 @@ exports.getTokenEntries = async (req, res, next) => {
     res.status(200).json({
       count: entries.length,
       tokenEntries: entries.map((e) => ({
-        id: e._id,
+        id: String(e._id),
         date: e.date,
         account: e.account,
         project: e.project,
@@ -44,7 +45,7 @@ exports.createTokenEntry = async (req, res, next) => {
 
     res.status(201).json({
       tokenEntry: {
-        id: entry._id,
+        id: String(entry._id),
         date: entry.date,
         account: entry.account,
         project: entry.project,
@@ -62,6 +63,10 @@ exports.createTokenEntry = async (req, res, next) => {
 // PUT /api/tokens/:id (Admin only)
 exports.updateTokenEntry = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid token entry ID format.' });
+    }
+
     const entry = await TokenEntry.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
@@ -73,7 +78,7 @@ exports.updateTokenEntry = async (req, res, next) => {
 
     res.status(200).json({
       tokenEntry: {
-        id: entry._id,
+        id: String(entry._id),
         date: entry.date,
         account: entry.account,
         project: entry.project,
@@ -91,6 +96,10 @@ exports.updateTokenEntry = async (req, res, next) => {
 // PATCH /api/tokens/:id/archive (Admin only)
 exports.archiveTokenEntry = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid token entry ID format.' });
+    }
+
     const entry = await TokenEntry.findById(req.params.id);
     if (!entry) {
       return res.status(404).json({ error: 'Token entry not found.' });
@@ -99,7 +108,7 @@ exports.archiveTokenEntry = async (req, res, next) => {
     entry.archived = true;
     await entry.save();
 
-    res.status(200).json({ message: 'Token entry archived.', id: entry._id });
+    res.status(200).json({ message: 'Token entry archived.', id: String(entry._id) });
   } catch (error) {
     next(error);
   }
@@ -108,6 +117,10 @@ exports.archiveTokenEntry = async (req, res, next) => {
 // DELETE /api/tokens/:id (Admin only)
 exports.deleteTokenEntry = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid token entry ID format.' });
+    }
+
     const entry = await TokenEntry.findByIdAndDelete(req.params.id);
     if (!entry) {
       return res.status(404).json({ error: 'Token entry not found.' });

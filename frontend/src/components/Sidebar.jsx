@@ -8,6 +8,7 @@ import {
   Users,
   Sparkles,
   LogOut,
+  Eye,
   User as UserIcon
 } from 'lucide-react';
 

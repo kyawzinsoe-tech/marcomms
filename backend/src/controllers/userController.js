@@ -2,17 +2,17 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
 
-// Helper to find user by MongoDB _id or custom id or email
+// Helper to find user by MongoDB _id or email safely
 async function findUserFlexible(idOrEmail) {
   if (!idOrEmail) return null;
   if (mongoose.Types.ObjectId.isValid(idOrEmail)) {
     const user = await User.findById(idOrEmail);
     if (user) return user;
   }
-  // Try finding by email
-  const userByEmail = await User.findOne({ email: String(idOrEmail).toLowerCase().trim() });
-  if (userByEmail) return userByEmail;
-  
+  if (typeof idOrEmail === 'string' && idOrEmail.includes('@')) {
+    const userByEmail = await User.findOne({ email: String(idOrEmail).toLowerCase().trim() });
+    if (userByEmail) return userByEmail;
+  }
   return null;
 }
 
@@ -100,6 +100,11 @@ exports.createUser = async (req, res, next) => {
 // PUT /api/users/:id
 exports.updateUser = async (req, res, next) => {
   try {
+    const isIdOrEmail = mongoose.Types.ObjectId.isValid(req.params.id) || (typeof req.params.id === 'string' && req.params.id.includes('@'));
+    if (!isIdOrEmail) {
+      return res.status(400).json({ error: 'Invalid user ID format.' });
+    }
+
     const { name, email, password, role } = req.body;
     const requester = req.user;
     const requesterId = String(requester?._id || requester?.id);
@@ -111,7 +116,6 @@ exports.updateUser = async (req, res, next) => {
 
     const targetId = String(user._id);
     const targetCurrentRole = normalizeRole(user.role);
-    const isSelf = requesterId === targetId;
 
     // Check base edit permission for target's current role
     let editPerm;
@@ -178,6 +182,11 @@ exports.updateUser = async (req, res, next) => {
 // DELETE /api/users/:id
 exports.deleteUser = async (req, res, next) => {
   try {
+    const isIdOrEmail = mongoose.Types.ObjectId.isValid(req.params.id) || (typeof req.params.id === 'string' && req.params.id.includes('@'));
+    if (!isIdOrEmail) {
+      return res.status(400).json({ error: 'Invalid user ID format.' });
+    }
+
     const requester = req.user;
     const requesterId = String(requester?._id || requester?.id);
 
@@ -193,21 +202,7 @@ exports.deleteUser = async (req, res, next) => {
     // Count remaining super admins for context
     const superAdminCount = await User.countDocuments({ role: ROLES.SUPER_ADMIN });
 
-    // 1. Protection for final remaining Super Admin
-    if (targetRole === ROLES.SUPER_ADMIN && superAdminCount <= 1) {
-      return res.status(400).json({
-        error: 'Protection rule: Cannot delete the final remaining Super Administrator account. At least one Super Admin must remain.'
-      });
-    }
-
-    // 2. Prevent self-deletion for Super Admin
-    if (isSelf && targetRole === ROLES.SUPER_ADMIN) {
-      return res.status(400).json({
-        error: 'You cannot delete your own active Super Administrator account. Please have another Super Admin manage this account.'
-      });
-    }
-
-    // 3. Permission check
+    // 1. Permission check FIRST (e.g. Admin cannot delete Super Admin -> 403)
     let deletePerm;
     if (targetRole === ROLES.SUPER_ADMIN) {
       deletePerm = PERMISSIONS.USER_DELETE_SUPER_ADMIN;
@@ -220,6 +215,20 @@ exports.deleteUser = async (req, res, next) => {
     if (!hasPermission(requester, deletePerm, user, { superAdminCount })) {
       return res.status(403).json({
         error: `Access denied. You do not have permission to delete ${targetRole.replace('_', ' ')} accounts.`
+      });
+    }
+
+    // 2. Prevent self-deletion for Super Admin
+    if (isSelf && targetRole === ROLES.SUPER_ADMIN) {
+      return res.status(400).json({
+        error: 'You cannot delete your own active Super Administrator account. Please have another Super Admin manage this account.'
+      });
+    }
+
+    // 3. Protection for final remaining Super Admin
+    if (targetRole === ROLES.SUPER_ADMIN && superAdminCount <= 1) {
+      return res.status(400).json({
+        error: 'Protection rule: Cannot delete the final remaining Super Administrator account. At least one Super Admin must remain.'
       });
     }
 

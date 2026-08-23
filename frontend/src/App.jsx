@@ -180,6 +180,8 @@ function DashboardApp() {
 
   // Observe scroll to update active section in sidebar
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const sectionIds = isAdmin
       ? ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports', 'users']
       : ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports'];
@@ -201,7 +203,7 @@ function DashboardApp() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isAdmin]);
+  }, [isAuthenticated, isAdmin]);
 
   if (!isAuthenticated) {
     return <LoginPage />;

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Subscription = require('../models/Subscription');
 
 // GET /api/subscriptions
@@ -10,7 +11,7 @@ exports.getSubscriptions = async (req, res, next) => {
     res.status(200).json({
       count: subscriptions.length,
       subscriptions: subscriptions.map((s) => ({
-        id: s._id,
+        id: String(s._id),
         product: s.product,
         tool: s.tool,
         plan: s.plan,
@@ -43,7 +44,7 @@ exports.createSubscription = async (req, res, next) => {
 
     res.status(201).json({
       subscription: {
-        id: subscription._id,
+        id: String(subscription._id),
         product: subscription.product,
         tool: subscription.tool,
         plan: subscription.plan,
@@ -67,6 +68,10 @@ exports.createSubscription = async (req, res, next) => {
 // PUT /api/subscriptions/:id (Admin only)
 exports.updateSubscription = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid subscription ID format.' });
+    }
+
     const subscription = await Subscription.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -79,7 +84,7 @@ exports.updateSubscription = async (req, res, next) => {
 
     res.status(200).json({
       subscription: {
-        id: subscription._id,
+        id: String(subscription._id),
         product: subscription.product,
         tool: subscription.tool,
         plan: subscription.plan,
@@ -103,6 +108,10 @@ exports.updateSubscription = async (req, res, next) => {
 // PATCH /api/subscriptions/:id/archive (Admin only)
 exports.archiveSubscription = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid subscription ID format.' });
+    }
+
     const subscription = await Subscription.findById(req.params.id);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found.' });
@@ -111,7 +120,7 @@ exports.archiveSubscription = async (req, res, next) => {
     subscription.archived = true;
     await subscription.save();
 
-    res.status(200).json({ message: 'Subscription archived.', id: subscription._id });
+    res.status(200).json({ message: 'Subscription archived.', id: String(subscription._id) });
   } catch (error) {
     next(error);
   }
@@ -120,6 +129,10 @@ exports.archiveSubscription = async (req, res, next) => {
 // DELETE /api/subscriptions/:id (Admin only)
 exports.deleteSubscription = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid subscription ID format.' });
+    }
+
     const subscription = await Subscription.findByIdAndDelete(req.params.id);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found.' });

@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   // Start HTTP server immediately
-  app.listen(PORT, async () => {
+  app.listen(PORT, '0.0.0.0', async () => {
     console.log(`\n=================================================`);
     console.log(`🚀 KBZ Marcomms Backend API Server running!`);
     console.log(`🌐 Local API URL: http://localhost:${PORT}`);

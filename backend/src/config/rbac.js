@@ -78,16 +78,6 @@ function hasPermission(user, permission, target = null, context = {}) {
 
   // 1. Super Admin: full system authority
   if (role === ROLES.SUPER_ADMIN) {
-    if (permission === PERMISSIONS.USER_DELETE_SUPER_ADMIN) {
-      // Cannot delete self
-      if (target && String(target.id || target._id) === String(user.id || user._id)) {
-        return false;
-      }
-      // Cannot delete last remaining Super Admin
-      if (context.superAdminCount !== undefined && context.superAdminCount <= 1) {
-        return false;
-      }
-    }
     return true;
   }
 

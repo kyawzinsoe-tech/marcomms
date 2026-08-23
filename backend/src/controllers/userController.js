@@ -107,14 +107,12 @@ exports.updateUser = async (req, res, next) => {
 
     const { name, email, password, role } = req.body;
     const requester = req.user;
-    const requesterId = String(requester?._id || requester?.id);
 
     const user = await findUserFlexible(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    const targetId = String(user._id);
     const targetCurrentRole = normalizeRole(user.role);
 
     // Check base edit permission for target's current role
@@ -197,12 +195,35 @@ exports.deleteUser = async (req, res, next) => {
 
     const targetId = String(user._id);
     const targetRole = normalizeRole(user.role);
+    const requesterRole = normalizeRole(requester.role);
     const isSelf = requesterId === targetId;
 
     // Count remaining super admins for context
     const superAdminCount = await User.countDocuments({ role: ROLES.SUPER_ADMIN });
 
-    // 1. Permission check FIRST (e.g. Admin cannot delete Super Admin -> 403)
+    // 1. Role-level permission check for Admin & Viewer (Admin cannot delete Admin/Super Admin -> 403; Viewer cannot delete -> 403)
+    if (requesterRole === ROLES.VIEWER) {
+      return res.status(403).json({ error: 'Access denied. Viewers do not have permission to delete accounts.' });
+    }
+    if (requesterRole === ROLES.ADMIN && (targetRole === ROLES.ADMIN || targetRole === ROLES.SUPER_ADMIN)) {
+      return res.status(403).json({ error: `Access denied. Administrators cannot delete ${targetRole.replace('_', ' ')} accounts.` });
+    }
+
+    // 2. Prevent self-deletion for Super Admin (-> 400)
+    if (isSelf && targetRole === ROLES.SUPER_ADMIN) {
+      return res.status(400).json({
+        error: 'You cannot delete your own active Super Administrator account. Please have another Super Admin manage this account.'
+      });
+    }
+
+    // 3. Protection for final remaining Super Admin (-> 400)
+    if (targetRole === ROLES.SUPER_ADMIN && superAdminCount <= 1) {
+      return res.status(400).json({
+        error: 'Protection rule: Cannot delete the final remaining Super Administrator account. At least one Super Admin must remain.'
+      });
+    }
+
+    // 4. Canonical hasPermission evaluation
     let deletePerm;
     if (targetRole === ROLES.SUPER_ADMIN) {
       deletePerm = PERMISSIONS.USER_DELETE_SUPER_ADMIN;
@@ -215,20 +236,6 @@ exports.deleteUser = async (req, res, next) => {
     if (!hasPermission(requester, deletePerm, user, { superAdminCount })) {
       return res.status(403).json({
         error: `Access denied. You do not have permission to delete ${targetRole.replace('_', ' ')} accounts.`
-      });
-    }
-
-    // 2. Prevent self-deletion for Super Admin
-    if (isSelf && targetRole === ROLES.SUPER_ADMIN) {
-      return res.status(400).json({
-        error: 'You cannot delete your own active Super Administrator account. Please have another Super Admin manage this account.'
-      });
-    }
-
-    // 3. Protection for final remaining Super Admin
-    if (targetRole === ROLES.SUPER_ADMIN && superAdminCount <= 1) {
-      return res.status(400).json({
-        error: 'Protection rule: Cannot delete the final remaining Super Administrator account. At least one Super Admin must remain.'
       });
     }
 

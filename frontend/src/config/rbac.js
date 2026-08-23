@@ -1,5 +1,5 @@
 /**
- * Role-Based Access Control (RBAC) - Canonical Roles & Permissions (Frontend)
+ * Role-Based Access Control (RBAC) - Canonical Definitions & Permission Evaluator
  */
 
 export const ROLES = {
@@ -66,18 +66,28 @@ export function normalizeRole(role) {
 
 /**
  * Evaluates whether a user has a specific permission
- * @param {Object} user - Current logged-in user object ({ id, role, ... })
- * @param {String} permission - Required permission string from PERMISSIONS
- * @param {Object} [target] - Target user or object being operated on
- * @param {Object} [context] - Context data (e.g. { superAdminCount })
+ * @param {Object} user - Requesting user object ({ id, role, ... })
+ * @param {String} permission - Required permission from PERMISSIONS
+ * @param {Object} [target] - Target entity (e.g. user being updated/deleted)
+ * @param {Object} [context] - Additional context (e.g. { superAdminCount })
  * @returns {Boolean}
  */
 export function hasPermission(user, permission, target = null, context = {}) {
   if (!user) return false;
   const role = normalizeRole(user.role);
 
-  // 1. Super Admin: full system authority
+  // 1. Super Admin: full system authority with safety rules
   if (role === ROLES.SUPER_ADMIN) {
+    if (permission === PERMISSIONS.USER_DELETE_SUPER_ADMIN) {
+      // Cannot delete self
+      if (target && String(target.id || target._id) === String(user.id || user._id)) {
+        return false;
+      }
+      // Cannot delete last remaining Super Admin
+      if (context.superAdminCount !== undefined && context.superAdminCount <= 1) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -121,7 +131,7 @@ export function hasPermission(user, permission, target = null, context = {}) {
       // Special check for editing self
       case PERMISSIONS.USER_UPDATE_ADMIN:
         if (target && String(target.id || target._id) === String(user.id || user._id)) {
-          return true;
+          return true; // Admin can update their own details (name/password), but role elevation is blocked
         }
         return false;
 

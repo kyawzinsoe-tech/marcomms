@@ -4,10 +4,12 @@ import { useAuth } from './context/useAuth';
 import { useDashboardState } from './hooks/useDashboardState';
 import {
   getStoredUsers,
+  fetchUsersApi,
   createUser,
   updateUser,
   deleteUser
 } from './services/authService';
+import { ROLES, PERMISSIONS, normalizeRole } from './config/rbac';
 import { LoginPage } from './components/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -65,14 +67,34 @@ function DashboardApp() {
   const [printType, setPrintType] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // User Management State
-  const [usersList, setUsersList] = useState(() => getStoredUsers());
+  // User Management State (Authoritative from Backend MongoDB)
+  const [usersList, setUsersList] = useState([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  const refreshUsers = async () => {
+    if (isAuthenticated && isAdmin) {
+      try {
+        const liveUsers = await fetchUsersApi();
+        if (Array.isArray(liveUsers)) {
+          setUsersList(liveUsers);
+        }
+      } catch (err) {
+        console.warn('[User Sync] Failed to refresh users from backend:', err.message);
+      }
+    }
+  };
+
+  // Sync users from MongoDB when authenticated as Admin / Super Admin
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) {
+      refreshUsers();
+    }
+  }, [isAuthenticated, isAdmin]);
 
   // Subscriptions Modal Handlers
   const handleOpenAddSubscription = () => {
@@ -122,7 +144,7 @@ function DashboardApp() {
     }
   };
 
-  // User Management Handlers (3-Tier RBAC Protected)
+  // User Management Handlers (3-Tier Canonical RBAC)
   const handleOpenAddUser = () => {
     if (!isAdmin) return;
     setEditingUser(null);
@@ -130,7 +152,18 @@ function DashboardApp() {
   };
 
   const handleOpenEditUser = (targetUser) => {
-    if (!can('edit_user', targetUser)) {
+    if (!targetUser) return;
+    const targetRole = normalizeRole(targetUser.role);
+    let editPerm;
+    if (targetRole === ROLES.SUPER_ADMIN) {
+      editPerm = PERMISSIONS.USER_UPDATE_SUPER_ADMIN;
+    } else if (targetRole === ROLES.ADMIN) {
+      editPerm = PERMISSIONS.USER_UPDATE_ADMIN;
+    } else {
+      editPerm = PERMISSIONS.USER_UPDATE_VIEWER;
+    }
+
+    if (!can(editPerm, targetUser)) {
       showToast('You do not have permission to edit this account.', 'error');
       return;
     }
@@ -143,27 +176,47 @@ function DashboardApp() {
     try {
       if (editingUser) {
         await updateUser(editingUser.id, userData, user);
-        setUsersList(getStoredUsers());
+        await refreshUsers();
         showToast(`User "${userData.name}" updated successfully.`, 'success');
       } else {
         await createUser(userData, user);
-        setUsersList(getStoredUsers());
-        showToast(`New user "${userData.name}" (${userData.role.toUpperCase()}) created!`, 'success');
+        await refreshUsers();
+        showToast(`New user "${userData.name}" (${(userData.role || 'viewer').toUpperCase()}) created!`, 'success');
       }
+      setIsUserModalOpen(false);
+      setEditingUser(null);
     } catch (err) {
       showToast(err.message, 'error');
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    const targetUser = usersList.find((u) => u.id === userId);
-    if (!can('delete_user', targetUser)) {
+    const targetUser = usersList.find((u) => String(u.id) === String(userId));
+    if (!targetUser) {
+      showToast('User account not found.', 'error');
+      return;
+    }
+
+    const targetRole = normalizeRole(targetUser.role);
+    const superAdminCount = usersList.filter((u) => normalizeRole(u.role) === ROLES.SUPER_ADMIN).length;
+
+    let deletePerm;
+    if (targetRole === ROLES.SUPER_ADMIN) {
+      deletePerm = PERMISSIONS.USER_DELETE_SUPER_ADMIN;
+    } else if (targetRole === ROLES.ADMIN) {
+      deletePerm = PERMISSIONS.USER_DELETE_ADMIN;
+    } else {
+      deletePerm = PERMISSIONS.USER_DELETE_VIEWER;
+    }
+
+    if (!can(deletePerm, targetUser, { superAdminCount })) {
       showToast('You do not have permission to delete this account.', 'error');
       return;
     }
+
     try {
-      const updated = await deleteUser(userId, user);
-      setUsersList(updated || getStoredUsers());
+      await deleteUser(userId, user);
+      await refreshUsers();
       showToast('User account removed successfully.', 'info');
     } catch (err) {
       showToast(err.message, 'error');

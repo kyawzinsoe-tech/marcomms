@@ -108,7 +108,7 @@ export function saveStoredUsers(users) {
 export async function fetchUsersApi() {
   const token = getAuthToken();
   if (!token) {
-    return getStoredUsers();
+    return [];
   }
 
   try {
@@ -133,7 +133,7 @@ export async function fetchUsersApi() {
   } catch (err) {
     console.warn('[Auth Service] /api/users request failed:', err.message);
   }
-  return getStoredUsers();
+  return [];
 }
 
 export async function createUser(userData, currentUser = null) {

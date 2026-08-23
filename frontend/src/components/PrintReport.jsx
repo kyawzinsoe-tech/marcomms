@@ -10,9 +10,9 @@ export function PrintReport({
   alerts
 }) {
   const isMonthly = type === 'month';
-  const title = isMonthly
-    ? `Creative Subscription Report — ${formatMonthName(reportMonth)}`
-    : `Creative Subscription Report — Year ${selectedYear}`;
+  const reportPeriodText = isMonthly
+    ? `Monthly Report Period: ${formatMonthName(reportMonth)}`
+    : `Annual Report Period: Calendar Year ${selectedYear}`;
 
   const totalTokens = tokenEntries.reduce((sum, e) => sum + Number(e.tokens || 0), 0);
   const totalCost = tokenEntries.reduce((sum, e) => sum + Number(e.cost || 0), 0);
@@ -20,18 +20,25 @@ export function PrintReport({
   return (
     <div className="print-only-container">
       <div className="print-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div>
-            <h1>{title}</h1>
-            <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-              Generated on {new Date().toLocaleDateString()} • KBZ Marcomms Creative Hub
-            </p>
+        <div className="print-header-top">
+          <div className="print-logo-container">
+            <img
+              src="/images/Logo_Lockup-01.png"
+              alt="KBZ Bank & KBZPay Marcomms"
+              className="print-logo"
+            />
           </div>
-          <img
-            src="/images/Logo_Lockup-01.png"
-            alt="KBZ Logo"
-            style={{ height: '36px', objectFit: 'contain' }}
-          />
+          <div className="print-header-meta">
+            <div className="print-meta-pill">OFFICIAL REPORT</div>
+            <div className="print-meta-date">
+              Generated: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+        </div>
+
+        <div className="print-header-titles">
+          <h1 className="print-main-title">Creative Subscription Hub — Subscriptions & AI Token Manager</h1>
+          <p className="print-period-subtitle">{reportPeriodText}</p>
         </div>
       </div>
 
@@ -125,6 +132,15 @@ export function PrintReport({
           )}
         </tbody>
       </table>
+
+      <div className="print-footer">
+        <div className="print-footer-left">
+          copyright by kbz marcomms.
+        </div>
+        <div className="print-footer-right">
+          Creative Subscription Hub &bull; Confidential
+        </div>
+      </div>
     </div>
   );
 }

@@ -370,14 +370,7 @@ function DashboardApp() {
         />
 
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
-          Creative Subscription Hub &bull; Active Role:{' '}
-          <strong>
-            {isSuperAdmin
-              ? '👑 Super Administrator (Full System Authority)'
-              : isAdmin
-              ? '🛡️ Administrator (Operations & Viewer Management)'
-              : '👁️ Viewer (Read-Only Access)'}
-          </strong>
+          copyright by kbz marcomms.
         </footer>
       </main>
 

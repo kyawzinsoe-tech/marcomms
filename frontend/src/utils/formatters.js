@@ -37,8 +37,9 @@ export function formatMonthName(monthStr) {
 
 export function formatMoney(amount) {
   const num = Number(amount || 0);
-  return '$' + num.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
+  const hasDecimals = num % 1 !== 0;
+  return '$' + num.toLocaleString('en-US', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
     maximumFractionDigits: 2
   });
 }

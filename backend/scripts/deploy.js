@@ -2,7 +2,8 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { IAMClient, CreateRoleCommand, GetRoleCommand, AttachRolePolicyCommand } = require('@aws-sdk/client-iam');
+const { IAMClient, CreateRoleCommand, GetRoleCommand, AttachRolePolicyCommand, PutRolePolicyCommand } = require('@aws-sdk/client-iam');
+const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
 const {
   LambdaClient,
   CreateFunctionCommand,
@@ -30,6 +31,7 @@ const credentials = {
 };
 
 const iam = new IAMClient({ region: REGION, credentials });
+const sts = new STSClient({ region: REGION, credentials });
 const lambda = new LambdaClient({ region: REGION, credentials });
 const apigw = new ApiGatewayV2Client({ region: REGION, credentials });
 
@@ -48,12 +50,45 @@ const trustPolicy = JSON.stringify({
   ]
 });
 
+// Least-privilege IAM policy: strictly ses:SendEmail restricted to the verified sender identity
+async function getSesLeastPrivilegePolicy() {
+  const senderEmail = (process.env.REMINDER_FROM_EMAIL || 'kyawzin.soe@kbzbank.com').trim();
+  let accountId = '*';
+  try {
+    const callerId = await sts.send(new GetCallerIdentityCommand({}));
+    if (callerId && callerId.Account) {
+      accountId = callerId.Account;
+    }
+  } catch (err) {
+    console.warn('[STS] Could not resolve caller identity account, using wildcard account for identity ARN:', err.message);
+  }
+
+  const identityArn = `arn:aws:ses:${REGION}:${accountId}:identity/${senderEmail}`;
+  console.log(`[IAM] Scoping SES SendEmail resource to: ${identityArn}`);
+
+  return JSON.stringify({
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Sid: 'AllowSESSendEmailVerifiedSenderOnly',
+        Effect: 'Allow',
+        Action: [
+          'ses:SendEmail'
+        ],
+        Resource: identityArn
+      }
+    ]
+  });
+}
+
 async function ensureIamRole() {
   console.log(`[IAM] Checking IAM Role: ${ROLE_NAME}...`);
+  let roleArn = null;
+
   try {
     const res = await iam.send(new GetRoleCommand({ RoleName: ROLE_NAME }));
     console.log(`[IAM] Role already exists: ${res.Role.Arn}`);
-    return res.Role.Arn;
+    roleArn = res.Role.Arn;
   } catch (err) {
     if (err.name === 'NoSuchEntityException' || err.name === 'NoSuchEntity') {
       console.log(`[IAM] Creating role ${ROLE_NAME}...`);
@@ -81,10 +116,24 @@ async function ensureIamRole() {
 
       console.log(`[IAM] Role created. Waiting 10s for IAM propagation...`);
       await new Promise((r) => setTimeout(r, 10000));
-      return createRes.Role.Arn;
+      roleArn = createRes.Role.Arn;
+    } else {
+      throw err;
     }
-    throw err;
   }
+
+  // Attach/Update least-privilege inline SES policy
+  const sesPolicyDoc = await getSesLeastPrivilegePolicy();
+  console.log(`[IAM] Applying least-privilege SES sending policy to ${ROLE_NAME}...`);
+  await iam.send(
+    new PutRolePolicyCommand({
+      RoleName: ROLE_NAME,
+      PolicyName: 'kbz-marcomms-ses-send-least-privilege',
+      PolicyDocument: sesPolicyDoc
+    })
+  );
+
+  return roleArn;
 }
 
 async function createZipBundle() {
@@ -112,8 +161,7 @@ async function deployLambda(roleArn, zipBuffer) {
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     NODE_ENV: 'production',
     AWS_S3_BUCKET: process.env.AWS_S3_BUCKET || 'kbz-marcomms-backups-888725256922',
-    REMINDER_FROM_EMAIL: process.env.REMINDER_FROM_EMAIL || 'no-reply@marcomms.kbzpay.com',
-    RESEND_API_KEY: process.env.RESEND_API_KEY || ''
+    REMINDER_FROM_EMAIL: process.env.REMINDER_FROM_EMAIL || 'kyawzin.soe@kbzbank.com'
   };
 
   try {
@@ -142,6 +190,7 @@ async function deployLambda(roleArn, zipBuffer) {
 
     return fn.Configuration.FunctionArn;
   } catch (err) {
+
     if (err.name === 'ResourceNotFoundException') {
       console.log(`[Lambda] Creating new Lambda function: ${FUNCTION_NAME}...`);
       const createRes = await lambda.send(

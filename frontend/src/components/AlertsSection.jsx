@@ -19,15 +19,7 @@ export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNo
     try {
       const res = await sendEmailReminder(sub, diff);
       if (res.success) {
-        onNotify(`Email reminder sent to ${res.recipient}!`, 'success');
-      } else if (res.fallbackRequired) {
-        const confirmOpen = window.confirm(
-          'Automated backend email is not configured yet. Would you like to open your email client with a pre-filled reminder template?'
-        );
-        if (confirmOpen && res.mailtoUrl) {
-          window.location.href = res.mailtoUrl;
-          onNotify(`Opened email composer for ${res.recipient}`, 'info');
-        }
+        onNotify(res.message || `Email reminder sent to ${res.recipient}!`, 'success');
       }
     } catch (err) {
       onNotify(err.message || 'Failed to dispatch email reminder', 'error');

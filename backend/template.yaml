@@ -14,6 +14,7 @@ Globals:
         JWT_EXPIRES_IN: "7d"
         NODE_ENV: "production"
         AWS_S3_BUCKET: !Ref BackupBucket
+        REMINDER_FROM_EMAIL: "kyawzin.soe@kbzbank.com"
 
 Resources:
   # S3 Bucket for JSON Backups
@@ -36,8 +37,11 @@ Resources:
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref BackupBucket
-        - SESCrudPolicy:
-            IdentityName: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/kyawzin.soe@kbzbank.com"
       Events:
         RootApi:
           Type: Api

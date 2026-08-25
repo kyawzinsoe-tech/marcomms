@@ -23,8 +23,10 @@ import { UserModal } from './components/UserModal';
 import { DataBackup } from './components/DataBackup';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { TokenModal } from './components/TokenModal';
+import { Building2, CreditCard, Megaphone } from 'lucide-react';
 import { PrintReport } from './components/PrintReport';
 import { Toast } from './components/Toast';
+import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 
 function DashboardApp() {
   const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
@@ -235,9 +237,17 @@ function DashboardApp() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const sectionIds = isAdmin
-      ? ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports', 'users']
-      : ['dashboard', 'alerts', 'subscriptions', 'tokens', 'reports'];
+    const sectionIds = [
+      'dashboard',
+      'alerts',
+      'subscriptions',
+      'tokens',
+      'reports',
+      can(PERMISSIONS.ASSET_READ_BANK) ? 'asset-kbz-bank' : null,
+      can(PERMISSIONS.ASSET_READ_PAY) ? 'asset-kbz-pay' : null,
+      can(PERMISSIONS.ASSET_READ_COMMS) ? 'asset-kbz-comms' : null,
+      can(PERMISSIONS.USER_VIEW) ? 'users' : null
+    ].filter(Boolean);
 
     const handleScroll = () => {
       const scrollPos = window.scrollY + 200;
@@ -348,6 +358,39 @@ function DashboardApp() {
             showToast('Token entry deleted.', 'info');
           }}
         />
+
+        {can(PERMISSIONS.ASSET_READ_BANK) && (
+          <AssetLibrarySection
+            library="kbz_bank"
+            title="KBZ Bank Asset Library"
+            subtitle="Official brand identities, vector logomarks, typography, and marketing key visuals for KBZ Bank."
+            icon={Building2}
+            user={user}
+            onNotify={showToast}
+          />
+        )}
+
+        {can(PERMISSIONS.ASSET_READ_PAY) && (
+          <AssetLibrarySection
+            library="kbz_pay"
+            title="KBZPay Asset Library"
+            subtitle="Official brand assets, mobile app icon sets, partner lockups, and design systems for KBZPay."
+            icon={CreditCard}
+            user={user}
+            onNotify={showToast}
+          />
+        )}
+
+        {can(PERMISSIONS.ASSET_READ_COMMS) && (
+          <AssetLibrarySection
+            library="kbz_comms"
+            title="KBZBank Comms Asset Library"
+            subtitle="Corporate communication templates, press kit lockups, event banners, and PR design materials."
+            icon={Megaphone}
+            user={user}
+            onNotify={showToast}
+          />
+        )}
 
         {isAdmin && (
           <UserManagementSection

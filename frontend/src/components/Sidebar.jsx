@@ -6,11 +6,14 @@ import {
   Zap,
   FileText,
   Users,
-  Sparkles,
   LogOut,
   Eye,
+  Building2,
+  CreditCard,
+  Megaphone,
   User as UserIcon
 } from 'lucide-react';
+import { PERMISSIONS, hasPermission } from '../config/rbac';
 
 export function Sidebar({
   activeSection,
@@ -22,18 +25,29 @@ export function Sidebar({
   isAdmin,
   onLogout
 }) {
-  const allNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount, adminOnly: false },
-    { id: 'subscriptions', label: 'Subscriptions', icon: Layers, adminOnly: false },
-    { id: 'tokens', label: 'Token Usage', icon: Zap, adminOnly: false },
-    { id: 'reports', label: 'Reports & Data', icon: FileText, adminOnly: false },
-    { id: 'users', label: 'User Management', icon: Users, adminOnly: true }
+  // Navigation groups with role-based visibility
+  const canReadBank = user && hasPermission(user, PERMISSIONS.ASSET_READ_BANK);
+  const canReadPay = user && hasPermission(user, PERMISSIONS.ASSET_READ_PAY);
+  const canReadComms = user && hasPermission(user, PERMISSIONS.ASSET_READ_COMMS);
+  const canViewUsers = user && hasPermission(user, PERMISSIONS.USER_VIEW);
+
+  const mainNavItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount },
+    { id: 'subscriptions', label: 'Subscriptions', icon: Layers },
+    { id: 'tokens', label: 'Token Usage', icon: Zap },
+    { id: 'reports', label: 'Reports & Data', icon: FileText }
   ];
 
-  const visibleNavItems = allNavItems.filter(
-    (item) => !item.adminOnly || isAdmin
-  );
+  const assetPillarItems = [
+    { id: 'asset-kbz-bank', label: 'KBZ Bank', icon: Building2, visible: canReadBank },
+    { id: 'asset-kbz-pay', label: 'KBZPay', icon: CreditCard, visible: canReadPay },
+    { id: 'asset-kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
+  ].filter((item) => item.visible);
+
+  const adminNavItems = [
+    { id: 'users', label: 'User Management', icon: Users, visible: canViewUsers }
+  ].filter((item) => item.visible);
 
   const handleNav = (id, e) => {
     e.preventDefault();
@@ -43,6 +57,31 @@ export function Sidebar({
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const renderNavGroup = (items) => (
+    <div className="nav-links">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = activeSection === item.id;
+        return (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            onClick={(e) => handleNav(item.id, e)}
+            className={`nav-item ${isActive ? 'active' : ''}`}
+          >
+            <div className="nav-item-content">
+              <Icon size={18} />
+              <span>{item.label}</span>
+            </div>
+            {Boolean(item.badge) && (
+              <span className="nav-badge">{item.badge}</span>
+            )}
+          </a>
+        );
+      })}
+    </div>
+  );
 
   return (
     <aside className="sidebar">
@@ -57,32 +96,52 @@ export function Sidebar({
           </div>
           <div>
             <div className="brand-title">Creative Hub</div>
-            <div className="brand-subtitle">Subscription Manager</div>
+            <div className="brand-subtitle">Marcomms Webportal</div>
           </div>
         </div>
 
-        <nav className="nav-links">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-            return (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={(e) => handleNav(item.id, e)}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-              >
-                <div className="nav-item-content">
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </div>
-                {Boolean(item.badge) && (
-                  <span className="nav-badge">{item.badge}</span>
-                )}
-              </a>
-            );
-          })}
-        </nav>
+        {/* Core Subscriptions & Tools */}
+        {renderNavGroup(mainNavItems)}
+
+        {/* Asset Pillars Group */}
+        {assetPillarItems.length > 0 && (
+          <div style={{ marginTop: '20px' }}>
+            <div
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                color: '#94a3b8',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '0 14px 6px',
+                marginBottom: '4px'
+              }}
+            >
+              Asset Pillars
+            </div>
+            {renderNavGroup(assetPillarItems)}
+          </div>
+        )}
+
+        {/* Administration Group */}
+        {adminNavItems.length > 0 && (
+          <div style={{ marginTop: '20px' }}>
+            <div
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                color: '#94a3b8',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '0 14px 6px',
+                marginBottom: '4px'
+              }}
+            >
+              Administration
+            </div>
+            {renderNavGroup(adminNavItems)}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-footer">
@@ -137,7 +196,7 @@ export function Sidebar({
                     padding: '2px 6px'
                   }}
                 >
-                  {isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMIN' : 'VIEWER'}
+                  {(user.role || 'viewer').toUpperCase().replace(/_/g, ' ')}
                 </span>
               </div>
               <span className="user-email">{user.email}</span>

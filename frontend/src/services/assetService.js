@@ -47,7 +47,7 @@ export async function fetchAssets(params = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to fetch assets from server.');
+    throw new Error(data.error || data.message || `Unable to load assets from server (HTTP ${response.status}).`);
   }
 
   return Array.isArray(data.assets) ? data.assets : [];
@@ -73,7 +73,7 @@ export async function fetchAssetById(id) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Asset not found.');
+    throw new Error(data.error || data.message || 'Asset not found.');
   }
 
   return data.asset;
@@ -101,7 +101,7 @@ export async function createAsset(assetData) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to create asset record.');
+    throw new Error(data.error || data.message || `Failed to create asset record (HTTP ${response.status}).`);
   }
 
   return data.asset;
@@ -130,7 +130,7 @@ export async function updateAsset(id, assetData) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to update asset.');
+    throw new Error(data.error || data.message || `Failed to update asset (HTTP ${response.status}).`);
   }
 
   return data.asset;
@@ -156,7 +156,7 @@ export async function deleteAsset(id) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to delete asset.');
+    throw new Error(data.error || data.message || `Failed to delete asset (HTTP ${response.status}).`);
   }
 
   return data;

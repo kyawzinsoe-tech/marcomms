@@ -1,6 +1,6 @@
-require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const fs = require('fs');
 const { execSync } = require('child_process');
 const { IAMClient, CreateRoleCommand, GetRoleCommand, AttachRolePolicyCommand, PutRolePolicyCommand } = require('@aws-sdk/client-iam');
 const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');

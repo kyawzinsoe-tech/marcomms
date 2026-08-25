@@ -16,6 +16,32 @@ const CATEGORY_OPTIONS = [
 
 const FILE_TYPE_OPTIONS = ['PNG', 'SVG', 'AI', 'PSD', 'PDF', 'EPS', 'ZIP', 'JPG', 'MP4'];
 
+/**
+ * Validates URLs including HTTP, HTTPS, S3, Google Drive share links, and relative paths
+ */
+function isValidUrl(urlString) {
+  if (!urlString || typeof urlString !== 'string') return false;
+  const trimmed = urlString.trim();
+  if (!trimmed) return false;
+
+  // Allow relative paths
+  if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
+    return true;
+  }
+
+  // Allow standard URLs and custom protocols (e.g. s3://, drive://)
+  try {
+    const parsed = new URL(trimmed);
+    return ['http:', 'https:', 's3:', 'drive:'].includes(parsed.protocol) || parsed.hostname.length > 0;
+  } catch {
+    // If URL parsing fails, check if it's a domain/link pattern like drive.google.com/...
+    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
+      return true;
+    }
+    return false;
+  }
+}
+
 export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
   const [formData, setFormData] = useState({
     title: '',
@@ -76,11 +102,22 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     e.preventDefault();
     const errors = {};
 
-    if (!formData.title.trim()) {
+    const cleanTitle = (formData.title || '').trim();
+    const cleanFileUrl = (formData.fileUrl || '').trim();
+    const cleanThumbUrl = (formData.thumbnailUrl || '').trim();
+
+    if (!cleanTitle) {
       errors.title = 'Asset title is required.';
     }
-    if (!formData.fileUrl.trim()) {
+
+    if (!cleanFileUrl) {
       errors.fileUrl = 'File URL or storage link is required.';
+    } else if (!isValidUrl(cleanFileUrl)) {
+      errors.fileUrl = 'Please enter a valid URL, Google Drive link, or storage path.';
+    }
+
+    if (cleanThumbUrl && !isValidUrl(cleanThumbUrl)) {
+      errors.thumbnailUrl = 'Please enter a valid image preview URL or leave blank.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -90,14 +127,15 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
 
     const payload = {
       ...formData,
-      title: formData.title.trim(),
-      fileUrl: formData.fileUrl.trim(),
-      thumbnailUrl: formData.thumbnailUrl.trim(),
+      title: cleanTitle,
+      library: formData.library || library || 'kbz_bank',
+      fileUrl: cleanFileUrl,
+      thumbnailUrl: cleanThumbUrl,
       fileSize: formData.fileSize ? Number(formData.fileSize) : 0,
       tags: formData.tags
         ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
         : [],
-      description: formData.description.trim()
+      description: (formData.description || '').trim()
     };
 
     onSave(payload);
@@ -168,7 +206,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>File URL / S3 Download Link *</label>
+                <label>File URL / S3 / Google Drive Download Link *</label>
                 {fieldErrors.fileUrl && (
                   <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                     <AlertCircle size={12} /> {fieldErrors.fileUrl}
@@ -176,8 +214,8 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
                 )}
               </div>
               <input
-                type="url"
-                placeholder="https://... or /assets/brand/logo.ai"
+                type="text"
+                placeholder="https://drive.google.com/... or https://s3.amazonaws.com/... or /assets/logo.png"
                 value={formData.fileUrl}
                 onChange={(e) => handleChange('fileUrl', e.target.value)}
                 style={{ borderColor: fieldErrors.fileUrl ? '#ef4444' : undefined }}
@@ -185,12 +223,20 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
             </div>
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>Preview / Thumbnail Image URL</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label>Preview / Thumbnail Image URL (Optional)</label>
+                {fieldErrors.thumbnailUrl && (
+                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <AlertCircle size={12} /> {fieldErrors.thumbnailUrl}
+                  </span>
+                )}
+              </div>
               <input
-                type="url"
-                placeholder="https://... (Optional preview image for card display)"
+                type="text"
+                placeholder="https://... (Optional image preview for card display; leave empty if none)"
                 value={formData.thumbnailUrl}
                 onChange={(e) => handleChange('thumbnailUrl', e.target.value)}
+                style={{ borderColor: fieldErrors.thumbnailUrl ? '#ef4444' : undefined }}
               />
             </div>
 

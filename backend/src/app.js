@@ -8,6 +8,9 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const tokenRoutes = require('./routes/tokenRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const backupRoutes = require('./routes/backupRoutes');
+const assetRoutes = require('./routes/assetRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const productionOrderRoutes = require('./routes/productionOrderRoutes');
 
 const app = express();
 
@@ -41,6 +44,9 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/assets', assetRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/production-orders', productionOrderRoutes);
 
 // Error Handling
 app.use(errorHandler);

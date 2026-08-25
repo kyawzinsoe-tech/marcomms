@@ -23,7 +23,17 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['super_admin', 'admin', 'viewer', 'user'],
+      enum: [
+        'super_admin',
+        'head_brand',
+        'bank_design',
+        'pay_design',
+        'comms_design',
+        'procurement_officer',
+        'admin',
+        'viewer',
+        'user'
+      ],
       default: 'viewer'
     },
     avatar: {

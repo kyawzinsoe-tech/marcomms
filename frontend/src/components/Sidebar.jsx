@@ -12,6 +12,7 @@ import {
   CreditCard,
   Megaphone,
   Truck,
+  Printer,
   User as UserIcon
 } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
@@ -31,6 +32,7 @@ export function Sidebar({
   const canReadPay = user && hasPermission(user, PERMISSIONS.ASSET_READ_PAY);
   const canReadComms = user && hasPermission(user, PERMISSIONS.ASSET_READ_COMMS);
   const canReadSuppliers = user && hasPermission(user, PERMISSIONS.SUPPLIER_READ);
+  const canReadProduction = user && hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_READ);
   const canViewUsers = user && hasPermission(user, PERMISSIONS.USER_VIEW);
 
   const mainNavItems = [
@@ -48,7 +50,8 @@ export function Sidebar({
   ].filter((item) => item.visible);
 
   const procurementItems = [
-    { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers }
+    { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers },
+    { id: 'production-orders', label: 'Production Orders', icon: Printer, visible: canReadProduction }
   ].filter((item) => item.visible);
 
   const adminNavItems = [

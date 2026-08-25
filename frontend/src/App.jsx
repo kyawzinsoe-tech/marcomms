@@ -28,6 +28,7 @@ import { PrintReport } from './components/PrintReport';
 import { Toast } from './components/Toast';
 import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
+import { ProductionOrdersSection } from './components/production-orders/ProductionOrdersSection';
 
 function DashboardApp() {
   const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
@@ -248,6 +249,7 @@ function DashboardApp() {
       can(PERMISSIONS.ASSET_READ_PAY) ? 'asset-kbz-pay' : null,
       can(PERMISSIONS.ASSET_READ_COMMS) ? 'asset-kbz-comms' : null,
       can(PERMISSIONS.SUPPLIER_READ) ? 'suppliers' : null,
+      can(PERMISSIONS.PRODUCTION_ORDER_READ) ? 'production-orders' : null,
       can(PERMISSIONS.USER_VIEW) ? 'users' : null
     ].filter(Boolean);
 
@@ -396,6 +398,13 @@ function DashboardApp() {
 
         {can(PERMISSIONS.SUPPLIER_READ) && (
           <SupplierDirectorySection
+            user={user}
+            onNotify={showToast}
+          />
+        )}
+
+        {can(PERMISSIONS.PRODUCTION_ORDER_READ) && (
+          <ProductionOrdersSection
             user={user}
             onNotify={showToast}
           />

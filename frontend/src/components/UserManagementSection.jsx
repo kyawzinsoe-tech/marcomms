@@ -8,9 +8,11 @@ import {
   Crown,
   Shield,
   Eye,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
+  Building2,
+  CreditCard,
+  Megaphone,
+  Truck,
+  Sparkles,
   AlertTriangle,
   Lock
 } from 'lucide-react';
@@ -33,6 +35,20 @@ export function UserManagementSection({
   const superAdminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.SUPER_ADMIN).length, [users]);
   const adminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.ADMIN).length, [users]);
   const viewerCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.VIEWER).length, [users]);
+  const specialistCount = useMemo(
+    () =>
+      users.filter((u) => {
+        const r = normalizeRole(u.role);
+        return (
+          r === ROLES.HEAD_BRAND ||
+          r === ROLES.BANK_DESIGN ||
+          r === ROLES.PAY_DESIGN ||
+          r === ROLES.COMMS_DESIGN ||
+          r === ROLES.PROCUREMENT_OFFICER
+        );
+      }).length,
+    [users]
+  );
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -41,11 +57,7 @@ export function UserManagementSection({
         (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const userRole = normalizeRole(u.role);
-      const matchRole =
-        roleFilter === 'All' ||
-        (roleFilter === ROLES.SUPER_ADMIN && userRole === ROLES.SUPER_ADMIN) ||
-        (roleFilter === ROLES.ADMIN && userRole === ROLES.ADMIN) ||
-        (roleFilter === ROLES.VIEWER && userRole === ROLES.VIEWER);
+      const matchRole = roleFilter === 'All' || userRole === roleFilter;
 
       return matchSearch && matchRole;
     });
@@ -81,6 +93,186 @@ export function UserManagementSection({
     setDeletingUser(null);
   };
 
+  const renderRoleBadge = (role) => {
+    const norm = normalizeRole(role);
+    switch (norm) {
+      case ROLES.SUPER_ADMIN:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#f3e8ff',
+              color: '#7e22ce',
+              border: '1px solid #d8b4fe'
+            }}
+          >
+            <Crown size={12} color="#9333ea" /> SUPER ADMIN
+          </span>
+        );
+      case ROLES.HEAD_BRAND:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#fdf2f8',
+              color: '#be185d',
+              border: '1px solid #fbcfe8'
+            }}
+          >
+            <Sparkles size={12} color="#ec4899" /> HEAD OF BRAND
+          </span>
+        );
+      case ROLES.BANK_DESIGN:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#f0f9ff',
+              color: '#0369a1',
+              border: '1px solid #bae6fd'
+            }}
+          >
+            <Building2 size={12} color="#0284c7" /> BANK DESIGN
+          </span>
+        );
+      case ROLES.PAY_DESIGN:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              border: '1px solid #bfdbfe'
+            }}
+          >
+            <CreditCard size={12} color="#2563eb" /> PAY DESIGN
+          </span>
+        );
+      case ROLES.COMMS_DESIGN:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#fffbeb',
+              color: '#b45309',
+              border: '1px solid #fde68a'
+            }}
+          >
+            <Megaphone size={12} color="#d97706" /> COMMS DESIGN
+          </span>
+        );
+      case ROLES.PROCUREMENT_OFFICER:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#ecfdf5',
+              color: '#047857',
+              border: '1px solid #a7f3d0'
+            }}
+          >
+            <Truck size={12} color="#059669" /> PROCUREMENT
+          </span>
+        );
+      case ROLES.ADMIN:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#eef2ff',
+              color: '#4338ca',
+              border: '1px solid #c7d2fe'
+            }}
+          >
+            <Shield size={12} color="#6366f1" /> ADMIN
+          </span>
+        );
+      default:
+        return (
+          <span
+            className="badge"
+            style={{
+              padding: '4px 9px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#f8fafc',
+              color: '#475569',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            <Eye size={12} color="#64748b" /> VIEWER
+          </span>
+        );
+    }
+  };
+
+  const renderPrivilegeDescription = (role) => {
+    const norm = normalizeRole(role);
+    switch (norm) {
+      case ROLES.SUPER_ADMIN:
+        return <span style={{ color: '#7e22ce' }}>Full System Access & All Roles</span>;
+      case ROLES.HEAD_BRAND:
+        return <span style={{ color: '#be185d' }}>Brand Governance & Proof Approvals</span>;
+      case ROLES.BANK_DESIGN:
+        return <span style={{ color: '#0369a1' }}>KBZ Bank Asset Library CRUD</span>;
+      case ROLES.PAY_DESIGN:
+        return <span style={{ color: '#1d4ed8' }}>KBZPay Asset Library CRUD</span>;
+      case ROLES.COMMS_DESIGN:
+        return <span style={{ color: '#b45309' }}>Comms Asset Library CRUD</span>;
+      case ROLES.PROCUREMENT_OFFICER:
+        return <span style={{ color: '#047857' }}>Suppliers & Production Orders CRUD</span>;
+      case ROLES.ADMIN:
+        return <span style={{ color: '#059669' }}>Operations & Viewer Account Mgmt</span>;
+      default:
+        return <span style={{ color: '#64748b' }}>Universal Read-Only Access</span>;
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <section className="card" id="users">
@@ -92,7 +284,7 @@ export function UserManagementSection({
             </h2>
             <p>
               {isSuperAdmin
-                ? 'Super Administrator panel: provision and manage Super Admin, Admin, and Viewer roles with full system authority.'
+                ? 'Super Administrator panel: provision and assign role permissions across Brand Assets, Procurement, Operations, and Analytics.'
                 : 'Administrator panel: provision and manage Viewer accounts.'}
             </p>
           </div>
@@ -102,7 +294,7 @@ export function UserManagementSection({
             className="btn btn-primary"
             onClick={onAddUser}
           >
-            <Plus size={16} /> {isSuperAdmin ? 'Create User Account' : 'Create Viewer Account'}
+            <Plus size={16} /> {isSuperAdmin ? 'Provision User Account' : 'Create Viewer Account'}
           </button>
         </div>
 
@@ -117,6 +309,12 @@ export function UserManagementSection({
               <Crown size={13} /> Super Admins
             </div>
             <div style={{ fontSize: '22px', fontWeight: 800, color: '#581c87', marginTop: '2px' }}>{superAdminCount}</div>
+          </div>
+          <div style={{ padding: '14px 16px', background: '#fdf2f8', borderRadius: '10px', border: '1px solid #fbcfe8' }}>
+            <div style={{ fontSize: '12px', color: '#be185d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Sparkles size={13} /> Specialists
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: '#9d174d', marginTop: '2px' }}>{specialistCount}</div>
           </div>
           <div style={{ padding: '14px 16px', background: '#eef2ff', borderRadius: '10px', border: '1px solid #c7d2fe' }}>
             <div style={{ fontSize: '12px', color: '#4338ca', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -159,9 +357,14 @@ export function UserManagementSection({
             className="user-role-select"
           >
             <option value="All">All Roles ({users.length})</option>
-            <option value={ROLES.SUPER_ADMIN}>Super Admins ({superAdminCount})</option>
-            <option value={ROLES.ADMIN}>Admins ({adminCount})</option>
-            <option value={ROLES.VIEWER}>Viewers ({viewerCount})</option>
+            <option value={ROLES.SUPER_ADMIN}>Super Admin ({superAdminCount})</option>
+            <option value={ROLES.HEAD_BRAND}>Head of Brand</option>
+            <option value={ROLES.BANK_DESIGN}>KBZ Bank Design</option>
+            <option value={ROLES.PAY_DESIGN}>KBZPay Design</option>
+            <option value={ROLES.COMMS_DESIGN}>KBZBank Comms Design</option>
+            <option value={ROLES.PROCUREMENT_OFFICER}>Procurement Officer</option>
+            <option value={ROLES.ADMIN}>Administrator ({adminCount})</option>
+            <option value={ROLES.VIEWER}>Viewer ({viewerCount})</option>
           </select>
         </div>
 
@@ -171,7 +374,7 @@ export function UserManagementSection({
               <tr>
                 <th>User</th>
                 <th>Email</th>
-                <th>Role (RBAC)</th>
+                <th>Assigned Role</th>
                 <th>Created Date</th>
                 <th>Privilege Level</th>
                 <th>Actions</th>
@@ -189,7 +392,6 @@ export function UserManagementSection({
                   const targetRole = normalizeRole(u.role);
                   const isSelf = String(u.id) === String(currentUserId) || u.email.toLowerCase() === currentUser?.email?.toLowerCase();
                   const isSuperAdminRole = targetRole === ROLES.SUPER_ADMIN;
-                  const isAdminRole = targetRole === ROLES.ADMIN;
                   const isLastSuperAdmin = isSuperAdminRole && superAdminCount <= 1;
 
                   const editable = canEdit(u);
@@ -231,69 +433,10 @@ export function UserManagementSection({
                         </div>
                       </td>
                       <td style={{ color: '#475569' }}>{u.email}</td>
-                      <td>
-                        {isSuperAdminRole ? (
-                          <span
-                            className="badge"
-                            style={{
-                              padding: '4px 9px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              background: '#f3e8ff',
-                              color: '#7e22ce',
-                              border: '1px solid #d8b4fe'
-                            }}
-                          >
-                            <Crown size={12} color="#9333ea" /> SUPER ADMIN
-                          </span>
-                        ) : isAdminRole ? (
-                          <span
-                            className="badge"
-                            style={{
-                              padding: '4px 9px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              background: '#eef2ff',
-                              color: '#4338ca',
-                              border: '1px solid #c7d2fe'
-                            }}
-                          >
-                            <Shield size={12} /> ADMIN
-                          </span>
-                        ) : (
-                          <span
-                            className="badge"
-                            style={{
-                              padding: '4px 9px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              background: '#eff6ff',
-                              color: '#1d4ed8',
-                              border: '1px solid #bfdbfe'
-                            }}
-                          >
-                            <Eye size={12} /> VIEWER
-                          </span>
-                        )}
-                      </td>
+                      <td>{renderRoleBadge(u.role)}</td>
                       <td>{formatDate(u.createdAt)}</td>
                       <td style={{ fontSize: '12px', fontWeight: 600 }}>
-                        {isSuperAdminRole ? (
-                          <span style={{ color: '#7e22ce' }}>Full System Access & Roles</span>
-                        ) : isAdminRole ? (
-                          <span style={{ color: '#059669' }}>Operations & Viewer Mgmt</span>
-                        ) : (
-                          <span style={{ color: '#64748b' }}>Read-Only (Dashboard)</span>
-                        )}
+                        {renderPrivilegeDescription(u.role)}
                       </td>
                       <td>
                         <div className="table-actions">
@@ -385,7 +528,7 @@ export function UserManagementSection({
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', fontSize: '12px' }}>
                 <span>Role:</span>
                 <strong style={{ color: normalizeRole(deletingUser.role) === ROLES.SUPER_ADMIN ? '#7e22ce' : '#0f172a' }}>
-                  {normalizeRole(deletingUser.role).toUpperCase()}
+                  {normalizeRole(deletingUser.role).toUpperCase().replace(/_/g, ' ')}
                 </strong>
               </div>
 

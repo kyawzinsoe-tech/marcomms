@@ -9,16 +9,54 @@ export function calculateDayDiff(isoDateA, isoDateB) {
   return Math.ceil((b - a) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Formats ISO date or timestamp into DD MMM YYYY safely.
+ * Returns '—' if invalid or missing; never outputs "Invalid Date".
+ */
 export function formatDate(isoDate) {
   if (!isoDate) return '—';
   try {
-    return new Date(`${isoDate}T00:00:00`).toLocaleDateString('en-GB', {
+    const rawStr = String(isoDate).trim();
+    if (!rawStr) return '—';
+
+    // If format is strictly YYYY-MM-DD
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(rawStr)
+      ? new Date(`${rawStr}T00:00:00`)
+      : new Date(rawStr);
+
+    if (isNaN(date.getTime())) {
+      return '—';
+    }
+
+    return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
   } catch {
-    return isoDate;
+    return '—';
+  }
+}
+
+/**
+ * Formats a timestamp into human-readable date & time (e.g. 25 Aug 2026, 03:30 PM)
+ */
+export function formatDateTime(isoDate) {
+  if (!isoDate) return '—';
+  try {
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return '—';
+
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return '—';
   }
 }
 

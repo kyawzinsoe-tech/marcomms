@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users,
   Plus,
@@ -14,11 +14,17 @@ import {
   Truck,
   Sparkles,
   AlertTriangle,
-  Lock
+  Lock,
+  Activity,
+  Laptop,
+  RefreshCw,
+  PowerOff,
+  CheckCircle2
 } from 'lucide-react';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatDateTime } from '../utils/formatters';
 import { ROLES, PERMISSIONS, normalizeRole } from '../config/rbac';
 import { useAuth } from '../context/useAuth';
+import { fetchSessions, revokeSession } from '../services/sessionService';
 
 export function UserManagementSection({
   users,
@@ -31,6 +37,49 @@ export function UserManagementSection({
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [deletingUser, setDeletingUser] = useState(null);
+
+  // Active sessions state
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState(null);
+  const [sessionError, setSessionError] = useState('');
+
+  const loadSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    setSessionError('');
+    try {
+      const data = await fetchSessions();
+      setSessions(data);
+    } catch (err) {
+      setSessionError(err.message || 'Unable to retrieve active sessions.');
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  const handleRevokeSession = async (sessionId, isCurrent) => {
+    if (isCurrent) {
+      if (!window.confirm('You are about to terminate your current session. You will be logged out. Continue?')) {
+        return;
+      }
+    }
+    setRevokingSessionId(sessionId);
+    try {
+      await revokeSession(sessionId);
+      await loadSessions();
+      if (isCurrent) {
+        window.location.reload();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to terminate session.');
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
 
   const superAdminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.SUPER_ADMIN).length, [users]);
   const adminCount = useMemo(() => users.filter((u) => normalizeRole(u.role) === ROLES.ADMIN).length, [users]);
@@ -274,13 +323,14 @@ export function UserManagementSection({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* SECTION 1: Provisioned User Accounts */}
       <section className="card" id="users">
         <div className="card-header">
           <div>
             <h2>
               <Users size={20} color="#6366f1" />
-              Role & User Management (RBAC)
+              Role & User Accounts (RBAC)
             </h2>
             <p>
               {isSuperAdmin
@@ -498,7 +548,184 @@ export function UserManagementSection({
         </div>
       </section>
 
-      {/* Delete Confirmation Modal */}
+      {/* SECTION 2: Active Authenticated Sessions */}
+      <section className="card" id="active-sessions">
+        <div className="card-header">
+          <div>
+            <h2>
+              <Activity size={20} color="#10b981" />
+              Active Login Sessions
+            </h2>
+            <p>
+              {isSuperAdmin
+                ? 'Realtime overview of authenticated users currently logged into the Marcomms Webportal.'
+                : 'Your current active login sessions and authenticated device connections.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={loadSessions}
+            disabled={sessionsLoading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+          >
+            <RefreshCw size={14} className={sessionsLoading ? 'spin' : ''} />
+            Refresh Sessions
+          </button>
+        </div>
+
+        {sessionError && (
+          <div style={{ margin: '16px 20px', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#b91c1c', fontSize: '13px' }}>
+            {sessionError}
+          </div>
+        )}
+
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Authenticated User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Device / Client</th>
+                <th>Login / Last Active</th>
+                <th>Session Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessionsLoading && sessions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <RefreshCw size={16} className="spin" /> Loading active sessions...
+                    </div>
+                  </td>
+                </tr>
+              ) : sessions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                    No active sessions currently recorded.
+                  </td>
+                </tr>
+              ) : (
+                sessions.map((s) => {
+                  const isCurrent = s.isCurrent;
+                  const isRevoking = revokingSessionId === s.id;
+                  const canRevoke = isSuperAdmin || isCurrent;
+
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img
+                            src={s.user?.avatar || '/images/default-avatar.png'}
+                            alt={s.user?.name || 'User'}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '1px solid #e2e8f0'
+                            }}
+                          />
+                          <div>
+                            <strong style={{ color: '#0f172a' }}>{s.user?.name || 'Authenticated User'}</strong>
+                            {isCurrent && (
+                              <span
+                                style={{
+                                  marginLeft: '6px',
+                                  fontSize: '10px',
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  padding: '1px 6px',
+                                  borderRadius: '99px',
+                                  fontWeight: 700
+                                }}
+                              >
+                                THIS DEVICE
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ color: '#475569' }}>{s.user?.email || '—'}</td>
+                      <td>{renderRoleBadge(s.user?.role)}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#334155', fontSize: '13px' }}>
+                          <Laptop size={14} color="#64748b" />
+                          <span>{s.device || 'Web Browser'}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '12.5px' }}>
+                          <div style={{ color: '#0f172a', fontWeight: 600 }}>{formatDateTime(s.lastSeenAt || s.loginAt)}</div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>Logged in: {formatDate(s.loginAt)}</div>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '3px 8px',
+                            borderRadius: '99px',
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            color: '#047857',
+                            fontSize: '11.5px',
+                            fontWeight: 700
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: '#10b981',
+                              boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)'
+                            }}
+                          />
+                          Active
+                        </span>
+                      </td>
+                      <td>
+                        {canRevoke ? (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => handleRevokeSession(s.id, isCurrent)}
+                            disabled={isRevoking}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '12px',
+                              color: '#dc2626',
+                              borderColor: '#fca5a5',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                            title={isCurrent ? 'Log out and end this session' : 'Terminate remote session'}
+                          >
+                            <PowerOff size={12} />
+                            {isRevoking ? 'Ending...' : isCurrent ? 'End Session' : 'Revoke'}
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Delete User Account Confirmation Modal */}
       {deletingUser && (
         <div className="modal-overlay" onClick={() => setDeletingUser(null)}>
           <div className="modal-card" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
@@ -508,7 +735,7 @@ export function UserManagementSection({
               </div>
               <h3 style={{ margin: '0 0 6px', fontSize: '19px', color: '#0f172a' }}>Delete User Account?</h3>
               <p style={{ margin: 0, fontSize: '13.5px', color: '#64748b' }}>
-                Are you sure you want to permanently delete this user?
+                Are you sure you want to permanently delete this user account?
               </p>
             </div>
 

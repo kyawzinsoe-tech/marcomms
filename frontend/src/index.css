@@ -89,7 +89,8 @@ button, input, select, textarea {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  overflow-y: auto;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 20;
 }
@@ -186,7 +187,10 @@ button, input, select, textarea {
 .sidebar-footer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .save-status-card {
@@ -326,6 +330,29 @@ button, input, select, textarea {
 .btn-logout:hover {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
+}
+
+.btn-sidebar-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-sidebar-logout:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ffffff;
 }
 
 /* Main Content Area */

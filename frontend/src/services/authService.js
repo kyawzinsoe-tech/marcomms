@@ -23,7 +23,21 @@ export function getCurrentUser() {
   }
 }
 
-export function logoutUser() {
+export async function logoutUser() {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+    } catch (err) {
+      console.warn('[Auth Service] Logout network call error:', err.message);
+    }
+  }
   localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 

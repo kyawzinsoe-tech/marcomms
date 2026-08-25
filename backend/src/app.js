@@ -11,6 +11,7 @@ const backupRoutes = require('./routes/backupRoutes');
 const assetRoutes = require('./routes/assetRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const productionOrderRoutes = require('./routes/productionOrderRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/production-orders', productionOrderRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 // Error Handling
 app.use(errorHandler);

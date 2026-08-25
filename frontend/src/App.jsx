@@ -27,6 +27,7 @@ import { Building2, CreditCard, Megaphone } from 'lucide-react';
 import { PrintReport } from './components/PrintReport';
 import { Toast } from './components/Toast';
 import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
+import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
 
 function DashboardApp() {
   const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
@@ -246,6 +247,7 @@ function DashboardApp() {
       can(PERMISSIONS.ASSET_READ_BANK) ? 'asset-kbz-bank' : null,
       can(PERMISSIONS.ASSET_READ_PAY) ? 'asset-kbz-pay' : null,
       can(PERMISSIONS.ASSET_READ_COMMS) ? 'asset-kbz-comms' : null,
+      can(PERMISSIONS.SUPPLIER_READ) ? 'suppliers' : null,
       can(PERMISSIONS.USER_VIEW) ? 'users' : null
     ].filter(Boolean);
 
@@ -387,6 +389,13 @@ function DashboardApp() {
             title="KBZBank Comms Asset Library"
             subtitle="Corporate communication templates, press kit lockups, event banners, and PR design materials."
             icon={Megaphone}
+            user={user}
+            onNotify={showToast}
+          />
+        )}
+
+        {can(PERMISSIONS.SUPPLIER_READ) && (
+          <SupplierDirectorySection
             user={user}
             onNotify={showToast}
           />

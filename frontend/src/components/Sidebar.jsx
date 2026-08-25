@@ -11,6 +11,7 @@ import {
   Building2,
   CreditCard,
   Megaphone,
+  Truck,
   User as UserIcon
 } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
@@ -29,6 +30,7 @@ export function Sidebar({
   const canReadBank = user && hasPermission(user, PERMISSIONS.ASSET_READ_BANK);
   const canReadPay = user && hasPermission(user, PERMISSIONS.ASSET_READ_PAY);
   const canReadComms = user && hasPermission(user, PERMISSIONS.ASSET_READ_COMMS);
+  const canReadSuppliers = user && hasPermission(user, PERMISSIONS.SUPPLIER_READ);
   const canViewUsers = user && hasPermission(user, PERMISSIONS.USER_VIEW);
 
   const mainNavItems = [
@@ -43,6 +45,10 @@ export function Sidebar({
     { id: 'asset-kbz-bank', label: 'KBZ Bank', icon: Building2, visible: canReadBank },
     { id: 'asset-kbz-pay', label: 'KBZPay', icon: CreditCard, visible: canReadPay },
     { id: 'asset-kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
+  ].filter((item) => item.visible);
+
+  const procurementItems = [
+    { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers }
   ].filter((item) => item.visible);
 
   const adminNavItems = [
@@ -120,6 +126,26 @@ export function Sidebar({
               Asset Pillars
             </div>
             {renderNavGroup(assetPillarItems)}
+          </div>
+        )}
+
+        {/* Procurement & Vendors Group */}
+        {procurementItems.length > 0 && (
+          <div style={{ marginTop: '20px' }}>
+            <div
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                color: '#94a3b8',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '0 14px 6px',
+                marginBottom: '4px'
+              }}
+            >
+              Procurement & Vendors
+            </div>
+            {renderNavGroup(procurementItems)}
           </div>
         )}
 

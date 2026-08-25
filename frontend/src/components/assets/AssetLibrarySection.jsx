@@ -23,6 +23,7 @@ import {
 } from '../../services/assetService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { AssetModal } from './AssetModal';
+import { ErrorDialog } from '../common/ErrorDialog';
 
 export function AssetLibrarySection({
   library,
@@ -34,7 +35,7 @@ export function AssetLibrarySection({
 }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -62,13 +63,12 @@ export function AssetLibrarySection({
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await fetchAssets({ library });
       setAssets(data);
     } catch (err) {
       console.error(`Error loading assets for ${library}:`, err);
-      setError(err.message || 'Failed to load assets.');
+      setErrorMessage(err.message || `Unable to load ${ASSET_LIBRARY_LABELS[library] || 'brand'} assets from server.`);
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export function AssetLibrarySection({
       setEditingAsset(null);
       await loadAssets();
     } catch (err) {
-      onNotify?.(err.message || 'Failed to save asset.', 'error');
+      setErrorMessage(err.message || 'Unable to save brand asset.');
     } finally {
       setActionLoading(false);
     }
@@ -144,7 +144,7 @@ export function AssetLibrarySection({
         onNotify?.(`Asset "${asset.title}" deleted.`, 'info');
         await loadAssets();
       } catch (err) {
-        onNotify?.(err.message || 'Failed to delete asset.', 'error');
+        setErrorMessage(err.message || 'Unable to delete asset.');
       }
     }
   };
@@ -233,10 +233,6 @@ export function AssetLibrarySection({
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
           <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
           <p>Loading {libraryLabel} assets from repository...</p>
-        </div>
-      ) : error ? (
-        <div style={{ padding: '24px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', color: '#991b1b' }}>
-          <b>Unable to load assets:</b> {error}
         </div>
       ) : filteredAssets.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 20px' }}>
@@ -459,6 +455,14 @@ export function AssetLibrarySection({
           library={library}
         />
       )}
+
+      {/* Centered Error Dialog */}
+      <ErrorDialog
+        isOpen={Boolean(errorMessage)}
+        title="Asset Library Alert"
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
     </section>
   );
 }

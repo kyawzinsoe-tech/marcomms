@@ -24,11 +24,12 @@ import {
 } from '../../services/supplierService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { SupplierModal } from './SupplierModal';
+import { ErrorDialog } from '../common/ErrorDialog';
 
 export function SupplierDirectorySection({ user, onNotify }) {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -50,13 +51,12 @@ export function SupplierDirectorySection({ user, onNotify }) {
 
   const loadSuppliers = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await fetchSuppliers();
       setSuppliers(data);
     } catch (err) {
       console.error('Error loading suppliers:', err);
-      setError(err.message || 'Failed to load supplier directory.');
+      setErrorMessage(err.message || 'Unable to load supplier directory from server.');
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export function SupplierDirectorySection({ user, onNotify }) {
       setEditingSupplier(null);
       await loadSuppliers();
     } catch (err) {
-      onNotify?.(err.message || 'Failed to save supplier profile.', 'error');
+      setErrorMessage(err.message || 'Unable to save supplier profile.');
     }
   };
 
@@ -137,7 +137,7 @@ export function SupplierDirectorySection({ user, onNotify }) {
         onNotify?.(`Supplier "${supplier.name}" deleted.`, 'info');
         await loadSuppliers();
       } catch (err) {
-        onNotify?.(err.message || 'Failed to delete supplier.', 'error');
+        setErrorMessage(err.message || 'Unable to delete supplier.');
       }
     }
   };
@@ -300,10 +300,6 @@ export function SupplierDirectorySection({ user, onNotify }) {
           <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
           <p>Loading procurement suppliers...</p>
         </div>
-      ) : error ? (
-        <div style={{ padding: '24px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', color: '#991b1b' }}>
-          <b>Unable to load suppliers:</b> {error}
-        </div>
       ) : filteredSuppliers.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 20px' }}>
           <div className="empty-state-icon">
@@ -456,6 +452,14 @@ export function SupplierDirectorySection({ user, onNotify }) {
           supplier={editingSupplier}
         />
       )}
+
+      {/* Centered Error Dialog */}
+      <ErrorDialog
+        isOpen={Boolean(errorMessage)}
+        title="Supplier Directory Alert"
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
     </section>
   );
 }

@@ -29,6 +29,7 @@ import { Toast } from './components/Toast';
 import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
 import { ProductionOrdersSection } from './components/production-orders/ProductionOrdersSection';
+import { ErrorDialog } from './components/common/ErrorDialog';
 
 function DashboardApp() {
   const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
@@ -75,6 +76,7 @@ function DashboardApp() {
   const [usersList, setUsersList] = useState([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [appError, setAppError] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -168,7 +170,7 @@ function DashboardApp() {
     }
 
     if (!can(editPerm, targetUser)) {
-      showToast('You do not have permission to edit this account.', 'error');
+      setAppError('You do not have permission to edit this account.');
       return;
     }
     setEditingUser(targetUser);
@@ -190,14 +192,14 @@ function DashboardApp() {
       setIsUserModalOpen(false);
       setEditingUser(null);
     } catch (err) {
-      showToast(err.message, 'error');
+      setAppError(err.message || 'Failed to save user account.');
     }
   };
 
   const handleDeleteUser = async (userId) => {
     const targetUser = usersList.find((u) => String(u.id) === String(userId));
     if (!targetUser) {
-      showToast('User account not found.', 'error');
+      setAppError('User account not found.');
       return;
     }
 
@@ -214,7 +216,7 @@ function DashboardApp() {
     }
 
     if (!can(deletePerm, targetUser, { superAdminCount })) {
-      showToast('You do not have permission to delete this account.', 'error');
+      setAppError('You do not have permission to delete this account.');
       return;
     }
 
@@ -223,7 +225,7 @@ function DashboardApp() {
       await refreshUsers();
       showToast('User account removed successfully.', 'info');
     } catch (err) {
-      showToast(err.message, 'error');
+      setAppError(err.message || 'Failed to delete user account.');
     }
   };
 
@@ -488,6 +490,13 @@ function DashboardApp() {
           />
         </div>
       )}
+
+      <ErrorDialog
+        isOpen={Boolean(appError)}
+        title="Application Alert"
+        message={appError}
+        onClose={() => setAppError(null)}
+      />
     </div>
   );
 }

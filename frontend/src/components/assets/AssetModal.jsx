@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, UploadCloud, FileText, Image as ImageIcon } from 'lucide-react';
+import { X, UploadCloud, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { ASSET_LIBRARY_LABELS } from '../../services/assetService';
 
 const CATEGORY_OPTIONS = [
@@ -30,7 +30,10 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     description: ''
   });
 
+  const [fieldErrors, setFieldErrors] = useState({});
+
   useEffect(() => {
+    setFieldErrors({});
     if (asset) {
       setFormData({
         title: asset.title || '',
@@ -64,16 +67,24 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const errors = {};
+
     if (!formData.title.trim()) {
-      alert('Asset title is required.');
-      return;
+      errors.title = 'Asset title is required.';
     }
     if (!formData.fileUrl.trim()) {
-      alert('File URL or storage link is required.');
+      errors.fileUrl = 'File URL or storage link is required.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -90,7 +101,6 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     };
 
     onSave(payload);
-    onClose();
   };
 
   const libraryName = ASSET_LIBRARY_LABELS[library] || 'Brand';
@@ -111,13 +121,20 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>Asset Title *</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label>Asset Title *</label>
+                {fieldErrors.title && (
+                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <AlertCircle size={12} /> {fieldErrors.title}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
-                required
                 placeholder="e.g. KBZ Bank Primary Lockup - Horizontal"
                 value={formData.title}
                 onChange={(e) => handleChange('title', e.target.value)}
+                style={{ borderColor: fieldErrors.title ? '#ef4444' : undefined }}
               />
             </div>
 
@@ -150,13 +167,20 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
             </div>
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>File URL / S3 Download Link *</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label>File URL / S3 Download Link *</label>
+                {fieldErrors.fileUrl && (
+                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <AlertCircle size={12} /> {fieldErrors.fileUrl}
+                  </span>
+                )}
+              </div>
               <input
                 type="url"
-                required
                 placeholder="https://... or /assets/brand/logo.ai"
                 value={formData.fileUrl}
                 onChange={(e) => handleChange('fileUrl', e.target.value)}
+                style={{ borderColor: fieldErrors.fileUrl ? '#ef4444' : undefined }}
               />
             </div>
 

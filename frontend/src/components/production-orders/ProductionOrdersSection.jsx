@@ -28,13 +28,14 @@ import { fetchSuppliers } from '../../services/supplierService';
 import { fetchAssets } from '../../services/assetService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { ProductionOrderModal } from './ProductionOrderModal';
+import { ErrorDialog } from '../common/ErrorDialog';
 
 export function ProductionOrdersSection({ user, onNotify }) {
   const [orders, setOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +69,6 @@ export function ProductionOrdersSection({ user, onNotify }) {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const [orderData, supplierData, assetData] = await Promise.all([
         fetchProductionOrders().catch(() => []),
@@ -80,7 +80,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
       setAssets(assetData);
     } catch (err) {
       console.error('Error loading production order matrix:', err);
-      setError(err.message || 'Failed to load production orders.');
+      setErrorMessage(err.message || 'Unable to load production orders from server.');
     } finally {
       setLoading(false);
     }
@@ -138,7 +138,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
       setEditingOrder(null);
       await loadAllData();
     } catch (err) {
-      onNotify?.(err.message || 'Failed to save production order.', 'error');
+      setErrorMessage(err.message || 'Unable to save production order.');
     }
   };
 
@@ -149,7 +149,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
       onNotify?.(`Sample proof signed off for "${order.campaignName}".`, 'success');
       await loadAllData();
     } catch (err) {
-      onNotify?.(err.message || 'Failed to sign off proof.', 'error');
+      setErrorMessage(err.message || 'Unable to sign off sample proof.');
     }
   };
 
@@ -161,7 +161,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         onNotify?.(`Production order "${order.orderNumber}" deleted.`, 'info');
         await loadAllData();
       } catch (err) {
-        onNotify?.(err.message || 'Failed to delete order.', 'error');
+        setErrorMessage(err.message || 'Unable to delete production order.');
       }
     }
   };
@@ -309,10 +309,6 @@ export function ProductionOrdersSection({ user, onNotify }) {
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
           <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
           <p>Loading production order matrix...</p>
-        </div>
-      ) : error ? (
-        <div style={{ padding: '24px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', color: '#991b1b' }}>
-          <b>Unable to load production orders:</b> {error}
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 20px' }}>
@@ -522,6 +518,14 @@ export function ProductionOrdersSection({ user, onNotify }) {
           user={user}
         />
       )}
+
+      {/* Centered Error Dialog */}
+      <ErrorDialog
+        isOpen={Boolean(errorMessage)}
+        title="Production Order Alert"
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
     </section>
   );
 }

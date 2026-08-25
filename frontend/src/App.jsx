@@ -20,7 +20,7 @@ import { TokenSection } from './components/TokenSection';
 import { TokenHistoryTable } from './components/TokenHistoryTable';
 import { UserManagementSection } from './components/UserManagementSection';
 import { UserModal } from './components/UserModal';
-import { DataBackup } from './components/DataBackup';
+import { ReportsDataSection } from './components/ReportsDataSection';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { TokenModal } from './components/TokenModal';
 import { Building2, CreditCard, Megaphone } from 'lucide-react';
@@ -363,6 +363,20 @@ function DashboardApp() {
           }}
         />
 
+        <ReportsDataSection
+          reportMonth={reportMonth}
+          selectedYear={selectedYear}
+          subscriptions={state.subscriptions}
+          tokenEntries={selectedMonthEntries}
+          alerts={alerts}
+          fullState={state}
+          isAdmin={isAdmin}
+          onPrint={handlePrint}
+          onImport={importBackup}
+          onReset={resetToDemo}
+          onNotify={showToast}
+        />
+
         {can(PERMISSIONS.ASSET_READ_BANK) && (
           <AssetLibrarySection
             library="kbz_bank"
@@ -421,14 +435,6 @@ function DashboardApp() {
             onDeleteUser={handleDeleteUser}
           />
         )}
-
-        <DataBackup
-          fullState={state}
-          isAdmin={isAdmin}
-          onImport={importBackup}
-          onReset={resetToDemo}
-          onNotify={showToast}
-        />
 
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
           copyright by kbz marcomms.

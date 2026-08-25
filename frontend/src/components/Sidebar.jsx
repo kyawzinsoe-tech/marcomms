@@ -40,7 +40,7 @@ export function Sidebar({
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount },
     { id: 'subscriptions', label: 'Subscriptions', icon: Layers },
     { id: 'tokens', label: 'Token Usage', icon: Zap },
-    { id: 'reports', label: 'Reports & Data', icon: FileText }
+    { id: 'reports', label: 'Reports & Data', icon: FileText, separatorBefore: true }
   ];
 
   const assetPillarItems = [
@@ -72,21 +72,33 @@ export function Sidebar({
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = activeSection === item.id;
+        const hasSeparator = Boolean(item.separatorBefore);
+
         return (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            onClick={(e) => handleNav(item.id, e)}
-            className={`nav-item ${isActive ? 'active' : ''}`}
-          >
-            <div className="nav-item-content">
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </div>
-            {Boolean(item.badge) && (
-              <span className="nav-badge">{item.badge}</span>
+          <React.Fragment key={item.id}>
+            {hasSeparator && (
+              <div
+                style={{
+                  height: '1px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  margin: '8px 4px 8px'
+                }}
+              />
             )}
-          </a>
+            <a
+              href={`#${item.id}`}
+              onClick={(e) => handleNav(item.id, e)}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+            >
+              <div className="nav-item-content">
+                <Icon size={18} />
+                <span>{item.label}</span>
+              </div>
+              {Boolean(item.badge) && (
+                <span className="nav-badge">{item.badge}</span>
+              )}
+            </a>
+          </React.Fragment>
         );
       })}
     </div>

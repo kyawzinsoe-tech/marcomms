@@ -274,6 +274,31 @@ function DashboardApp() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isAuthenticated, isAdmin]);
 
+  // Handle initial hash navigation on load
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const rawHash = window.location.hash.replace('#', '');
+      const aliasMap = {
+        'user-management': 'users',
+        'kbz-bank': 'asset-kbz-bank',
+        'kbz-pay': 'asset-kbz-pay',
+        'kbz-comms': 'asset-kbz-comms',
+        'production': 'production-orders'
+      };
+      const hashId = aliasMap[rawHash] || rawHash;
+      if (hashId) {
+        setActiveSection(hashId);
+        setTimeout(() => {
+          const el = document.getElementById(hashId) || document.getElementById(rawHash);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }
+    }
+  }, [isAuthenticated]);
+
   if (!isAuthenticated) {
     return <LoginPage />;
   }
@@ -502,6 +527,14 @@ function DashboardApp() {
 }
 
 export function App() {
+  // Automatically remove URL query parameters (e.g. ?utm_source=...) on initial load while preserving path and hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <DashboardApp />
@@ -510,3 +543,4 @@ export function App() {
 }
 
 export default App;
+

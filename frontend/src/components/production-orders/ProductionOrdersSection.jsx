@@ -16,7 +16,8 @@ import {
   ArrowUpDown,
   RotateCcw,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from 'lucide-react';
 import {
   fetchProductionOrders,
@@ -28,6 +29,7 @@ import {
 import { fetchSuppliers } from '../../services/supplierService';
 import { fetchAssets } from '../../services/assetService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
+import { exportProductionOrdersToCsv } from '../../utils/exportCsv';
 import { ProductionOrderModal } from './ProductionOrderModal';
 import { ErrorDialog } from '../common/ErrorDialog';
 
@@ -353,6 +355,16 @@ export function ProductionOrdersSection({ user, onNotify }) {
             aria-label="Refresh production orders"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => exportProductionOrdersToCsv(isFilteringActive ? processedOrders : orders)}
+            title="Export production orders to CSV"
+            aria-label="Export production orders CSV"
+          >
+            <Download size={13} /> Export CSV
           </button>
 
           {canCreate && (

@@ -101,7 +101,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
     try {
       await onSave(formData);
       onClose();
-    } catch (err) {
+    } catch {
       // Error handled by parent handler
     } finally {
       setIsSaving(false);

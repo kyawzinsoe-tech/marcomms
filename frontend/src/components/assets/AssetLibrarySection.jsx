@@ -15,7 +15,8 @@ import {
   ArrowUpDown,
   RotateCcw,
   Sparkles,
-  Tag
+  Tag,
+  AlertTriangle
 } from 'lucide-react';
 import {
   fetchAssets,
@@ -42,10 +43,11 @@ export function AssetLibrarySection({
   library,
   title,
   subtitle,
-  icon: IconComponent = Layers,
+  icon,
   user,
   onNotify
 }) {
+  const IconComponent = icon || Layers;
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -56,7 +58,7 @@ export function AssetLibrarySection({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [pendingDeleteAsset, setPendingDeleteAsset] = useState(null);
 
   // RBAC Permission checks for this specific library
   const canWrite = useMemo(() => {
@@ -161,7 +163,6 @@ export function AssetLibrarySection({
   };
 
   const handleSave = async (formData) => {
-    setActionLoading(true);
     try {
       if (editingAsset) {
         await updateAsset(editingAsset.id, formData);
@@ -175,25 +176,23 @@ export function AssetLibrarySection({
       await loadAssets();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to save brand asset.');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  const handleDelete = async (asset) => {
+  const handleDelete = (asset) => {
     if (!canDelete) return;
-    if (
-      window.confirm(
-        `Are you sure you want to PERMANENTLY DELETE asset "${asset.title}"?\n\nThis cannot be undone.`
-      )
-    ) {
-      try {
-        await deleteAsset(asset.id);
-        onNotify?.(`Asset "${asset.title}" deleted.`, 'info');
-        await loadAssets();
-      } catch (err) {
-        setErrorMessage(err.message || 'Unable to delete asset.');
-      }
+    setPendingDeleteAsset(asset);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteAsset) return;
+    try {
+      await deleteAsset(pendingDeleteAsset.id);
+      onNotify?.(`Asset "${pendingDeleteAsset.title}" deleted.`, 'info');
+      setPendingDeleteAsset(null);
+      await loadAssets();
+    } catch (err) {
+      setErrorMessage(err.message || 'Unable to delete asset.');
     }
   };
 
@@ -478,6 +477,64 @@ export function AssetLibrarySection({
           asset={editingAsset}
           library={library}
         />
+      )}
+
+      {/* Safe Delete Confirmation Modal */}
+      {pendingDeleteAsset && (
+        <div className="modal-overlay" onClick={() => setPendingDeleteAsset(null)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-asset-title"
+            style={{ maxWidth: '460px' }}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--danger-light)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'var(--danger-text)',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h3 id="delete-asset-title" style={{ fontSize: '16px' }}>Permanently Delete Asset</h3>
+                  <p style={{ fontSize: '12.5px' }}>{pendingDeleteAsset.title}</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ margin: '14px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete <b>{pendingDeleteAsset.title}</b> from {libraryLabel}? This action cannot be undone.
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setPendingDeleteAsset(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmDelete}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Centered Error Dialog */}

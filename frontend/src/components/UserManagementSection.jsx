@@ -23,12 +23,14 @@ import {
   Filter,
   RotateCcw,
   Loader2,
-  UserX
+  UserX,
+  Download
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../utils/formatters';
 import { ROLES, PERMISSIONS, normalizeRole } from '../config/rbac';
 import { useAuth } from '../context/useAuth';
 import { fetchSessions, revokeSession, revokeAllUserSessions } from '../services/sessionService';
+import { exportUsersToCsv } from '../utils/exportCsv';
 import { ErrorDialog } from './common/ErrorDialog';
 
 export function UserManagementSection({
@@ -405,6 +407,16 @@ export function UserManagementSection({
             aria-label="Refresh active sessions"
           >
             <RefreshCw size={13} className={sessionsLoading ? 'animate-spin' : ''} /> Refresh Sessions
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => exportUsersToCsv(isFilteringActive ? filteredUsers : users)}
+            title="Export user accounts roster to CSV"
+            aria-label="Export user roster CSV"
+          >
+            <Download size={13} /> Export Roster CSV
           </button>
 
           {can(PERMISSIONS.USER_CREATE_VIEWER) && (

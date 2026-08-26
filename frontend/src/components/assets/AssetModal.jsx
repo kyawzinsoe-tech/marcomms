@@ -159,7 +159,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
 
     try {
       await onSave(payload);
-    } catch (err) {
+    } catch {
       // Handled by parent
     } finally {
       setIsSaving(false);

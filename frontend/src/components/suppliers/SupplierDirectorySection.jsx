@@ -19,7 +19,8 @@ import {
   Tag,
   AlertTriangle,
   UserCheck,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react';
 import {
   fetchSuppliers,
@@ -28,6 +29,7 @@ import {
   deleteSupplier
 } from '../../services/supplierService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
+import { exportSuppliersToCsv } from '../../utils/exportCsv';
 import { SupplierModal } from './SupplierModal';
 import { ErrorDialog } from '../common/ErrorDialog';
 
@@ -347,6 +349,16 @@ export function SupplierDirectorySection({ user, onNotify }) {
             aria-label="Refresh supplier directory"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => exportSuppliersToCsv(isFilteringActive ? processedSuppliers : suppliers)}
+            title="Export supplier directory to CSV"
+            aria-label="Export suppliers CSV"
+          >
+            <Download size={13} /> Export CSV
           </button>
 
           {canCreate && (

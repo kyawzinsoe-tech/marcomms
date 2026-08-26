@@ -3,7 +3,6 @@ import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { useDashboardState } from './hooks/useDashboardState';
 import {
-  getStoredUsers,
   fetchUsersApi,
   createUser,
   updateUser,
@@ -30,6 +29,9 @@ import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
 import { ProductionOrdersSection } from './components/production-orders/ProductionOrdersSection';
 import { ErrorDialog } from './components/common/ErrorDialog';
+import { fetchSuppliers } from './services/supplierService';
+import { fetchProductionOrders } from './services/productionOrderService';
+import { fetchAssets } from './services/assetService';
 
 const HASH_MAP = {
   '': 'dashboard',
@@ -63,7 +65,7 @@ const getCanonicalSection = (hash) => {
 };
 
 function DashboardApp() {
-  const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
+  const { user, isSuperAdmin, isAdmin, can, isAuthenticated, logout } = useAuth();
 
   const {
     state,
@@ -106,6 +108,7 @@ function DashboardApp() {
   const [editingToken, setEditingToken] = useState(null);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [printType, setPrintType] = useState(null);
+  const [printData, setPrintData] = useState({ suppliers: [], productionOrders: [], assets: [] });
   const [toast, setToast] = useState(null);
 
   // User Management State (Authoritative from Backend MongoDB)
@@ -318,11 +321,27 @@ function DashboardApp() {
   };
 
   // PDF / Print Generation (Allowed for all authenticated roles)
-  const handlePrint = (type) => {
+  const handlePrint = async (type) => {
+    try {
+      const [supData, poData, bankAssets, payAssets, commsAssets] = await Promise.all([
+        fetchSuppliers().catch(() => []),
+        fetchProductionOrders().catch(() => []),
+        fetchAssets({ library: 'kbz_bank' }).catch(() => []),
+        fetchAssets({ library: 'kbz_pay' }).catch(() => []),
+        fetchAssets({ library: 'kbz_comms' }).catch(() => [])
+      ]);
+      setPrintData({
+        suppliers: supData,
+        productionOrders: poData,
+        assets: [...bankAssets, ...payAssets, ...commsAssets]
+      });
+    } catch {
+      // Degrade gracefully with existing empty state
+    }
     setPrintType(type);
     setTimeout(() => {
       window.print();
-    }, 60);
+    }, 80);
   };
 
   if (!isAuthenticated) {
@@ -631,6 +650,9 @@ function DashboardApp() {
           subscriptions={subscriptions}
           tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
           alerts={alerts}
+          suppliers={printData.suppliers}
+          productionOrders={printData.productionOrders}
+          assets={printData.assets}
         />
       )}
 

@@ -5,6 +5,7 @@ const Supplier = require('../models/Supplier');
 const ProductionOrder = require('../models/ProductionOrder');
 const Setting = require('../models/Setting');
 const { uploadBackupToS3 } = require('../services/s3Service');
+const { logAuditEvent } = require('../utils/auditLogger');
 
 const DEMO_SUBSCRIPTIONS = [
   {
@@ -267,6 +268,21 @@ exports.importBackup = async (req, res, next) => {
       );
     }
 
+    logAuditEvent({
+      actorId: req.user?._id || req.user?.id,
+      actorRole: req.user?.role,
+      action: 'DATABASE_BACKUP_IMPORTED',
+      targetEntity: 'Database',
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      outcome: 'SUCCESS',
+      metadata: {
+        subscriptionsCount: subscriptions.length,
+        tokenEntriesCount: tokenEntries.length,
+        assetsCount: assets.length,
+        suppliersCount: suppliers.length
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: 'System backup imported successfully into MongoDB.'
@@ -293,6 +309,15 @@ exports.resetDemoData = async (req, res, next) => {
       { reportMonth: '2026-08' },
       { upsert: true }
     );
+
+    logAuditEvent({
+      actorId: req.user?._id || req.user?.id,
+      actorRole: req.user?.role,
+      action: 'DATABASE_RESET_DEMO',
+      targetEntity: 'Database',
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      outcome: 'SUCCESS'
+    });
 
     res.status(200).json({
       success: true,

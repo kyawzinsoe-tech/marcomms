@@ -1,0 +1,41 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - 'feat/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test & Build Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install root and workspace dependencies
+        run: |
+          npm ci || npm install
+          npm --prefix frontend install
+          npm --prefix backend install
+
+      - name: Run Automated Test Suite (Frontend & Backend)
+        run: npm test
+
+      - name: Run Frontend Production Build
+        run: npm run build

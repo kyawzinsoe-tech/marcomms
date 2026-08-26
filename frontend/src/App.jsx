@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { useDashboardState } from './hooks/useDashboardState';
 import {
-  getStoredUsers,
   fetchUsersApi,
   createUser,
   updateUser,
@@ -18,18 +17,31 @@ import { AlertsSection } from './components/AlertsSection';
 import { SubscriptionsTable } from './components/SubscriptionsTable';
 import { TokenSection } from './components/TokenSection';
 import { TokenHistoryTable } from './components/TokenHistoryTable';
-import { UserManagementSection } from './components/UserManagementSection';
 import { UserModal } from './components/UserModal';
-import { ReportsDataSection } from './components/ReportsDataSection';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { TokenModal } from './components/TokenModal';
-import { Building2, CreditCard, Megaphone } from 'lucide-react';
-import { PrintReport } from './components/PrintReport';
+import { Building2, CreditCard, Megaphone, Loader2 } from 'lucide-react';
 import { Toast } from './components/Toast';
 import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
 import { ProductionOrdersSection } from './components/production-orders/ProductionOrdersSection';
 import { ErrorDialog } from './components/common/ErrorDialog';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { CommandPalette } from './components/common/CommandPalette';
+
+// Lazy-loaded chunked components for optimized initial bundle loading
+const ReportsDataSection = lazy(() =>
+  import('./components/ReportsDataSection').then((m) => ({ default: m.ReportsDataSection }))
+);
+const UserManagementSection = lazy(() =>
+  import('./components/UserManagementSection').then((m) => ({ default: m.UserManagementSection }))
+);
+const PrintReport = lazy(() =>
+  import('./components/PrintReport').then((m) => ({ default: m.PrintReport }))
+);
+import { fetchSuppliers } from './services/supplierService';
+import { fetchProductionOrders } from './services/productionOrderService';
+import { fetchAssets } from './services/assetService';
 
 const HASH_MAP = {
   '': 'dashboard',
@@ -63,7 +75,7 @@ const getCanonicalSection = (hash) => {
 };
 
 function DashboardApp() {
-  const { user, isSuperAdmin, isAdmin, isViewer, can, isAuthenticated, logout } = useAuth();
+  const { user, isSuperAdmin, isAdmin, can, isAuthenticated, logout } = useAuth();
 
   const {
     state,
@@ -106,7 +118,9 @@ function DashboardApp() {
   const [editingToken, setEditingToken] = useState(null);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [printType, setPrintType] = useState(null);
+  const [printData, setPrintData] = useState({ suppliers: [], productionOrders: [], assets: [] });
   const [toast, setToast] = useState(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // User Management State (Authoritative from Backend MongoDB)
   const [usersList, setUsersList] = useState([]);
@@ -114,9 +128,67 @@ function DashboardApp() {
   const [editingUser, setEditingUser] = useState(null);
   const [appError, setAppError] = useState(null);
 
+  // Client-Side Dark/Light Theme State & Persistence
+  const [theme, setTheme] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('kbz_theme');
+        if (saved === 'dark' || saved === 'light') return saved;
+      }
+    } catch {
+      // Safe fallback for restricted storage environments
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('kbz_theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Preload search/print data for Omnisearch when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.all([
+        fetchSuppliers().catch(() => []),
+        fetchProductionOrders().catch(() => []),
+        fetchAssets({ library: 'kbz_bank' }).catch(() => []),
+        fetchAssets({ library: 'kbz_pay' }).catch(() => []),
+        fetchAssets({ library: 'kbz_comms' }).catch(() => [])
+      ]).then(([supData, poData, bankAssets, payAssets, commsAssets]) => {
+        setPrintData({
+          suppliers: supData || [],
+          productionOrders: poData || [],
+          assets: [...(bankAssets || []), ...(payAssets || []), ...(commsAssets || [])]
+        });
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   const refreshUsers = async () => {
     if (isAuthenticated && isAdmin) {
@@ -318,11 +390,27 @@ function DashboardApp() {
   };
 
   // PDF / Print Generation (Allowed for all authenticated roles)
-  const handlePrint = (type) => {
+  const handlePrint = async (type) => {
+    try {
+      const [supData, poData, bankAssets, payAssets, commsAssets] = await Promise.all([
+        fetchSuppliers().catch(() => []),
+        fetchProductionOrders().catch(() => []),
+        fetchAssets({ library: 'kbz_bank' }).catch(() => []),
+        fetchAssets({ library: 'kbz_pay' }).catch(() => []),
+        fetchAssets({ library: 'kbz_comms' }).catch(() => [])
+      ]);
+      setPrintData({
+        suppliers: supData,
+        productionOrders: poData,
+        assets: [...bankAssets, ...payAssets, ...commsAssets]
+      });
+    } catch {
+      // Degrade gracefully with existing empty state
+    }
     setPrintType(type);
     setTimeout(() => {
       window.print();
-    }, 60);
+    }, 80);
   };
 
   if (!isAuthenticated) {
@@ -343,20 +431,23 @@ function DashboardApp() {
       />
 
       <main className="main-content">
+        <Header
+          activeSection={activeSection}
+          reportMonth={reportMonth}
+          onMonthChange={setReportMonth}
+          onPrintMonthly={() => handlePrint('month')}
+          onPrintYearly={() => handlePrint('year')}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          user={user}
+          isSuperAdmin={isSuperAdmin}
+          isAdmin={isAdmin}
+        />
+
         {/* VIEW 1: EXECUTIVE DASHBOARD */}
         {activeSection === 'dashboard' && (
           <>
-            <Header
-              activeSection="dashboard"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
             <KpiGrid
               totalCount={totalSubscriptionsCount}
               activeCount={activeSubscriptionsCount}
@@ -396,74 +487,37 @@ function DashboardApp() {
 
         {/* VIEW 2: ALERTS & RENEWALS */}
         {activeSection === 'alerts' && (
-          <>
-            <Header
-              activeSection="alerts"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
-            <AlertsSection
-              alerts={alerts}
-              isAdmin={isAdmin}
-              onEditSubscription={handleOpenEditSubscription}
-              onNotify={showToast}
-            />
-          </>
+          <AlertsSection
+            alerts={alerts}
+            isAdmin={isAdmin}
+            onEditSubscription={handleOpenEditSubscription}
+            onNotify={showToast}
+          />
         )}
 
         {/* VIEW 3: SUBSCRIPTIONS */}
         {activeSection === 'subscriptions' && (
-          <>
-            <Header
-              activeSection="subscriptions"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
-            <SubscriptionsTable
-              subscriptions={subscriptions}
-              isAdmin={isAdmin}
-              onAddSubscription={handleOpenAddSubscription}
-              onEditSubscription={handleOpenEditSubscription}
-              onArchiveSubscription={(id) => {
-                if (!isAdmin) return;
-                archiveSubscription(id);
-                showToast('Subscription archived from active view.', 'info');
-              }}
-              onDeleteSubscription={(id) => {
-                if (!isAdmin) return;
-                deleteSubscription(id);
-                showToast('Subscription deleted.', 'info');
-              }}
-            />
-          </>
+          <SubscriptionsTable
+            subscriptions={subscriptions}
+            isAdmin={isAdmin}
+            onAddSubscription={handleOpenAddSubscription}
+            onEditSubscription={handleOpenEditSubscription}
+            onArchiveSubscription={(id) => {
+              if (!isAdmin) return;
+              archiveSubscription(id);
+              showToast('Subscription archived from active view.', 'info');
+            }}
+            onDeleteSubscription={(id) => {
+              if (!isAdmin) return;
+              deleteSubscription(id);
+              showToast('Subscription deleted.', 'info');
+            }}
+          />
         )}
 
         {/* VIEW 4: TOKEN USAGE & ANALYTICS */}
         {activeSection === 'tokens' && (
           <>
-            <Header
-              activeSection="tokens"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
             <TokenSection
               entries={selectedMonthEntries}
               reportMonth={reportMonth}
@@ -498,18 +552,14 @@ function DashboardApp() {
 
         {/* VIEW 5: REPORTS & DATA */}
         {activeSection === 'reports' && (
-          <>
-            <Header
-              activeSection="reports"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
+          <Suspense
+            fallback={
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>Loading Reports & Data Hub...</div>
+              </div>
+            }
+          >
             <ReportsDataSection
               reportMonth={reportMonth}
               selectedYear={selectedYear}
@@ -523,7 +573,7 @@ function DashboardApp() {
               onReset={resetToDemo}
               onNotify={showToast}
             />
-          </>
+          </Suspense>
         )}
 
         {/* VIEW 6: KBZ BANK ASSET LIBRARY */}
@@ -580,15 +630,24 @@ function DashboardApp() {
 
         {/* VIEW 11: USER MANAGEMENT & ACTIVE SESSIONS */}
         {activeSection === 'user-management' && isAdmin && (
-          <UserManagementSection
-            users={usersList}
-            currentUserId={user?.id}
-            currentUserRole={user?.role}
-            isSuperAdmin={isSuperAdmin}
-            onAddUser={handleOpenAddUser}
-            onEditUser={handleOpenEditUser}
-            onDeleteUser={handleDeleteUser}
-          />
+          <Suspense
+            fallback={
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>Loading User Governance Hub...</div>
+              </div>
+            }
+          >
+            <UserManagementSection
+              users={usersList}
+              currentUserId={user?.id}
+              currentUserRole={user?.role}
+              isSuperAdmin={isSuperAdmin}
+              onAddUser={handleOpenAddUser}
+              onEditUser={handleOpenEditUser}
+              onDeleteUser={handleDeleteUser}
+            />
+          </Suspense>
         )}
 
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
@@ -624,14 +683,19 @@ function DashboardApp() {
       )}
 
       {printType && (
-        <PrintReport
-          type={printType}
-          reportMonth={reportMonth}
-          selectedYear={selectedYear}
-          subscriptions={subscriptions}
-          tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
-          alerts={alerts}
-        />
+        <Suspense fallback={null}>
+          <PrintReport
+            type={printType}
+            reportMonth={reportMonth}
+            selectedYear={selectedYear}
+            subscriptions={subscriptions}
+            tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
+            alerts={alerts}
+            suppliers={printData.suppliers}
+            productionOrders={printData.productionOrders}
+            assets={printData.assets}
+          />
+        </Suspense>
       )}
 
       {toast && (
@@ -650,6 +714,23 @@ function DashboardApp() {
         message={appError}
         onClose={() => setAppError(null)}
       />
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={handleNavigate}
+        user={user}
+        isAdmin={isAdmin}
+        subscriptions={subscriptions}
+        assets={printData.assets}
+        suppliers={printData.suppliers}
+        productionOrders={printData.productionOrders}
+        onAddSubscription={handleOpenAddSubscription}
+        onAddToken={handleOpenNewToken}
+        onAddUser={handleOpenAddUser}
+        onPrintMonthly={() => handlePrint('month')}
+        onPrintYearly={() => handlePrint('year')}
+      />
     </div>
   );
 }
@@ -664,9 +745,11 @@ export function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <DashboardApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <DashboardApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

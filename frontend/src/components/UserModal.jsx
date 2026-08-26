@@ -9,7 +9,10 @@ import {
   CreditCard,
   Megaphone,
   Truck,
-  Sparkles
+  Sparkles,
+  User,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { ROLES, normalizeRole } from '../config/rbac';
 
@@ -22,7 +25,7 @@ const ROLE_DEFINITIONS = [
     activeColor: '#6d28d9',
     borderColor: '#8b5cf6',
     bgColor: '#f5f3ff',
-    description: 'Full system authority: provision all roles, manage backups, and configure system data.'
+    description: 'Full system authority: provision all roles, manage backups, configure system data.'
   },
   {
     role: ROLES.HEAD_BRAND,
@@ -104,12 +107,18 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
     role: ROLES.VIEWER
   });
 
+  const [validationErrors, setValidationErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
+    setValidationErrors({});
+    setIsSaving(false);
+
     if (editingUser) {
       setFormData({
         name: editingUser.name || '',
         email: editingUser.email || '',
-        password: editingUser.password || '',
+        password: '',
         role: normalizeRole(editingUser.role)
       });
     } else {
@@ -117,97 +126,224 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
         name: '',
         email: '',
         password: '',
-        role: isSuperAdmin ? ROLES.VIEWER : ROLES.VIEWER
+        role: ROLES.VIEWER
       });
     }
-  }, [editingUser, isOpen, isSuperAdmin]);
+  }, [editingUser, isOpen]);
+
+  // Global Escape key listener
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isSaving) {
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isSaving, onClose]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (validationErrors[field]) {
+      setValidationErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) {
-      alert('Name and Email are required.');
-      return;
+    const errors = {};
+
+    const cleanName = (formData.name || '').trim();
+    const cleanEmail = (formData.email || '').trim().toLowerCase();
+    const cleanPassword = (formData.password || '').trim();
+
+    if (!cleanName) {
+      errors.name = 'Full name is required.';
     }
 
-    if (!editingUser && !formData.password.trim()) {
-      alert('Account password is required for new users.');
+    if (!cleanEmail) {
+      errors.email = 'Work email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      errors.email = 'Please enter a valid email address.';
+    }
+
+    if (!editingUser) {
+      if (!cleanPassword) {
+        errors.password = 'Account password is required for new accounts.';
+      } else if (cleanPassword.length < 6) {
+        errors.password = 'Password must be at least 6 characters long.';
+      }
+    } else if (cleanPassword && cleanPassword.length < 6) {
+      errors.password = 'Password must be at least 6 characters long if being changed.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
       return;
     }
 
     // Role enforcement based on creator privileges
     let finalRole = formData.role;
-    if (!isSuperAdmin) {
+    if (!isSuperAdmin && !editingUser) {
       finalRole = ROLES.VIEWER;
     }
 
-    onSave({
-      ...formData,
+    const payload = {
+      name: cleanName,
+      email: cleanEmail,
       role: finalRole
-    });
-    onClose();
+    };
+
+    if (cleanPassword) {
+      payload.password = cleanPassword;
+    }
+
+    setIsSaving(true);
+    try {
+      await onSave(payload);
+    } catch {
+      // Error handled by parent
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" style={{ maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={isSaving ? undefined : onClose}>
+      <div
+        className="modal-card modal-card-lg"
+        style={{ maxWidth: '620px' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-modal-title"
+      >
+        {/* Header */}
         <div className="modal-header">
           <div>
-            <h3>{editingUser ? 'Edit User Account & Role' : 'Provision User Account'}</h3>
+            <h3 id="user-modal-title">
+              {editingUser ? `Edit Account (${editingUser.name})` : 'Provision New User Account'}
+            </h3>
             <p>Assign designated Role-Based Access Control (RBAC) permissions across Marcomms modules.</p>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-close-modal"
+            onClick={onClose}
+            aria-label="Close dialog"
+            disabled={isSaving}
+          >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div className="form-group">
-              <label>Full Name *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Kyaw Zin Soe"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+        <form onSubmit={handleSubmit} noValidate>
+          {/* Section 1: User Identity & Credentials */}
+          <div className="modal-form-section">
+            <div className="modal-section-title">
+              <User size={15} />
+              <span>1. User Identity & Credentials</span>
             </div>
 
-            <div className="form-group">
-              <label>Work Email *</label>
-              <input
-                type="email"
-                required
-                placeholder="e.g. name@kbzbank.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Account Password {editingUser ? '(leave blank to keep unchanged)' : '*'}</label>
-              <input
-                type="password"
-                required={!editingUser}
-                placeholder={editingUser ? 'Leave blank to keep unchanged' : '••••••••'}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ margin: 0 }}>Assigned Role (RBAC) *</label>
-                {!isSuperAdmin && (
-                  <span style={{ fontSize: '11px', color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Lock size={11} /> Admin can only assign Viewer role
+            <div className="form-grid">
+              <div className="form-group col-span-2">
+                <label htmlFor="user-name">Full Name *</label>
+                <input
+                  id="user-name"
+                  type="text"
+                  required
+                  placeholder="e.g. Kyaw Zin Soe"
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  disabled={isSaving}
+                  autoFocus
+                  aria-invalid={!!validationErrors.name}
+                />
+                {validationErrors.name && (
+                  <span className="field-error-msg" role="alert">
+                    <AlertCircle size={12} /> {validationErrors.name}
                   </span>
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              <div className="form-group col-span-2">
+                <label htmlFor="user-email">Work Email *</label>
+                <input
+                  id="user-email"
+                  type="email"
+                  required
+                  placeholder="e.g. name@kbzbank.com"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  disabled={isSaving}
+                  aria-invalid={!!validationErrors.email}
+                />
+                {validationErrors.email && (
+                  <span className="field-error-msg" role="alert">
+                    <AlertCircle size={12} /> {validationErrors.email}
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group col-span-2">
+                <label htmlFor="user-password">
+                  Account Password {editingUser ? '(leave blank to keep unchanged)' : '*'}
+                </label>
+                <input
+                  id="user-password"
+                  type="password"
+                  required={!editingUser}
+                  placeholder={editingUser ? 'Leave blank to keep existing password' : '•••••••• (min. 6 characters)'}
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  disabled={isSaving}
+                  aria-invalid={!!validationErrors.password}
+                />
+                {validationErrors.password && (
+                  <span className="field-error-msg" role="alert">
+                    <AlertCircle size={12} /> {validationErrors.password}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Role Assignment (RBAC) */}
+          <div className="modal-form-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            <div className="modal-section-title">
+              <Shield size={15} />
+              <span>2. Assigned Role & Access Level (RBAC)</span>
+            </div>
+
+            <div style={{ marginTop: '8px' }}>
+              {!isSuperAdmin && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    background: 'var(--warning-light)',
+                    color: 'var(--warning-text)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '12px',
+                    marginBottom: '12px',
+                    border: '1px solid var(--warning-border)'
+                  }}
+                >
+                  <Lock size={13} />
+                  <span>Standard Administrators can only provision Viewer accounts. Super Admin required for higher roles.</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {isSuperAdmin ? (
                   ROLE_DEFINITIONS.map((def) => {
                     const isSelected = formData.role === def.role;
@@ -215,31 +351,51 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
                     return (
                       <label
                         key={def.role}
+                        htmlFor={`role-option-${def.role}`}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '10px',
-                          padding: '9px 12px',
-                          border: isSelected ? `2px solid ${def.borderColor}` : '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          background: isSelected ? def.bgColor : '#ffffff',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          border: isSelected ? `2px solid ${def.borderColor}` : '1px solid var(--border-light)',
+                          borderRadius: 'var(--radius-md)',
+                          background: isSelected ? def.bgColor : 'var(--bg-surface)',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
                         }}
                       >
                         <input
+                          id={`role-option-${def.role}`}
                           type="radio"
                           name="role"
                           value={def.role}
                           checked={isSelected}
-                          onChange={() => setFormData({ ...formData, role: def.role })}
-                          style={{ margin: 0 }}
+                          onChange={() => handleChange('role', def.role)}
+                          disabled={isSaving}
+                          style={{ margin: 0, width: '16px', height: '16px' }}
                         />
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12.5px', color: def.activeColor }}>
-                            <Icon size={13} color={def.iconColor} /> {def.label}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontWeight: 700,
+                              fontSize: '12.5px',
+                              color: def.activeColor
+                            }}
+                          >
+                            <Icon size={14} color={def.iconColor} /> {def.label}
                           </div>
-                          <span style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.3', display: 'block' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              lineHeight: '1.3',
+                              display: 'block',
+                              marginTop: '2px'
+                            }}
+                          >
                             {def.description}
                           </span>
                         </div>
@@ -247,17 +403,15 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
                     );
                   })
                 ) : (
-                  // Viewer option for standard Admin
-                  <label
+                  <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px 14px',
+                      gap: '12px',
+                      padding: '12px 14px',
                       border: '2px solid #3b82f6',
-                      borderRadius: '8px',
-                      background: '#eff6ff',
-                      cursor: 'pointer'
+                      borderRadius: 'var(--radius-md)',
+                      background: '#eff6ff'
                     }}
                   >
                     <input
@@ -266,35 +420,55 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
                       value={ROLES.VIEWER}
                       checked={true}
                       readOnly
-                      style={{ margin: 0 }}
+                      style={{ margin: 0, width: '16px', height: '16px' }}
                     />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: '#1d4ed8' }}>
-                        <Eye size={14} color="#3b82f6" /> Viewer
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          color: '#1d4ed8'
+                        }}
+                      >
+                        <Eye size={14} color="#3b82f6" /> Viewer (Read-only)
                       </div>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>
-                        Read-only access across dashboard, KPI metrics, asset libraries, and report generation.
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                        Universal read-only access: view executive dashboard, KPI analytics, brand asset libraries, and export reports.
                       </span>
                     </div>
-                  </label>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="modal-footer" style={{ marginTop: '16px' }}>
+          {/* Modal Footer */}
+          <div className="modal-footer" style={{ marginTop: '20px' }}>
             <button
               type="button"
               className="btn btn-outline"
               onClick={onClose}
+              disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="btn btn-primary"
+              disabled={isSaving}
             >
-              {editingUser ? 'Save Changes' : 'Create Account'}
+              {isSaving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Shield size={14} /> {editingUser ? 'Save Changes' : 'Create Account'}
+                </>
+              )}
             </button>
           </div>
         </form>

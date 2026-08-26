@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
+const { logAuditEvent } = require('../utils/auditLogger');
 
 // Helper to find user by MongoDB _id or email safely
 async function findUserFlexible(idOrEmail) {
@@ -84,6 +85,17 @@ exports.createUser = async (req, res, next) => {
       password,
       role: requestedRole,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`
+    });
+
+    logAuditEvent({
+      actorId: requester?.id || requester?._id,
+      actorRole: requester?.role,
+      action: 'USER_CREATED',
+      targetEntity: 'User',
+      targetId: newUser._id,
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      outcome: 'SUCCESS',
+      metadata: { email: cleanEmail, role: requestedRole }
     });
 
     res.status(201).json({
@@ -180,6 +192,17 @@ exports.updateUser = async (req, res, next) => {
 
     await user.save();
 
+    logAuditEvent({
+      actorId: requester?.id || requester?._id,
+      actorRole: requester?.role,
+      action: 'USER_UPDATED',
+      targetEntity: 'User',
+      targetId: user._id,
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      outcome: 'SUCCESS',
+      metadata: { email: user.email, role: user.role }
+    });
+
     res.status(200).json({
       user: {
         id: String(user._id),
@@ -258,6 +281,17 @@ exports.deleteUser = async (req, res, next) => {
     }
 
     await User.findByIdAndDelete(user._id);
+
+    logAuditEvent({
+      actorId: requester?.id || requester?._id,
+      actorRole: requester?.role,
+      action: 'USER_DELETED',
+      targetEntity: 'User',
+      targetId: user._id,
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      outcome: 'SUCCESS',
+      metadata: { deletedUserName: user.name, deletedUserEmail: user.email, deletedUserRole: user.role }
+    });
 
     res.status(200).json({
       message: `User account "${user.name}" (${user.email}) deleted successfully.`,

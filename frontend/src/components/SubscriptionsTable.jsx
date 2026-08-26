@@ -1,6 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Edit, Archive, Trash2, Layers, Filter, CheckCircle2, DollarSign, RotateCcw } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Edit,
+  Archive,
+  Trash2,
+  Layers,
+  Filter,
+  CheckCircle2,
+  DollarSign,
+  RotateCcw,
+  Download,
+  AlertTriangle
+} from 'lucide-react';
 import { formatDate, formatMoney, formatNumber } from '../utils/formatters';
+import { exportSubscriptionsToCsv } from '../utils/exportCsv';
 
 export function SubscriptionsTable({
   subscriptions = [],
@@ -13,6 +27,10 @@ export function SubscriptionsTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [planFilter, setPlanFilter] = useState('All');
+
+  // Confirmation modal states
+  const [pendingArchiveSub, setPendingArchiveSub] = useState(null);
+  const [pendingDeleteSub, setPendingDeleteSub] = useState(null);
 
   // Compute portfolio metrics
   const activeCount = useMemo(() => subscriptions.filter((s) => s.status === 'Active').length, [subscriptions]);
@@ -50,24 +68,21 @@ export function SubscriptionsTable({
     setPlanFilter('All');
   };
 
-  const handleArchive = (sub) => {
-    if (
-      window.confirm(
-        `Archive subscription for "${sub.product}"?\n\nIt will be hidden from the active overview table but securely preserved in backups.`
-      )
-    ) {
-      onArchiveSubscription(sub.id);
-    }
+  const handleExportCsv = () => {
+    const targetData = isFilteringActive ? filtered : subscriptions;
+    exportSubscriptionsToCsv(targetData);
   };
 
-  const handleDelete = (sub) => {
-    if (
-      window.confirm(
-        `Are you sure you want to PERMANENTLY DELETE subscription for "${sub.product}"?\n\nThis cannot be undone.`
-      )
-    ) {
-      onDeleteSubscription(sub.id);
-    }
+  const handleConfirmArchive = () => {
+    if (!pendingArchiveSub) return;
+    onArchiveSubscription(pendingArchiveSub.id);
+    setPendingArchiveSub(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!pendingDeleteSub) return;
+    onDeleteSubscription(pendingDeleteSub.id);
+    setPendingDeleteSub(null);
   };
 
   return (
@@ -85,16 +100,28 @@ export function SubscriptionsTable({
           </p>
         </div>
 
-        {isAdmin && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={onAddSubscription}
-            title="Create a new subscription license record"
+            className="btn btn-outline"
+            onClick={handleExportCsv}
+            title="Export subscriptions to CSV file"
+            aria-label="Export subscriptions CSV"
           >
-            <Plus size={15} /> Add Subscription
+            <Download size={14} /> Export CSV
           </button>
-        )}
+
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onAddSubscription}
+              title="Create a new subscription license record"
+            >
+              <Plus size={15} /> Add Subscription
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Subscription Summary Bar */}
@@ -143,99 +170,91 @@ export function SubscriptionsTable({
         </div>
 
         <div className="select-input-wrap">
+          <Filter size={14} className="filter-input-icon" />
           <select
             value={planFilter}
             onChange={(e) => setPlanFilter(e.target.value)}
-            aria-label="Filter by billing plan"
-            style={{ minWidth: '135px' }}
+            aria-label="Filter by subscription plan"
           >
             <option value="All">All Plans</option>
             <option value="Monthly">Monthly</option>
             <option value="Yearly">Yearly</option>
-            <option value="Pay As You Go">Pay As You Go</option>
-            <option value="Other">Other</option>
+            <option value="Lifetime">Lifetime</option>
+            <option value="Free">Free</option>
           </select>
         </div>
 
         {isFilteringActive && (
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-soft btn-sm"
             onClick={handleResetFilters}
-            title="Clear all active filters"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            title="Clear active search and status filters"
           >
-            <RotateCcw size={12} /> Reset ({filtered.length}/{subscriptions.length})
+            <RotateCcw size={13} /> Reset ({filtered.length}/{subscriptions.length})
           </button>
         )}
       </div>
 
+      {/* Subscription Table */}
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>Product</th>
-              <th>Tool / Service</th>
-              <th>Plan</th>
-              <th>Status</th>
-              <th>Start Date</th>
-              <th>Expiry Date</th>
-              <th style={{ textAlign: 'right' }}>Cost (USD)</th>
-              <th style={{ textAlign: 'right' }}>Initial Tokens</th>
-              <th>Account</th>
-              {isAdmin && <th style={{ textAlign: 'center' }}>Actions</th>}
+              <th scope="col" style={{ width: '18%' }}>Product</th>
+              <th scope="col" style={{ width: '18%' }}>Tool / Service</th>
+              <th scope="col" style={{ width: '11%' }}>Plan</th>
+              <th scope="col" style={{ width: '11%' }}>Status</th>
+              <th scope="col" style={{ width: '14%' }}>Expiry Date</th>
+              <th scope="col" style={{ width: '12%' }}>Cost (USD)</th>
+              <th scope="col" style={{ width: '16%' }}>Account</th>
+              {isAdmin && (
+                <th scope="col" style={{ width: '12%', textAlign: 'center' }}>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 10 : 9} style={{ textAlign: 'center', padding: '36px 20px' }}>
-                  <div className="empty-state" style={{ padding: '8px' }}>
-                    <b>No subscriptions found</b>
-                    <p>
-                      {subscriptions.length === 0
-                        ? 'No subscription records available. Click "Add Subscription" to create one.'
-                        : 'No subscriptions match your search and filter criteria.'}
-                    </p>
-                    {isFilteringActive && (
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={handleResetFilters}
-                        style={{ marginTop: '8px' }}
-                      >
-                        <RotateCcw size={13} /> Reset Filters
-                      </button>
-                    )}
-                  </div>
+                <td
+                  colSpan={isAdmin ? 8 : 7}
+                  style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}
+                >
+                  <Layers size={28} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                  <div>No subscription records matching your filter criteria.</div>
                 </td>
               </tr>
             ) : (
               filtered.map((sub) => (
                 <tr key={sub.id}>
                   <td>
-                    <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{sub.product}</strong>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {sub.product}
+                    </div>
+                    {sub.initialTokens && (
+                      <span className="badge badge-indigo" style={{ marginTop: '3px' }}>
+                        {formatNumber(sub.initialTokens)} Tokens
+                      </span>
+                    )}
                   </td>
-                  <td>{sub.tool || '—'}</td>
                   <td>
-                    <span className="plan-tag">{sub.plan || 'Monthly'}</span>
+                    <div style={{ color: 'var(--text-secondary)' }}>{sub.tool || '—'}</div>
                   </td>
                   <td>
-                    <span
-                      className={`badge ${
-                        sub.status === 'Active' ? 'badge-active' : 'badge-inactive'
-                      }`}
-                    >
+                    <span className={`badge ${sub.plan === 'Yearly' ? 'badge-primary' : 'badge-blue'}`}>
+                      {sub.plan}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-pill status-${sub.status.toLowerCase()}`}>
                       {sub.status}
                     </span>
                   </td>
-                  <td>{formatDate(sub.start)}</td>
-                  <td>{formatDate(sub.expiry)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                    {sub.cost !== '' && sub.cost !== undefined ? formatMoney(sub.cost) : '—'}
+                  <td>
+                    <span style={{ fontWeight: 500 }}>{formatDate(sub.expiry)}</span>
                   </td>
-                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--primary-hover)' }}>
-                    {sub.initialTokens !== '' && sub.initialTokens !== undefined ? formatNumber(sub.initialTokens) : '—'}
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {sub.cost !== '' && !isNaN(Number(sub.cost)) ? formatMoney(sub.cost) : '—'}
                   </td>
                   <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
                     {sub.email || '—'}
@@ -256,7 +275,7 @@ export function SubscriptionsTable({
                           type="button"
                           className="action-btn action-archive"
                           title={`Archive ${sub.product} from dashboard`}
-                          onClick={() => handleArchive(sub)}
+                          onClick={() => setPendingArchiveSub(sub)}
                           aria-label={`Archive ${sub.product}`}
                         >
                           <Archive size={14} />
@@ -265,7 +284,7 @@ export function SubscriptionsTable({
                           type="button"
                           className="action-btn action-delete"
                           title={`Delete ${sub.product} permanently`}
-                          onClick={() => handleDelete(sub)}
+                          onClick={() => setPendingDeleteSub(sub)}
                           aria-label={`Delete ${sub.product}`}
                         >
                           <Trash2 size={14} />
@@ -279,6 +298,122 @@ export function SubscriptionsTable({
           </tbody>
         </table>
       </div>
+
+      {/* Safe Archive Confirmation Modal */}
+      {pendingArchiveSub && (
+        <div className="modal-overlay" onClick={() => setPendingArchiveSub(null)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="archive-sub-title"
+            style={{ maxWidth: '460px' }}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--warning-light)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'var(--warning-text)',
+                    flexShrink: 0
+                  }}
+                >
+                  <Archive size={18} />
+                </div>
+                <div>
+                  <h3 id="archive-sub-title" style={{ fontSize: '16px' }}>Archive Subscription</h3>
+                  <p style={{ fontSize: '12.5px' }}>{pendingArchiveSub.product}</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ margin: '14px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to archive <b>{pendingArchiveSub.product}</b>? It will be hidden from the active overview table but securely preserved in database backups.
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setPendingArchiveSub(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={handleConfirmArchive}
+              >
+                Archive Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Safe Delete Confirmation Modal */}
+      {pendingDeleteSub && (
+        <div className="modal-overlay" onClick={() => setPendingDeleteSub(null)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-sub-title"
+            style={{ maxWidth: '460px' }}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--danger-light)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'var(--danger-text)',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h3 id="delete-sub-title" style={{ fontSize: '16px' }}>Permanently Delete Subscription</h3>
+                  <p style={{ fontSize: '12.5px' }}>{pendingDeleteSub.product}</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ margin: '14px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete the subscription for <b>{pendingDeleteSub.product}</b>? This action cannot be undone.
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setPendingDeleteSub(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmDelete}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { getAuthToken } from './authService';
+import { handleApiResponse } from './api';
 
 /**
  * Dispatches an automated subscription renewal reminder email via the backend API & AWS SES.
@@ -37,7 +38,7 @@ export async function sendEmailReminder(subscription, daysDiff) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(payload)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
 
@@ -51,4 +52,3 @@ export async function sendEmailReminder(subscription, daysDiff) {
     message: data.message || `Subscription renewal reminder sent to ${recipient}`
   };
 }
-

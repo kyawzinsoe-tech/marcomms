@@ -10,11 +10,17 @@ import {
   MapPin,
   Star,
   RefreshCw,
-  FolderOpen,
   CheckCircle2,
   Clock,
-  XCircle,
-  Truck
+  Truck,
+  Filter,
+  ArrowUpDown,
+  RotateCcw,
+  Tag,
+  AlertTriangle,
+  UserCheck,
+  FileText,
+  Download
 } from 'lucide-react';
 import {
   fetchSuppliers,
@@ -23,6 +29,7 @@ import {
   deleteSupplier
 } from '../../services/supplierService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
+import { exportSuppliersToCsv } from '../../utils/exportCsv';
 import { SupplierModal } from './SupplierModal';
 import { ErrorDialog } from '../common/ErrorDialog';
 
@@ -33,15 +40,30 @@ export function SupplierDirectorySection({ user, onNotify }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('name-asc');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
 
+  // Safe Delete Confirmation State
+  const [deletingSupplier, setDeletingSupplier] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // RBAC Permission checks
-  const canWrite = useMemo(() => {
+  const canRead = useMemo(() => {
+    if (!user) return false;
+    return hasPermission(user, PERMISSIONS.SUPPLIER_READ);
+  }, [user]);
+
+  const canCreate = useMemo(() => {
     if (!user) return false;
     return hasPermission(user, PERMISSIONS.SUPPLIER_CREATE);
+  }, [user]);
+
+  const canEdit = useMemo(() => {
+    if (!user) return false;
+    return hasPermission(user, PERMISSIONS.SUPPLIER_UPDATE) || hasPermission(user, PERMISSIONS.SUPPLIER_CREATE);
   }, [user]);
 
   const canDelete = useMemo(() => {
@@ -50,6 +72,10 @@ export function SupplierDirectorySection({ user, onNotify }) {
   }, [user]);
 
   const loadSuppliers = useCallback(async () => {
+    if (!canRead) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchSuppliers();
@@ -60,30 +86,45 @@ export function SupplierDirectorySection({ user, onNotify }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canRead]);
 
   useEffect(() => {
     loadSuppliers();
   }, [loadSuppliers]);
 
-  // Extract unique categories for filter options
+  // Extract unique categories dynamically from supplier records
   const uniqueCategories = useMemo(() => {
     const set = new Set();
     suppliers.forEach((s) => {
       if (Array.isArray(s.categories)) {
-        s.categories.forEach((c) => set.add(c));
+        s.categories.forEach((c) => {
+          const clean = typeof c === 'string' ? c.trim() : '';
+          if (clean) set.add(clean);
+        });
       }
     });
-    return ['All', ...Array.from(set)];
+    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [suppliers]);
 
-  // Filtered Suppliers
-  const filteredSuppliers = useMemo(() => {
-    return suppliers.filter((s) => {
+  // Summary Metrics
+  const metrics = useMemo(() => {
+    const total = suppliers.length;
+    const active = suppliers.filter((s) => s.status === 'Active').length;
+    const underReview = suppliers.filter((s) => s.status === 'Under Review').length;
+    const inactive = suppliers.filter((s) => s.status === 'Inactive').length;
+    const categoryCount = Math.max(0, uniqueCategories.length - 1);
+    const topRated = suppliers.filter((s) => Number(s.rating) >= 5).length;
+    return { total, active, underReview, inactive, categoryCount, topRated };
+  }, [suppliers, uniqueCategories]);
+
+  // Filtered & Sorted Suppliers without mutating state
+  const processedSuppliers = useMemo(() => {
+    const result = suppliers.filter((s) => {
       const matchStatus = statusFilter === 'All' || s.status === statusFilter;
       const matchCat =
         categoryFilter === 'All' ||
-        (Array.isArray(s.categories) && s.categories.includes(categoryFilter));
+        (Array.isArray(s.categories) &&
+          s.categories.some((c) => (c || '').toLowerCase() === categoryFilter.toLowerCase()));
 
       const search = searchTerm.toLowerCase().trim();
       if (!search) return matchStatus && matchCat;
@@ -93,21 +134,73 @@ export function SupplierDirectorySection({ user, onNotify }) {
       const contactMatch = (s.contactPerson || '').toLowerCase().includes(search);
       const emailMatch = (s.email || '').toLowerCase().includes(search);
       const phoneMatch = (s.phone || '').toLowerCase().includes(search);
+      const addressMatch = (s.address || '').toLowerCase().includes(search);
       const noteMatch = (s.notes || '').toLowerCase().includes(search);
+      const catMatch =
+        Array.isArray(s.categories) &&
+        s.categories.some((c) => (c || '').toLowerCase() === search);
 
-      return matchStatus && matchCat && (nameMatch || codeMatch || contactMatch || emailMatch || phoneMatch || noteMatch);
+      return (
+        matchStatus &&
+        matchCat &&
+        (nameMatch ||
+          codeMatch ||
+          contactMatch ||
+          emailMatch ||
+          phoneMatch ||
+          addressMatch ||
+          noteMatch ||
+          catMatch)
+      );
     });
-  }, [suppliers, statusFilter, categoryFilter, searchTerm]);
 
-  // Handlers
+    // Pure non-mutating sort
+    return [...result].sort((a, b) => {
+      if (sortBy === 'name-asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortBy === 'name-desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (sortBy === 'rating-desc') {
+        return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+      }
+      if (sortBy === 'rating-asc') {
+        return (Number(a.rating) || 0) - (Number(b.rating) || 0);
+      }
+      if (sortBy === 'status') {
+        const order = { 'Active': 1, 'Under Review': 2, 'Inactive': 3 };
+        return (order[a.status] || 99) - (order[b.status] || 99);
+      }
+      // 'newest'
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [suppliers, statusFilter, categoryFilter, searchTerm, sortBy]);
+
+  const isFilteringActive =
+    searchTerm.trim() !== '' ||
+    categoryFilter !== 'All' ||
+    statusFilter !== 'All' ||
+    sortBy !== 'name-asc';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('All');
+    setStatusFilter('All');
+    setSortBy('name-asc');
+  };
+
+  // Modal Handlers
   const handleOpenAdd = () => {
-    if (!canWrite) return;
+    if (!canCreate) return;
     setEditingSupplier(null);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (supplier) => {
-    if (!canWrite) return;
+    if (!canEdit) return;
     setEditingSupplier(supplier);
     setIsModalOpen(true);
   };
@@ -129,16 +222,24 @@ export function SupplierDirectorySection({ user, onNotify }) {
     }
   };
 
-  const handleDelete = async (supplier) => {
+  // Safe Delete Handlers
+  const handlePromptDelete = (supplier) => {
     if (!canDelete) return;
-    if (window.confirm(`Permanently remove supplier "${supplier.name}" from the directory?`)) {
-      try {
-        await deleteSupplier(supplier.id);
-        onNotify?.(`Supplier "${supplier.name}" deleted.`, 'info');
-        await loadSuppliers();
-      } catch (err) {
-        setErrorMessage(err.message || 'Unable to delete supplier.');
-      }
+    setDeletingSupplier(supplier);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingSupplier || !canDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSupplier(deletingSupplier.id);
+      onNotify?.(`Supplier "${deletingSupplier.name}" deleted.`, 'info');
+      setDeletingSupplier(null);
+      await loadSuppliers();
+    } catch (err) {
+      setErrorMessage(err.message || 'Unable to delete supplier.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -150,10 +251,10 @@ export function SupplierDirectorySection({ user, onNotify }) {
           style={{
             background: 'var(--success-light)',
             color: 'var(--success-text)',
-            border: '1px solid #a7f3d0'
+            border: '1px solid var(--success-border)'
           }}
         >
-          Active
+          <CheckCircle2 size={11} /> Active
         </span>
       );
     }
@@ -164,10 +265,10 @@ export function SupplierDirectorySection({ user, onNotify }) {
           style={{
             background: 'var(--warning-light)',
             color: 'var(--warning-text)',
-            border: '1px solid #fde68a'
+            border: '1px solid var(--warning-border)'
           }}
         >
-          Under Review
+          <Clock size={11} /> Under Review
         </span>
       );
     }
@@ -175,9 +276,9 @@ export function SupplierDirectorySection({ user, onNotify }) {
       <span
         className="badge"
         style={{
-          background: '#f1f5f9',
-          color: '#64748b',
-          border: '1px solid #cbd5e1'
+          background: 'var(--bg-surface-secondary)',
+          color: 'var(--text-muted)',
+          border: '1px solid var(--border-default)'
         }}
       >
         {status || 'Inactive'}
@@ -188,25 +289,49 @@ export function SupplierDirectorySection({ user, onNotify }) {
   const renderRatingStars = (rating) => {
     const score = Math.max(1, Math.min(5, Number(rating) || 5));
     return (
-      <div style={{ display: 'inline-flex', gap: '2px', color: '#f59e0b' }} title={`${score} / 5 Rating`}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            size={13}
-            fill={star <= score ? '#f59e0b' : 'none'}
-            stroke="#f59e0b"
-          />
-        ))}
+      <div
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+        title={`${score} / 5 Rating`}
+        aria-label={`${score} out of 5 stars`}
+      >
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#b45309' }}>
+          {score.toFixed(1)}
+        </span>
+        <div style={{ display: 'inline-flex', gap: '1.5px', color: '#f59e0b' }}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <Star
+              key={star}
+              size={12}
+              fill={star <= score ? '#f59e0b' : 'none'}
+              stroke="#f59e0b"
+            />
+          ))}
+        </div>
       </div>
     );
   };
 
+  if (!canRead) {
+    return (
+      <section className="card" id="suppliers" aria-label="Procurement Supplier Directory">
+        <div className="empty-state" style={{ padding: '48px 20px' }}>
+          <div className="empty-state-icon">
+            <Building2 size={26} color="var(--danger)" />
+          </div>
+          <b>Access Restricted</b>
+          <p>You do not have permission to view the Procurement Supplier Directory.</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="card" id="suppliers">
+    <section className="card" id="suppliers" aria-label="Procurement Supplier Directory">
+      {/* Module Header */}
       <div className="card-header">
         <div>
           <h2>
-            <Truck size={20} color="#6366f1" />
+            <Truck size={20} color="var(--primary)" />
             Procurement Supplier Directory
           </h2>
           <p>
@@ -214,60 +339,104 @@ export function SupplierDirectorySection({ user, onNotify }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-outline btn-sm"
             onClick={loadSuppliers}
-            title="Refresh directory"
+            title="Refresh directory from repository"
+            disabled={loading}
+            aria-label="Refresh supplier directory"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
 
-          {canWrite && (
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => exportSuppliersToCsv(isFilteringActive ? processedSuppliers : suppliers)}
+            title="Export supplier directory to CSV"
+            aria-label="Export suppliers CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+
+          {canCreate && (
             <button
               type="button"
               className="btn btn-primary"
               onClick={handleOpenAdd}
+              title="Add a new procurement supplier"
+              aria-label="Add a new supplier"
             >
-              <Plus size={16} /> Add Supplier
+              <Plus size={15} /> Add Supplier
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1', minWidth: '240px' }}>
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#94a3b8'
-            }}
-          />
+      {/* Supplier Summary Metrics Bar */}
+      <div className="sub-summary-bar">
+        <div className="sub-summary-item">
+          <Building2 size={14} className="sub-summary-icon" />
+          <span>
+            <b>{metrics.total}</b> Supplier{metrics.total === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        <div className="sub-summary-item">
+          <CheckCircle2 size={14} className="sub-summary-icon success" />
+          <span>
+            <b>{metrics.active}</b> Active Vendor{metrics.active === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {metrics.underReview > 0 && (
+          <div className="sub-summary-item">
+            <Clock size={14} style={{ color: 'var(--warning-text)' }} />
+            <span>
+              <b>{metrics.underReview}</b> Under Review
+            </span>
+          </div>
+        )}
+
+        <div className="sub-summary-item">
+          <Tag size={14} className="sub-summary-icon" />
+          <span>
+            <b>{metrics.categoryCount}</b> Categor{metrics.categoryCount === 1 ? 'y' : 'ies'}
+          </span>
+        </div>
+
+        {isFilteringActive && (
+          <div className="sub-summary-item">
+            <Filter size={14} className="sub-summary-icon cost" />
+            <span>
+              <b>{processedSuppliers.length}</b> Matching Filters
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Command & Filter Bar */}
+      <div className="table-filter-bar">
+        <div className="search-input-wrap">
+          <Search size={15} className="search-input-icon" />
           <input
             type="text"
-            placeholder="Search suppliers by name, code, contact person, or phone..."
+            placeholder="Search suppliers by name, code, contact person, phone, or services..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '36px' }}
+            aria-label="Search suppliers"
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="select-input-wrap">
+          <Tag size={14} className="filter-input-icon" />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-light)',
-              fontSize: '13px'
-            }}
+            aria-label="Filter by service category"
+            style={{ minWidth: '170px' }}
           >
             {uniqueCategories.map((cat) => (
               <option key={cat} value={cat}>
@@ -275,16 +444,15 @@ export function SupplierDirectorySection({ user, onNotify }) {
               </option>
             ))}
           </select>
+        </div>
 
+        <div className="select-input-wrap">
+          <Filter size={14} className="filter-input-icon" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-light)',
-              fontSize: '13px'
-            }}
+            aria-label="Filter by status"
+            style={{ minWidth: '145px' }}
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
@@ -292,130 +460,258 @@ export function SupplierDirectorySection({ user, onNotify }) {
             <option value="Inactive">Inactive</option>
           </select>
         </div>
+
+        <div className="select-input-wrap">
+          <ArrowUpDown size={14} className="filter-input-icon" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort supplier directory"
+            style={{ minWidth: '165px' }}
+          >
+            <option value="name-asc">Sort: Name (A to Z)</option>
+            <option value="name-desc">Sort: Name (Z to A)</option>
+            <option value="rating-desc">Sort: Highest Rating</option>
+            <option value="rating-asc">Sort: Lowest Rating</option>
+            <option value="status">Sort: Status (Active First)</option>
+            <option value="newest">Sort: Recently Added</option>
+          </select>
+        </div>
+
+        {isFilteringActive && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleResetFilters}
+            title="Clear all active search and filter constraints"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <RotateCcw size={12} /> Reset ({processedSuppliers.length}/{suppliers.length})
+          </button>
+        )}
       </div>
 
-      {/* Directory Table */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
-          <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-          <p>Loading procurement suppliers...</p>
+      {/* Category Quick-Select Pills */}
+      {uniqueCategories.length > 2 && (
+        <div
+          className="asset-category-pills"
+          role="tablist"
+          aria-label="Category quick filter pills"
+          style={{ marginBottom: '16px' }}
+        >
+          {uniqueCategories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              role="tab"
+              aria-selected={categoryFilter === cat}
+              className={`asset-cat-btn ${categoryFilter === cat ? 'active' : ''}`}
+              onClick={() => setCategoryFilter(cat)}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
-      ) : filteredSuppliers.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 20px' }}>
+      )}
+
+      {/* Directory Table / Content */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '54px 0', color: 'var(--text-muted)' }}>
+          <RefreshCw size={26} className="animate-spin" style={{ margin: '0 auto 12px', color: 'var(--primary)' }} />
+          <p style={{ fontSize: '13px' }}>Loading procurement suppliers registry...</p>
+        </div>
+      ) : processedSuppliers.length === 0 ? (
+        <div className="empty-state" style={{ padding: '48px 20px' }}>
           <div className="empty-state-icon">
-            <Building2 size={28} color="#6366f1" />
+            <Building2 size={26} color="var(--primary)" />
           </div>
           <b>No suppliers found</b>
           <p>
-            {searchTerm || categoryFilter !== 'All' || statusFilter !== 'All'
-              ? 'No suppliers match the current search filters.'
-              : 'No procurement suppliers registered yet.'}
+            {isFilteringActive
+              ? 'No procurement suppliers match your search and filter criteria.'
+              : 'No procurement suppliers registered in the directory yet.'}
           </p>
-          {canWrite && (
+          {isFilteringActive ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleResetFilters}
+              style={{ marginTop: '8px' }}
+            >
+              <RotateCcw size={13} /> Reset Filters
+            </button>
+          ) : canCreate ? (
             <button
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleOpenAdd}
-              style={{ marginTop: '12px' }}
+              style={{ marginTop: '8px' }}
             >
               <Plus size={14} /> Add First Supplier
             </button>
-          )}
+          ) : null}
         </div>
       ) : (
         <div className="table-container">
-          <table className="table">
+          <table className="table" aria-label="Supplier Directory Table">
             <thead>
               <tr>
-                <th>Vendor / Company</th>
-                <th>Categories</th>
-                <th>Contact Details</th>
-                <th>Location</th>
-                <th>Rating</th>
-                <th>Status</th>
-                {(canWrite || canDelete) && <th style={{ textAlign: 'right' }}>Actions</th>}
+                <th scope="col" style={{ width: '25%' }}>Vendor / Company</th>
+                <th scope="col" style={{ width: '22%' }}>Service Categories</th>
+                <th scope="col" style={{ width: '20%' }}>Contact Person & Info</th>
+                <th scope="col" style={{ width: '15%' }}>Location</th>
+                <th scope="col" style={{ width: '10%' }}>Rating</th>
+                <th scope="col" style={{ width: '8%' }}>Status</th>
+                {(canEdit || canDelete) && (
+                  <th scope="col" style={{ textAlign: 'right', minWidth: '80px' }}>Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {filteredSuppliers.map((supplier) => (
+              {processedSuppliers.map((supplier) => (
                 <tr key={supplier.id}>
+                  {/* Vendor Identity */}
                   <td>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{supplier.name}</div>
-                    {supplier.code && (
-                      <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>
-                        {supplier.code}
-                      </div>
-                    )}
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13.5px' }}>
+                      {supplier.name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
+                      {supplier.code ? (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontFamily: 'var(--font-mono)',
+                            background: 'var(--bg-surface-secondary)',
+                            color: 'var(--text-secondary)',
+                            padding: '1px 6px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '1px solid var(--border-subtle)',
+                            fontWeight: 600
+                          }}
+                        >
+                          {supplier.code}
+                        </span>
+                      ) : null}
+                      {supplier.notes && (
+                        <span
+                          style={{
+                            fontSize: '11.5px',
+                            color: 'var(--text-muted)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                          title={supplier.notes}
+                        >
+                          <FileText size={11} /> Terms attached
+                        </span>
+                      )}
+                    </div>
                   </td>
 
+                  {/* Service Categories */}
                   <td>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '240px' }}>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {Array.isArray(supplier.categories) && supplier.categories.length > 0 ? (
                         supplier.categories.map((cat, idx) => (
                           <span
                             key={idx}
                             style={{
                               fontSize: '11px',
-                              background: '#eef2ff',
-                              color: '#4338ca',
-                              padding: '2px 7px',
+                              background: 'var(--primary-50)',
+                              color: 'var(--primary-active)',
+                              padding: '2px 8px',
                               borderRadius: 'var(--radius-full)',
-                              fontWeight: 500
+                              fontWeight: 600,
+                              border: '1px solid var(--primary-100)'
                             }}
                           >
                             {cat}
                           </span>
                         ))
                       ) : (
-                        <span style={{ color: '#94a3b8', fontSize: '12px' }}>General</span>
+                        <span style={{ color: 'var(--text-subtle)', fontSize: '12px' }}>
+                          General Services
+                        </span>
                       )}
                     </div>
                   </td>
 
+                  {/* Contact Details */}
                   <td>
                     {supplier.contactPerson && (
-                      <div style={{ fontWeight: 500, fontSize: '12.5px', color: '#334155' }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '12.5px',
+                          color: 'var(--text-primary)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        <UserCheck size={12} color="var(--primary)" />
                         {supplier.contactPerson}
                       </div>
                     )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
                       {supplier.phone && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Phone size={11} /> {supplier.phone}
-                        </span>
+                        <a
+                          href={`tel:${supplier.phone.replace(/\s+/g, '')}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'inherit' }}
+                          title={`Call ${supplier.phone}`}
+                          aria-label={`Call ${supplier.phone}`}
+                        >
+                          <Phone size={11} color="var(--text-subtle)" /> {supplier.phone}
+                        </a>
                       )}
                       {supplier.email && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <a
+                          href={`mailto:${supplier.email}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--primary-hover)', textDecoration: 'none' }}
+                          title={`Email ${supplier.email}`}
+                          aria-label={`Email ${supplier.email}`}
+                        >
                           <Mail size={11} /> {supplier.email}
-                        </span>
+                        </a>
                       )}
                     </div>
                   </td>
 
-                  <td style={{ fontSize: '12.5px', color: '#475569', maxWidth: '200px' }}>
+                  {/* Location */}
+                  <td style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                     {supplier.address ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: '4px' }}>
-                        <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px', color: '#94a3b8' }} />
-                        {supplier.address}
+                      <span
+                        style={{ display: 'inline-flex', alignItems: 'flex-start', gap: '4px' }}
+                        title={supplier.address}
+                      >
+                        <MapPin size={13} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--text-subtle)' }} />
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {supplier.address}
+                        </span>
                       </span>
                     ) : (
-                      <span style={{ color: '#94a3b8' }}>—</span>
+                      <span style={{ color: 'var(--text-subtle)' }}>—</span>
                     )}
                   </td>
 
+                  {/* Performance Rating */}
                   <td>{renderRatingStars(supplier.rating)}</td>
 
+                  {/* Status Badge */}
                   <td>{renderStatusBadge(supplier.status)}</td>
 
-                  {(canWrite || canDelete) && (
+                  {/* Actions */}
+                  {(canEdit || canDelete) && (
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        {canWrite && (
+                      <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        {canEdit && (
                           <button
                             type="button"
                             className="action-btn action-edit"
                             onClick={() => handleOpenEdit(supplier)}
-                            title="Edit supplier profile"
+                            title={`Edit ${supplier.name}`}
+                            aria-label={`Edit ${supplier.name}`}
                           >
                             <Edit size={13} />
                           </button>
@@ -424,8 +720,9 @@ export function SupplierDirectorySection({ user, onNotify }) {
                           <button
                             type="button"
                             className="action-btn action-delete"
-                            onClick={() => handleDelete(supplier)}
-                            title="Delete supplier"
+                            onClick={() => handlePromptDelete(supplier)}
+                            title={`Delete ${supplier.name}`}
+                            aria-label={`Delete ${supplier.name}`}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -440,7 +737,7 @@ export function SupplierDirectorySection({ user, onNotify }) {
         </div>
       )}
 
-      {/* Supplier Modal */}
+      {/* Supplier Modal (Create / Edit) */}
       {isModalOpen && (
         <SupplierModal
           isOpen={isModalOpen}
@@ -451,6 +748,68 @@ export function SupplierDirectorySection({ user, onNotify }) {
           onSave={handleSave}
           supplier={editingSupplier}
         />
+      )}
+
+      {/* Safe Delete Confirmation Dialog */}
+      {deletingSupplier && (
+        <div className="modal-overlay" onClick={() => !isDeleting && setDeletingSupplier(null)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            style={{ maxWidth: '480px' }}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--danger-light)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'var(--danger-text)',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h3 id="delete-dialog-title" style={{ fontSize: '16px' }}>Confirm Permanent Deletion</h3>
+                  <p style={{ fontSize: '12.5px' }}>This action cannot be undone.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ margin: '14px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Are you sure you want to permanently remove supplier{' '}
+              <b style={{ color: 'var(--text-primary)' }}>"{deletingSupplier.name}"</b>
+              {deletingSupplier.code ? ` (${deletingSupplier.code})` : ''} from the active procurement registry?
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setDeletingSupplier(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Supplier'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Centered Error Dialog */}

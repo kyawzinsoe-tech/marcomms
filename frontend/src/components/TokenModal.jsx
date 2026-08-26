@@ -86,6 +86,12 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
     if (!formData.tokens || isNaN(Number(formData.tokens)) || Number(formData.tokens) <= 0) {
       errors.tokens = 'Tokens used must be a positive number greater than 0.';
     }
+    if (formData.cost !== '' && formData.cost !== undefined && formData.cost !== null) {
+      const numCost = Number(formData.cost);
+      if (isNaN(numCost) || numCost < 0) {
+        errors.cost = 'Token cost must be a positive number.';
+      }
+    }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -96,7 +102,7 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
     try {
       await onSave(formData);
       onClose();
-    } catch (err) {
+    } catch {
       // Error handled by parent handler
     } finally {
       setIsSaving(false);
@@ -236,7 +242,13 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
                   value={formData.cost}
                   onChange={(e) => handleChange('cost', e.target.value)}
                   disabled={isSaving}
+                  aria-invalid={!!validationErrors.cost}
                 />
+                {validationErrors.cost && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.cost}
+                  </span>
+                )}
               </div>
 
               <div className="form-group col-span-2">

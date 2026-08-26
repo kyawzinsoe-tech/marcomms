@@ -87,11 +87,6 @@ export function Header({
                   ? 'badge-role-admin'
                   : 'badge-role-user'
               }`}
-              style={{
-                background: isSuperAdmin ? '#f3e8ff' : undefined,
-                color: isSuperAdmin ? '#7e22ce' : undefined,
-                border: isSuperAdmin ? '1px solid #d8b4fe' : undefined
-              }}
             >
               {isSuperAdmin ? <Crown size={11} color="#9333ea" /> : isAdmin ? <Shield size={10} /> : <Eye size={10} />}
               {isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMINISTRATOR' : 'VIEWER (READ-ONLY)'}

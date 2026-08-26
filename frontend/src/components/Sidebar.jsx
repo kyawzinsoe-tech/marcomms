@@ -122,60 +122,24 @@ export function Sidebar({
 
       {/* Asset Pillars Group */}
       {assetPillarItems.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: 700,
-              color: '#94a3b8',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 14px 6px',
-              marginBottom: '4px'
-            }}
-          >
-            Asset Pillars
-          </div>
+        <div style={{ marginTop: '18px' }}>
+          <div className="nav-group-header">Asset Pillars</div>
           {renderNavGroup(assetPillarItems)}
         </div>
       )}
 
       {/* Procurement & Vendors Group */}
       {procurementItems.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: 700,
-              color: '#94a3b8',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 14px 6px',
-              marginBottom: '4px'
-            }}
-          >
-            Procurement & Vendors
-          </div>
+        <div style={{ marginTop: '18px' }}>
+          <div className="nav-group-header">Procurement & Vendors</div>
           {renderNavGroup(procurementItems)}
         </div>
       )}
 
       {/* Administration Group */}
       {adminNavItems.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: 700,
-              color: '#94a3b8',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 14px 6px',
-              marginBottom: '4px'
-            }}
-          >
-            Administration
-          </div>
+        <div style={{ marginTop: '18px' }}>
+          <div className="nav-group-header">Administration</div>
           {renderNavGroup(adminNavItems)}
         </div>
       )}
@@ -191,12 +155,12 @@ export function Sidebar({
             </div>
           </div>
         ) : (
-          <div className="save-status-card" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-            <div style={{ color: '#3b82f6', display: 'flex', alignItems: 'center' }}>
+          <div className="save-status-card" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--sidebar-border)' }}>
+            <div style={{ color: '#60a5fa', display: 'flex', alignItems: 'center' }}>
               <Eye size={14} />
             </div>
             <div>
-              <b style={{ color: '#1e3a8a' }}>Viewer Mode</b>
+              <b style={{ color: '#ffffff' }}>Viewer Mode</b>
               <small>Read-only access active</small>
             </div>
           </div>
@@ -226,13 +190,6 @@ export function Sidebar({
                         ? 'badge-role-admin'
                         : 'badge-role-user'
                     }`}
-                    style={{
-                      background: isSuperAdmin ? '#f3e8ff' : undefined,
-                      color: isSuperAdmin ? '#7e22ce' : undefined,
-                      border: isSuperAdmin ? '1px solid #d8b4fe' : undefined,
-                      fontSize: '9.5px',
-                      padding: '2px 6px'
-                    }}
                   >
                     {(user.role || 'viewer').toUpperCase().replace(/_/g, ' ')}
                   </span>

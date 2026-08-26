@@ -1230,7 +1230,7 @@ tbody tr:hover {
 
 .token-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: var(--space-5);
 }
@@ -1239,7 +1239,10 @@ tbody tr:hover {
   background: var(--bg-surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .token-stat-label {
@@ -1247,15 +1250,51 @@ tbody tr:hover {
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .token-stat-value {
   font-family: var(--font-heading);
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
   color: var(--text-primary);
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.token-stat-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  display: block;
+}
+
+.token-burn-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.token-burn-pill.success {
+  background: var(--success-light);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.token-burn-pill.warning {
+  background: var(--warning-light);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
+}
+
+.token-burn-pill.danger {
+  background: var(--danger-light);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
 }
 
 .chart-container {

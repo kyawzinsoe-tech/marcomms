@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const supplierController = require('../controllers/supplierController');
 const productionOrderController = require('../controllers/productionOrderController');
 const subscriptionController = require('../controllers/subscriptionController');
+const tokenController = require('../controllers/tokenController');
 const { ROLES } = require('../config/rbac');
 
 // Helper to create mock response object
@@ -181,6 +182,80 @@ describe('Backend Domain Controller Validation Suite', () => {
         assert.equal(res.jsonData.subscriptions[0].product, 'ChatGPT Plus');
       } finally {
         Subscription.find = originalFind;
+      }
+    });
+  });
+
+  describe('Token Entry Controller Validation', () => {
+    it('rejects invalid token entry ID format on update with 400', async () => {
+      const req = {
+        user: { role: ROLES.ADMIN },
+        params: { id: 'invalid-id' },
+        body: { tokens: 100 }
+      };
+      const res = createMockRes();
+
+      await tokenController.updateTokenEntry(req, res, () => {});
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.jsonData.error, 'Invalid token entry ID format.');
+    });
+
+    it('rejects invalid token entry ID format on archive with 400', async () => {
+      const req = {
+        user: { role: ROLES.ADMIN },
+        params: { id: 'invalid-id' }
+      };
+      const res = createMockRes();
+
+      await tokenController.archiveTokenEntry(req, res, () => {});
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.jsonData.error, 'Invalid token entry ID format.');
+    });
+
+    it('rejects invalid token entry ID format on delete with 400', async () => {
+      const req = {
+        user: { role: ROLES.SUPER_ADMIN },
+        params: { id: 'invalid-id' }
+      };
+      const res = createMockRes();
+
+      await tokenController.deleteTokenEntry(req, res, () => {});
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.jsonData.error, 'Invalid token entry ID format.');
+    });
+
+    it('retrieves token entries and formats output with count', async () => {
+      const TokenEntry = require('../models/TokenEntry');
+      const originalFind = TokenEntry.find;
+
+      TokenEntry.find = () => ({
+        sort: async () => [
+          {
+            _id: 'tok_1',
+            date: '2026-08-20',
+            account: 'designer@kbzbank.com',
+            project: 'Brand Campaign',
+            tokens: 5000,
+            cost: 25,
+            archived: false,
+            createdAt: new Date('2026-08-20')
+          }
+        ]
+      });
+
+      const req = { query: { month: '2026-08' } };
+      const res = createMockRes();
+
+      try {
+        await tokenController.getTokenEntries(req, res, () => {});
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.jsonData.count, 1);
+        assert.equal(res.jsonData.tokenEntries[0].account, 'designer@kbzbank.com');
+      } finally {
+        TokenEntry.find = originalFind;
       }
     });
   });

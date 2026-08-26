@@ -3,16 +3,19 @@ import {
   Plus,
   Search,
   Download,
-  ExternalLink,
   Edit,
   Trash2,
   FileText,
   Image as ImageIcon,
   Layers,
-  Sparkles,
   CheckCircle2,
   RefreshCw,
-  FolderOpen
+  FolderOpen,
+  Filter,
+  ArrowUpDown,
+  RotateCcw,
+  Sparkles,
+  Tag
 } from 'lucide-react';
 import {
   fetchAssets,
@@ -24,6 +27,16 @@ import {
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { AssetModal } from './AssetModal';
 import { ErrorDialog } from '../common/ErrorDialog';
+
+const PREVIEWABLE_IMAGE_TYPES = ['PNG', 'JPG', 'JPEG', 'WEBP', 'SVG', 'GIF'];
+
+function isImagePreviewable(url, fileType) {
+  if (!url || typeof url !== 'string') return false;
+  const type = (fileType || '').toUpperCase().trim();
+  if (PREVIEWABLE_IMAGE_TYPES.includes(type)) return true;
+  const cleanUrl = url.toLowerCase().split('?')[0];
+  return /\.(png|jpe?g|webp|svg|gif)$/.test(cleanUrl);
+}
 
 export function AssetLibrarySection({
   library,
@@ -38,6 +51,7 @@ export function AssetLibrarySection({
   const [errorMessage, setErrorMessage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'title' | 'type'
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,6 +64,14 @@ export function AssetLibrarySection({
     if (library === 'kbz_bank') return hasPermission(user, PERMISSIONS.ASSET_CREATE_BANK);
     if (library === 'kbz_pay') return hasPermission(user, PERMISSIONS.ASSET_CREATE_PAY);
     if (library === 'kbz_comms') return hasPermission(user, PERMISSIONS.ASSET_CREATE_COMMS);
+    return false;
+  }, [user, library]);
+
+  const canEdit = useMemo(() => {
+    if (!user) return false;
+    if (library === 'kbz_bank') return hasPermission(user, PERMISSIONS.ASSET_UPDATE_BANK) || hasPermission(user, PERMISSIONS.ASSET_CREATE_BANK);
+    if (library === 'kbz_pay') return hasPermission(user, PERMISSIONS.ASSET_UPDATE_PAY) || hasPermission(user, PERMISSIONS.ASSET_CREATE_PAY);
+    if (library === 'kbz_comms') return hasPermission(user, PERMISSIONS.ASSET_UPDATE_COMMS) || hasPermission(user, PERMISSIONS.ASSET_CREATE_COMMS);
     return false;
   }, [user, library]);
 
@@ -78,18 +100,18 @@ export function AssetLibrarySection({
     loadAssets();
   }, [loadAssets]);
 
-  // Extract unique categories for filter tabs
+  // Extract unique categories for filter pills
   const categories = useMemo(() => {
     const set = new Set();
     assets.forEach((a) => {
-      if (a.category) set.add(a.category);
+      if (a.category) set.add(a.category.trim());
     });
-    return ['All', ...Array.from(set)];
+    return ['All', ...Array.from(set).sort()];
   }, [assets]);
 
-  // Filtered Assets
-  const filteredAssets = useMemo(() => {
-    return assets.filter((asset) => {
+  // Filtered & Sorted Assets
+  const processedAssets = useMemo(() => {
+    let result = assets.filter((asset) => {
       const matchCat = selectedCategory === 'All' || asset.category === selectedCategory;
       const search = searchTerm.toLowerCase().trim();
       if (!search) return matchCat;
@@ -101,7 +123,29 @@ export function AssetLibrarySection({
 
       return matchCat && (titleMatch || descMatch || catMatch || tagMatch);
     });
-  }, [assets, selectedCategory, searchTerm]);
+
+    // Sorting
+    return result.sort((a, b) => {
+      if (sortBy === 'title') {
+        return (a.title || '').localeCompare(b.title || '');
+      }
+      if (sortBy === 'type') {
+        return (a.fileType || '').localeCompare(b.fileType || '');
+      }
+      // 'newest' (default by createdAt or id descending)
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [assets, selectedCategory, searchTerm, sortBy]);
+
+  const isFilteringActive = searchTerm.trim() !== '' || selectedCategory !== 'All';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('All');
+    setSortBy('newest');
+  };
 
   // Create / Edit Handlers
   const handleOpenAdd = () => {
@@ -111,7 +155,7 @@ export function AssetLibrarySection({
   };
 
   const handleOpenEdit = (asset) => {
-    if (!canWrite) return;
+    if (!canEdit) return;
     setEditingAsset(asset);
     setIsModalOpen(true);
   };
@@ -124,7 +168,7 @@ export function AssetLibrarySection({
         onNotify?.(`Updated "${formData.title}" successfully.`, 'success');
       } else {
         await createAsset({ ...formData, library });
-        onNotify?.(`Uploaded "${formData.title}" to ${ASSET_LIBRARY_LABELS[library]}.`, 'success');
+        onNotify?.(`Uploaded "${formData.title}" to ${ASSET_LIBRARY_LABELS[library] || 'library'}.`, 'success');
       }
       setIsModalOpen(false);
       setEditingAsset(null);
@@ -138,7 +182,11 @@ export function AssetLibrarySection({
 
   const handleDelete = async (asset) => {
     if (!canDelete) return;
-    if (window.confirm(`Permanently delete asset "${asset.title}"? This cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to PERMANENTLY DELETE asset "${asset.title}"?\n\nThis cannot be undone.`
+      )
+    ) {
       try {
         await deleteAsset(asset.id);
         onNotify?.(`Asset "${asset.title}" deleted.`, 'info');
@@ -153,26 +201,29 @@ export function AssetLibrarySection({
   const libraryLabel = ASSET_LIBRARY_LABELS[library] || title;
 
   return (
-    <section className="card" id={sectionId}>
+    <section className="card" id={sectionId} aria-label={`${libraryLabel} Asset Library`}>
+      {/* Header */}
       <div className="card-header">
         <div>
           <h2>
-            <IconComponent size={20} color="#6366f1" />
+            <IconComponent size={18} color="#6366f1" />
             {title || `${libraryLabel} Asset Library`}
           </h2>
           <p>
-            {subtitle || `Official brand identities, vector logomarks, typography, and marketing key visuals for ${libraryLabel}.`}
+            {subtitle ||
+              `Official brand identities, vector logomarks, typography, and marketing key visuals for ${libraryLabel}.`}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-outline btn-sm"
             onClick={loadAssets}
-            title="Refresh assets"
+            title="Refresh brand assets from repository"
+            disabled={loading}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
 
           {canWrite && (
@@ -180,205 +231,182 @@ export function AssetLibrarySection({
               type="button"
               className="btn btn-primary"
               onClick={handleOpenAdd}
+              title={`Upload a new asset to ${libraryLabel}`}
             >
-              <Plus size={16} /> Upload Asset
+              <Plus size={15} /> Upload Asset
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#94a3b8'
-            }}
-          />
+      {/* Library Summary Bar */}
+      <div className="sub-summary-bar">
+        <div className="sub-summary-item">
+          <Layers size={14} className="sub-summary-icon" />
+          <span>
+            <b>{assets.length}</b> Brand Asset{assets.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <div className="sub-summary-item">
+          <CheckCircle2 size={14} className="sub-summary-icon success" />
+          <span>
+            <b>{Math.max(0, categories.length - 1)}</b> Categor{categories.length - 1 === 1 ? 'y' : 'ies'}
+          </span>
+        </div>
+        {isFilteringActive && (
+          <div className="sub-summary-item">
+            <Filter size={14} className="sub-summary-icon cost" />
+            <span>
+              <b>{processedAssets.length}</b> Matching Filters
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Command & Filter Bar */}
+      <div className="table-filter-bar">
+        <div className="search-input-wrap">
+          <Search size={15} className="search-input-icon" />
           <input
             type="text"
             placeholder={`Search ${libraryLabel} assets, tags, or guidelines...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '36px' }}
+            aria-label={`Search ${libraryLabel} assets`}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div className="select-input-wrap">
+          <ArrowUpDown size={14} className="filter-input-icon" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort assets"
+            style={{ minWidth: '150px' }}
+          >
+            <option value="newest">Sort: Newest First</option>
+            <option value="title">Sort: Title (A-Z)</option>
+            <option value="type">Sort: File Type</option>
+          </select>
+        </div>
+
+        {isFilteringActive && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleResetFilters}
+            title="Clear all active filters"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <RotateCcw size={12} /> Reset ({processedAssets.length}/{assets.length})
+          </button>
+        )}
+      </div>
+
+      {/* Category Filter Pills */}
+      {categories.length > 1 && (
+        <div className="asset-category-pills" role="tablist" aria-label="Category filters">
           {categories.map((cat) => (
             <button
               key={cat}
               type="button"
-              className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-outline'}`}
+              role="tab"
+              aria-selected={selectedCategory === cat}
+              className={`asset-cat-btn ${selectedCategory === cat ? 'active' : ''}`}
               onClick={() => setSelectedCategory(cat)}
-              style={{
-                borderRadius: 'var(--radius-full)',
-                fontSize: '12px',
-                padding: '4px 12px'
-              }}
             >
               {cat}
             </button>
           ))}
         </div>
-      </div>
+      )}
 
-      {/* Content Area */}
+      {/* Content Collection */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
-          <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-          <p>Loading {libraryLabel} assets from repository...</p>
+        <div style={{ textAlign: 'center', padding: '54px 0', color: 'var(--text-muted)' }}>
+          <RefreshCw size={26} className="animate-spin" style={{ margin: '0 auto 12px', color: 'var(--primary)' }} />
+          <p style={{ fontSize: '13px' }}>Loading {libraryLabel} repository assets...</p>
         </div>
-      ) : filteredAssets.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 20px' }}>
+      ) : processedAssets.length === 0 ? (
+        <div className="empty-state" style={{ padding: '48px 20px' }}>
           <div className="empty-state-icon">
-            <FolderOpen size={28} color="#6366f1" />
+            <FolderOpen size={24} color="#6366f1" />
           </div>
           <b>No assets found</b>
           <p>
-            {searchTerm || selectedCategory !== 'All'
-              ? 'No assets match your search and filter criteria.'
-              : `No brand assets uploaded to the ${libraryLabel} library yet.`}
+            {isFilteringActive
+              ? 'No brand assets match your search and filter criteria.'
+              : `No brand assets have been uploaded to the ${libraryLabel} library yet.`}
           </p>
-          {canWrite && (
+          {isFilteringActive ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleResetFilters}
+              style={{ marginTop: '8px' }}
+            >
+              <RotateCcw size={13} /> Reset Filters
+            </button>
+          ) : canWrite ? (
             <button
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleOpenAdd}
-              style={{ marginTop: '12px' }}
+              style={{ marginTop: '8px' }}
             >
               <Plus size={14} /> Upload First Asset
             </button>
-          )}
+          ) : null}
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
-            gap: '16px',
-            marginTop: '8px'
-          }}
-        >
-          {filteredAssets.map((asset) => (
-            <div
-              key={asset.id}
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-              }}
-            >
+        <div className="asset-grid">
+          {processedAssets.map((asset) => (
+            <div key={asset.id} className="asset-card">
               <div>
-                {/* Header & Thumbnail/Type Tag */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <span
-                    className="badge"
-                    style={{
-                      background: '#f1f5f9',
-                      color: '#334155',
-                      fontWeight: 700,
-                      fontSize: '10px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}
-                  >
-                    {asset.fileType || 'ASSET'}
-                  </span>
-
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      color: '#64748b',
-                      fontWeight: 600,
-                      background: '#eef2ff',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-full)'
-                    }}
-                  >
-                    {asset.category || 'General'}
-                  </span>
+                {/* Header & Badges */}
+                <div className="asset-card-top">
+                  <span className="asset-type-badge">{asset.fileType || 'ASSET'}</span>
+                  <span className="asset-cat-tag">{asset.category || 'General'}</span>
                 </div>
 
-                {/* Preview Thumbnail if available */}
-                {asset.thumbnailUrl ? (
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '130px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: '#f8fafc',
-                      marginBottom: '12px',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: '1px solid #f1f5f9'
-                    }}
-                  >
+                {/* Preview Thumbnail */}
+                {asset.thumbnailUrl && isImagePreviewable(asset.thumbnailUrl, asset.fileType) ? (
+                  <div className="asset-thumbnail-wrap">
                     <img
                       src={asset.thumbnailUrl}
                       alt={asset.title}
-                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      className="asset-thumbnail-img"
                       onError={(e) => {
                         e.target.style.display = 'none';
                       }}
                     />
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '80px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%)',
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#94a3b8'
-                    }}
-                  >
-                    <ImageIcon size={28} />
+                  <div className="asset-thumbnail-fallback">
+                    {['PDF', 'AI', 'PSD', 'EPS', 'ZIP'].includes((asset.fileType || '').toUpperCase()) ? (
+                      <FileText size={28} />
+                    ) : (
+                      <ImageIcon size={28} />
+                    )}
                   </div>
                 )}
 
                 {/* Title and Description */}
-                <h4 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
+                <h4 className="asset-card-title" title={asset.title}>
                   {asset.title}
                 </h4>
 
                 {asset.description && (
-                  <p style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '10px', lineHeight: '1.4' }}>
+                  <p className="asset-card-desc" title={asset.description}>
                     {asset.description}
                   </p>
                 )}
 
                 {/* Tags */}
                 {Array.isArray(asset.tags) && asset.tags.length > 0 && (
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <div className="asset-tags-wrap">
                     {asset.tags.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          fontSize: '10.5px',
-                          color: '#475569',
-                          background: '#f1f5f9',
-                          padding: '1px 6px',
-                          borderRadius: '4px'
-                        }}
-                      >
+                      <span key={idx} className="asset-tag-pill">
                         #{tag}
                       </span>
                     ))}
@@ -387,41 +415,36 @@ export function AssetLibrarySection({
               </div>
 
               {/* Card Footer & Actions */}
-              <div
-                style={{
-                  borderTop: '1px solid var(--border-subtle)',
-                  paddingTop: '12px',
-                  marginTop: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+              <div className="asset-card-footer">
+                <span className="asset-version-text">
                   v{asset.version || '1.0'}
+                  {asset.fileSize ? ` • ${asset.fileSize} KB` : ''}
                 </span>
 
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div className="asset-card-actions">
                   {asset.fileUrl && (
                     <a
                       href={asset.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-primary btn-sm"
-                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      style={{ textDecoration: 'none' }}
+                      title={`Download ${asset.title}`}
+                      aria-label={`Download ${asset.title}`}
                     >
                       <Download size={13} /> Download
                     </a>
                   )}
 
-                  {canWrite && (
+                  {canEdit && (
                     <button
                       type="button"
                       className="action-btn action-edit"
                       onClick={() => handleOpenEdit(asset)}
-                      title="Edit asset details"
+                      title={`Edit ${asset.title}`}
+                      aria-label={`Edit ${asset.title}`}
                     >
-                      <Edit size={13} />
+                      <Edit size={14} />
                     </button>
                   )}
 
@@ -430,9 +453,10 @@ export function AssetLibrarySection({
                       type="button"
                       className="action-btn action-delete"
                       onClick={() => handleDelete(asset)}
-                      title="Delete asset"
+                      title={`Delete ${asset.title}`}
+                      aria-label={`Delete ${asset.title}`}
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   )}
                 </div>
@@ -459,7 +483,7 @@ export function AssetLibrarySection({
       {/* Centered Error Dialog */}
       <ErrorDialog
         isOpen={Boolean(errorMessage)}
-        title="Asset Library Alert"
+        title="Brand Asset Alert"
         message={errorMessage}
         onClose={() => setErrorMessage(null)}
       />

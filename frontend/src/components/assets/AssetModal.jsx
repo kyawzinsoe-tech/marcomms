@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, UploadCloud, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { X, Loader2, Layers, Link as LinkIcon, Tag, AlertCircle, FileText } from 'lucide-react';
 import { ASSET_LIBRARY_LABELS } from '../../services/assetService';
 
 const CATEGORY_OPTIONS = [
@@ -34,7 +34,7 @@ function isValidUrl(urlString) {
     const parsed = new URL(trimmed);
     return ['http:', 'https:', 's3:', 'drive:'].includes(parsed.protocol) || parsed.hostname.length > 0;
   } catch {
-    // If URL parsing fails, check if it's a domain/link pattern like drive.google.com/...
+    // Check if it's a domain/link pattern like drive.google.com/...
     if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
       return true;
     }
@@ -56,10 +56,12 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     description: ''
   });
 
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setFieldErrors({});
+    setValidationErrors({});
+    setIsSaving(false);
     if (asset) {
       setFormData({
         title: asset.title || '',
@@ -89,16 +91,32 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     }
   }, [asset, library, isOpen]);
 
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => ({ ...prev, [field]: null }));
+    if (validationErrors[field]) {
+      setValidationErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
 
@@ -121,10 +139,11 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     }
 
     if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+      setValidationErrors(errors);
       return;
     }
 
+    setIsSaving(true);
     const payload = {
       ...formData,
       title: cleanTitle,
@@ -138,164 +157,229 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
       description: (formData.description || '').trim()
     };
 
-    onSave(payload);
+    try {
+      await onSave(payload);
+    } catch (err) {
+      // Handled by parent
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const libraryName = ASSET_LIBRARY_LABELS[library] || 'Brand';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+      <div
+        className="modal-card modal-card-lg"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="asset-modal-title"
+      >
         <div className="modal-header">
           <div>
-            <h3>{asset ? `Edit ${libraryName} Asset` : `Upload to ${libraryName} Library`}</h3>
+            <h3 id="asset-modal-title">
+              {asset ? `Edit ${libraryName} Asset` : `Upload to ${libraryName} Library`}
+            </h3>
             <p>Publish or update official brand assets, specifications, and download packages.</p>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-close-modal"
+            onClick={onClose}
+            aria-label="Close dialog"
+            disabled={isSaving}
+          >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Asset Title *</label>
-                {fieldErrors.title && (
-                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                    <AlertCircle size={12} /> {fieldErrors.title}
+          {/* Section 1: Asset Identity & Classification */}
+          <div className="modal-form-section">
+            <div className="modal-section-title">
+              <Layers size={15} />
+              <span>1. Asset Identity & Classification</span>
+            </div>
+            <div className="form-grid">
+              <div className="form-group col-span-2">
+                <label htmlFor="asset-title">Asset Title *</label>
+                <input
+                  id="asset-title"
+                  type="text"
+                  required
+                  placeholder="e.g. KBZ Primary Logo (Vertical Lockup - RGB)"
+                  value={formData.title}
+                  onChange={(e) => handleChange('title', e.target.value)}
+                  disabled={isSaving}
+                  autoFocus
+                  aria-invalid={!!validationErrors.title}
+                />
+                {validationErrors.title && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.title}
                   </span>
                 )}
               </div>
-              <input
-                type="text"
-                placeholder="e.g. KBZ Bank Primary Lockup - Horizontal"
-                value={formData.title}
-                onChange={(e) => handleChange('title', e.target.value)}
-                style={{ borderColor: fieldErrors.title ? '#ef4444' : undefined }}
-              />
-            </div>
 
-            <div className="form-group">
-              <label>Category *</label>
-              <select
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
-              >
-                {CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="form-group">
+                <label htmlFor="asset-category">Asset Category *</label>
+                <select
+                  id="asset-category"
+                  value={formData.category}
+                  onChange={(e) => handleChange('category', e.target.value)}
+                  disabled={isSaving}
+                >
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>File Format / Type</label>
-              <select
-                value={formData.fileType}
-                onChange={(e) => handleChange('fileType', e.target.value)}
-              >
-                {FILE_TYPE_OPTIONS.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <div className="form-group">
+                <label htmlFor="asset-version">Version</label>
+                <input
+                  id="asset-version"
+                  type="text"
+                  placeholder="1.0"
+                  value={formData.version}
+                  onChange={(e) => handleChange('version', e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
             </div>
+          </div>
 
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>File URL / S3 / Google Drive Download Link *</label>
-                {fieldErrors.fileUrl && (
-                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                    <AlertCircle size={12} /> {fieldErrors.fileUrl}
+          {/* Section 2: Storage & Preview Links */}
+          <div className="modal-form-section">
+            <div className="modal-section-title">
+              <LinkIcon size={15} />
+              <span>2. Storage Links & Specifications</span>
+            </div>
+            <div className="form-grid">
+              <div className="form-group col-span-2">
+                <label htmlFor="asset-file-url">File Download URL / Cloud Storage Link *</label>
+                <input
+                  id="asset-file-url"
+                  type="text"
+                  required
+                  placeholder="https://drive.google.com/... or https://assets.company.com/logo.ai"
+                  value={formData.fileUrl}
+                  onChange={(e) => handleChange('fileUrl', e.target.value)}
+                  disabled={isSaving}
+                  aria-invalid={!!validationErrors.fileUrl}
+                />
+                {validationErrors.fileUrl && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.fileUrl}
                   </span>
                 )}
               </div>
-              <input
-                type="text"
-                placeholder="https://drive.google.com/... or https://s3.amazonaws.com/... or /assets/logo.png"
-                value={formData.fileUrl}
-                onChange={(e) => handleChange('fileUrl', e.target.value)}
-                style={{ borderColor: fieldErrors.fileUrl ? '#ef4444' : undefined }}
-              />
-            </div>
 
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Preview / Thumbnail Image URL (Optional)</label>
-                {fieldErrors.thumbnailUrl && (
-                  <span style={{ fontSize: '11.5px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                    <AlertCircle size={12} /> {fieldErrors.thumbnailUrl}
+              <div className="form-group col-span-2">
+                <label htmlFor="asset-thumb-url">Image Thumbnail / Preview URL (Optional)</label>
+                <input
+                  id="asset-thumb-url"
+                  type="text"
+                  placeholder="https://assets.company.com/thumbnails/logo-preview.png"
+                  value={formData.thumbnailUrl}
+                  onChange={(e) => handleChange('thumbnailUrl', e.target.value)}
+                  disabled={isSaving}
+                  aria-invalid={!!validationErrors.thumbnailUrl}
+                />
+                {validationErrors.thumbnailUrl && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.thumbnailUrl}
                   </span>
                 )}
               </div>
-              <input
-                type="text"
-                placeholder="https://... (Optional image preview for card display; leave empty if none)"
-                value={formData.thumbnailUrl}
-                onChange={(e) => handleChange('thumbnailUrl', e.target.value)}
-                style={{ borderColor: fieldErrors.thumbnailUrl ? '#ef4444' : undefined }}
-              />
-            </div>
 
-            <div className="form-group">
-              <label>File Size (Bytes or KB)</label>
-              <input
-                type="number"
-                min="0"
-                placeholder="e.g. 2400000"
-                value={formData.fileSize}
-                onChange={(e) => handleChange('fileSize', e.target.value)}
-              />
-            </div>
+              <div className="form-group">
+                <label htmlFor="asset-file-type">File Type *</label>
+                <select
+                  id="asset-file-type"
+                  value={formData.fileType}
+                  onChange={(e) => handleChange('fileType', e.target.value)}
+                  disabled={isSaving}
+                >
+                  {FILE_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>Version</label>
-              <input
-                type="text"
-                placeholder="e.g. 1.0, 2026-Q3"
-                value={formData.version}
-                onChange={(e) => handleChange('version', e.target.value)}
-              />
+              <div className="form-group">
+                <label htmlFor="asset-file-size">File Size (KB)</label>
+                <input
+                  id="asset-file-size"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 2400"
+                  value={formData.fileSize}
+                  onChange={(e) => handleChange('fileSize', e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
             </div>
+          </div>
 
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>Search Tags (comma separated)</label>
+          {/* Section 3: Metadata & Tagging */}
+          <div className="modal-form-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            <div className="modal-section-title">
+              <Tag size={15} />
+              <span>3. Metadata & Brand Guidelines</span>
+            </div>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label htmlFor="asset-tags">Search Tags (Comma-separated)</label>
               <input
+                id="asset-tags"
                 type="text"
-                placeholder="e.g. primary, vector, cmyk, print, dark-mode"
+                placeholder="e.g. logo, vector, primary, blue, cmyk, print"
                 value={formData.tags}
                 onChange={(e) => handleChange('tags', e.target.value)}
+                disabled={isSaving}
               />
             </div>
 
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>Description & Usage Guidelines</label>
+            <div className="form-group">
+              <label htmlFor="asset-desc">Usage Guidelines & Context</label>
               <textarea
+                id="asset-desc"
                 rows={3}
-                placeholder="Usage rules, clear-space requirements, color codes..."
+                placeholder="Optional notes on minimum clear space, acceptable background colors, or campaign restrictions..."
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-light)',
-                  fontFamily: 'inherit',
-                  fontSize: '13px'
-                }}
+                disabled={isSaving}
               />
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              <UploadCloud size={16} /> Save Asset
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Saving...
+                </>
+              ) : (
+                'Save Asset'
+              )}
             </button>
           </div>
         </form>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Printer, Sparkles, Crown, Shield, Eye } from 'lucide-react';
+import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search } from 'lucide-react';
 
 export function Header({
   activeSection = 'dashboard',
@@ -7,6 +7,7 @@ export function Header({
   onMonthChange,
   onPrintMonthly,
   onPrintYearly,
+  onOpenCommandPalette,
   user,
   isSuperAdmin,
   isAdmin
@@ -53,6 +54,56 @@ export function Header({
           showMonthPicker: true,
           showPrint: true
         };
+      case 'kbz-bank':
+        return {
+          eyebrow: 'BRAND IDENTITY & GUIDELINES',
+          title: 'KBZ Bank Brand Assets',
+          desc: 'Official vector logomarks, typography specifications, key visuals, and marketing collateral templates.',
+          showMonthPicker: false,
+          showPrint: false
+        };
+      case 'kbz-pay':
+        return {
+          eyebrow: 'DIGITAL WALLET & APP ASSETS',
+          title: 'KBZPay Brand Assets',
+          desc: 'Mobile application icon sets, merchant partner lockups, digital campaign banners, and UX design systems.',
+          showMonthPicker: false,
+          showPrint: false
+        };
+      case 'kbz-comms':
+        return {
+          eyebrow: 'CORPORATE COMMUNICATIONS & PR',
+          title: 'KBZBank Comms Brand Assets',
+          desc: 'Official press kit lockups, media releases, executive announcements, and public relations design materials.',
+          showMonthPicker: false,
+          showPrint: false
+        };
+      case 'suppliers':
+        return {
+          eyebrow: 'PROCUREMENT & FABRICATION',
+          title: 'Procurement Supplier Directory',
+          desc: 'Master directory of approved printing houses, merchandise fabricators, POSM production vendors, and agencies.',
+          showMonthPicker: false,
+          showPrint: false
+        };
+      case 'production-orders':
+        return {
+          eyebrow: 'FABRICATION & QUALITY CONTROL',
+          title: 'Production Orders Matrix',
+          desc: 'Purchase orders tracker, print specifications, fabrication milestones, and Head of Brand sample proof sign-offs.',
+          showMonthPicker: false,
+          showPrint: false
+        };
+      case 'user-management':
+        return {
+          eyebrow: 'SECURITY & RBAC GOVERNANCE',
+          title: 'User Management & Active Sessions',
+          desc: isSuperAdmin
+            ? 'Super Administrator governance: provision 8-tier RBAC accounts, assign specialist roles, and monitor active sessions.'
+            : 'Administrator control: manage Viewer accounts and inspect user access roles.',
+          showMonthPicker: false,
+          showPrint: false
+        };
       case 'dashboard':
       default:
         return {
@@ -98,6 +149,45 @@ export function Header({
       </div>
 
       <div className="header-controls">
+        {/* Global Omnisearch / Command Palette Trigger */}
+        <button
+          type="button"
+          className="search-trigger-btn"
+          onClick={onOpenCommandPalette}
+          title="Open command palette and global omnisearch (⌘K)"
+          aria-label="Search or jump to (Cmd+K)"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '7px 12px',
+            background: 'var(--bg-surface-secondary, #f1f5f9)',
+            border: '1px solid var(--border-default, #e2e8f0)',
+            borderRadius: '8px',
+            color: 'var(--text-muted, #64748b)',
+            fontSize: '12.5px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Search size={14} color="var(--primary, #6366f1)" />
+          <span>Search or jump to...</span>
+          <kbd
+            style={{
+              padding: '1px 5px',
+              fontSize: '10.5px',
+              fontWeight: 700,
+              background: 'var(--bg-surface, #ffffff)',
+              border: '1px solid var(--border-default, #cbd5e1)',
+              borderRadius: '4px',
+              color: 'var(--text-secondary, #475569)',
+              marginLeft: '4px'
+            }}
+          >
+            ⌘K
+          </kbd>
+        </button>
+
         {headerInfo.showMonthPicker && (
           <label className="month-picker-label">
             <span>Report Month</span>

@@ -29,6 +29,8 @@ import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
 import { ProductionOrdersSection } from './components/production-orders/ProductionOrdersSection';
 import { ErrorDialog } from './components/common/ErrorDialog';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { CommandPalette } from './components/common/CommandPalette';
 import { fetchSuppliers } from './services/supplierService';
 import { fetchProductionOrders } from './services/productionOrderService';
 import { fetchAssets } from './services/assetService';
@@ -110,6 +112,7 @@ function DashboardApp() {
   const [printType, setPrintType] = useState(null);
   const [printData, setPrintData] = useState({ suppliers: [], productionOrders: [], assets: [] });
   const [toast, setToast] = useState(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // User Management State (Authoritative from Backend MongoDB)
   const [usersList, setUsersList] = useState([]);
@@ -120,6 +123,38 @@ function DashboardApp() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Preload search/print data for Omnisearch when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.all([
+        fetchSuppliers().catch(() => []),
+        fetchProductionOrders().catch(() => []),
+        fetchAssets({ library: 'kbz_bank' }).catch(() => []),
+        fetchAssets({ library: 'kbz_pay' }).catch(() => []),
+        fetchAssets({ library: 'kbz_comms' }).catch(() => [])
+      ]).then(([supData, poData, bankAssets, payAssets, commsAssets]) => {
+        setPrintData({
+          suppliers: supData || [],
+          productionOrders: poData || [],
+          assets: [...(bankAssets || []), ...(payAssets || []), ...(commsAssets || [])]
+        });
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   const refreshUsers = async () => {
     if (isAuthenticated && isAdmin) {
@@ -362,20 +397,21 @@ function DashboardApp() {
       />
 
       <main className="main-content">
+        <Header
+          activeSection={activeSection}
+          reportMonth={reportMonth}
+          onMonthChange={setReportMonth}
+          onPrintMonthly={() => handlePrint('month')}
+          onPrintYearly={() => handlePrint('year')}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          user={user}
+          isSuperAdmin={isSuperAdmin}
+          isAdmin={isAdmin}
+        />
+
         {/* VIEW 1: EXECUTIVE DASHBOARD */}
         {activeSection === 'dashboard' && (
           <>
-            <Header
-              activeSection="dashboard"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
             <KpiGrid
               totalCount={totalSubscriptionsCount}
               activeCount={activeSubscriptionsCount}
@@ -415,74 +451,37 @@ function DashboardApp() {
 
         {/* VIEW 2: ALERTS & RENEWALS */}
         {activeSection === 'alerts' && (
-          <>
-            <Header
-              activeSection="alerts"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
-            <AlertsSection
-              alerts={alerts}
-              isAdmin={isAdmin}
-              onEditSubscription={handleOpenEditSubscription}
-              onNotify={showToast}
-            />
-          </>
+          <AlertsSection
+            alerts={alerts}
+            isAdmin={isAdmin}
+            onEditSubscription={handleOpenEditSubscription}
+            onNotify={showToast}
+          />
         )}
 
         {/* VIEW 3: SUBSCRIPTIONS */}
         {activeSection === 'subscriptions' && (
-          <>
-            <Header
-              activeSection="subscriptions"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
-            <SubscriptionsTable
-              subscriptions={subscriptions}
-              isAdmin={isAdmin}
-              onAddSubscription={handleOpenAddSubscription}
-              onEditSubscription={handleOpenEditSubscription}
-              onArchiveSubscription={(id) => {
-                if (!isAdmin) return;
-                archiveSubscription(id);
-                showToast('Subscription archived from active view.', 'info');
-              }}
-              onDeleteSubscription={(id) => {
-                if (!isAdmin) return;
-                deleteSubscription(id);
-                showToast('Subscription deleted.', 'info');
-              }}
-            />
-          </>
+          <SubscriptionsTable
+            subscriptions={subscriptions}
+            isAdmin={isAdmin}
+            onAddSubscription={handleOpenAddSubscription}
+            onEditSubscription={handleOpenEditSubscription}
+            onArchiveSubscription={(id) => {
+              if (!isAdmin) return;
+              archiveSubscription(id);
+              showToast('Subscription archived from active view.', 'info');
+            }}
+            onDeleteSubscription={(id) => {
+              if (!isAdmin) return;
+              deleteSubscription(id);
+              showToast('Subscription deleted.', 'info');
+            }}
+          />
         )}
 
         {/* VIEW 4: TOKEN USAGE & ANALYTICS */}
         {activeSection === 'tokens' && (
           <>
-            <Header
-              activeSection="tokens"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
             <TokenSection
               entries={selectedMonthEntries}
               reportMonth={reportMonth}
@@ -517,32 +516,19 @@ function DashboardApp() {
 
         {/* VIEW 5: REPORTS & DATA */}
         {activeSection === 'reports' && (
-          <>
-            <Header
-              activeSection="reports"
-              reportMonth={reportMonth}
-              onMonthChange={setReportMonth}
-              onPrintMonthly={() => handlePrint('month')}
-              onPrintYearly={() => handlePrint('year')}
-              user={user}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-            />
-
-            <ReportsDataSection
-              reportMonth={reportMonth}
-              selectedYear={selectedYear}
-              subscriptions={state.subscriptions}
-              tokenEntries={selectedMonthEntries}
-              alerts={alerts}
-              fullState={state}
-              isAdmin={isAdmin}
-              onPrint={handlePrint}
-              onImport={importBackup}
-              onReset={resetToDemo}
-              onNotify={showToast}
-            />
-          </>
+          <ReportsDataSection
+            reportMonth={reportMonth}
+            selectedYear={selectedYear}
+            subscriptions={state.subscriptions}
+            tokenEntries={selectedMonthEntries}
+            alerts={alerts}
+            fullState={state}
+            isAdmin={isAdmin}
+            onPrint={handlePrint}
+            onImport={importBackup}
+            onReset={resetToDemo}
+            onNotify={showToast}
+          />
         )}
 
         {/* VIEW 6: KBZ BANK ASSET LIBRARY */}
@@ -672,6 +658,23 @@ function DashboardApp() {
         message={appError}
         onClose={() => setAppError(null)}
       />
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={handleNavigate}
+        user={user}
+        isAdmin={isAdmin}
+        subscriptions={subscriptions}
+        assets={printData.assets}
+        suppliers={printData.suppliers}
+        productionOrders={printData.productionOrders}
+        onAddSubscription={handleOpenAddSubscription}
+        onAddToken={handleOpenNewToken}
+        onAddUser={handleOpenAddUser}
+        onPrintMonthly={() => handlePrint('month')}
+        onPrintYearly={() => handlePrint('year')}
+      />
     </div>
   );
 }
@@ -686,9 +689,11 @@ export function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <DashboardApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <DashboardApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

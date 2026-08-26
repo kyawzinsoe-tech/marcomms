@@ -1,4 +1,6 @@
 import { getAuthToken } from './authService';
+import { handleApiResponse } from './api';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 export const ASSET_LIBRARIES = {
   KBZ_BANK: 'kbz_bank',
@@ -38,12 +40,12 @@ export async function fetchAssets(params = {}) {
   }
 
   const queryString = query.toString() ? `?${query.toString()}` : '';
-  const response = await fetch(`/api/assets${queryString}`, {
+  const response = await fetchWithRetry(`/api/assets${queryString}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -64,12 +66,12 @@ export async function fetchAssetById(id) {
     throw new Error('Authentication required.');
   }
 
-  const response = await fetch(`/api/assets/${id}`, {
+  const response = await fetchWithRetry(`/api/assets/${id}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -97,7 +99,7 @@ export async function createAsset(assetData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(assetData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -126,7 +128,7 @@ export async function updateAsset(id, assetData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(assetData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -152,7 +154,7 @@ export async function deleteAsset(id) {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

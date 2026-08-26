@@ -1,4 +1,6 @@
 import { getAuthToken } from './authService';
+import { handleApiResponse } from './api';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 export const PRODUCTION_STATUSES = [
   'Draft',
@@ -35,12 +37,12 @@ export async function fetchProductionOrders(params = {}) {
   }
 
   const queryString = query.toString() ? `?${query.toString()}` : '';
-  const response = await fetch(`/api/production-orders${queryString}`, {
+  const response = await fetchWithRetry(`/api/production-orders${queryString}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -61,12 +63,12 @@ export async function fetchProductionOrderById(id) {
     throw new Error('Authentication required.');
   }
 
-  const response = await fetch(`/api/production-orders/${id}`, {
+  const response = await fetchWithRetry(`/api/production-orders/${id}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -94,7 +96,7 @@ export async function createProductionOrder(orderData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(orderData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -123,7 +125,7 @@ export async function updateProductionOrder(id, orderData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(orderData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -149,7 +151,7 @@ export async function deleteProductionOrder(id) {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

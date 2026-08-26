@@ -1,4 +1,6 @@
 import { getAuthToken } from './authService';
+import { handleApiResponse } from './api';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 /**
  * Fetch procurement suppliers from the backend API
@@ -26,12 +28,12 @@ export async function fetchSuppliers(params = {}) {
   }
 
   const queryString = query.toString() ? `?${query.toString()}` : '';
-  const response = await fetch(`/api/suppliers${queryString}`, {
+  const response = await fetchWithRetry(`/api/suppliers${queryString}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -52,12 +54,12 @@ export async function fetchSupplierById(id) {
     throw new Error('Authentication required.');
   }
 
-  const response = await fetch(`/api/suppliers/${id}`, {
+  const response = await fetchWithRetry(`/api/suppliers/${id}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -85,7 +87,7 @@ export async function createSupplier(supplierData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(supplierData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -114,7 +116,7 @@ export async function updateSupplier(id, supplierData) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(supplierData)
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -140,7 +142,7 @@ export async function deleteSupplier(id) {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

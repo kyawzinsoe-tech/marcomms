@@ -1,4 +1,6 @@
 import { getAuthToken } from './authService';
+import { handleApiResponse } from './api';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 /**
  * Fetch list of active sessions from the server
@@ -12,11 +14,11 @@ export async function fetchSessions() {
   }
 
   try {
-    const res = await fetch('/api/sessions', {
+    const res = await fetchWithRetry('/api/sessions', {
       headers: {
         Authorization: `Bearer ${token}`
       }
-    });
+    }).then(handleApiResponse);
 
     if (!res.ok) {
       return [];
@@ -46,7 +48,7 @@ export async function revokeSession(sessionId) {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -72,7 +74,7 @@ export async function revokeAllUserSessions(userId) {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  });
+  }).then(handleApiResponse);
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

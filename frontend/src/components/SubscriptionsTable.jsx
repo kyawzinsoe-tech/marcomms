@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Edit, Archive, Trash2, Layers, Filter } from 'lucide-react';
+import { Plus, Search, Edit, Archive, Trash2, Layers, Filter, CheckCircle2, DollarSign, RotateCcw } from 'lucide-react';
 import { formatDate, formatMoney, formatNumber } from '../utils/formatters';
 
 export function SubscriptionsTable({
-  subscriptions,
+  subscriptions = [],
   isAdmin = true,
   onAddSubscription,
   onEditSubscription,
@@ -12,25 +12,48 @@ export function SubscriptionsTable({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [planFilter, setPlanFilter] = useState('All');
+
+  // Compute portfolio metrics
+  const activeCount = useMemo(() => subscriptions.filter((s) => s.status === 'Active').length, [subscriptions]);
+  const knownMonthlyCost = useMemo(() => {
+    return subscriptions
+      .filter((s) => s.status === 'Active' && s.plan === 'Monthly' && s.cost !== '' && !isNaN(Number(s.cost)))
+      .reduce((sum, s) => sum + Number(s.cost), 0);
+  }, [subscriptions]);
 
   const filtered = useMemo(() => {
     return subscriptions.filter((sub) => {
+      const q = searchTerm.toLowerCase().trim();
       const matchSearch =
-        sub.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sub.tool.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (sub.email && sub.email.toLowerCase().includes(searchTerm.toLowerCase()));
-      
+        !q ||
+        sub.product.toLowerCase().includes(q) ||
+        (sub.tool && sub.tool.toLowerCase().includes(q)) ||
+        (sub.email && sub.email.toLowerCase().includes(q)) ||
+        (sub.purchaseNote && sub.purchaseNote.toLowerCase().includes(q));
+
       const matchStatus =
         statusFilter === 'All' || sub.status === statusFilter;
 
-      return matchSearch && matchStatus;
+      const matchPlan =
+        planFilter === 'All' || sub.plan === planFilter;
+
+      return matchSearch && matchStatus && matchPlan;
     });
-  }, [subscriptions, searchTerm, statusFilter]);
+  }, [subscriptions, searchTerm, statusFilter, planFilter]);
+
+  const isFilteringActive = searchTerm.trim() !== '' || statusFilter !== 'All' || planFilter !== 'All';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('All');
+    setPlanFilter('All');
+  };
 
   const handleArchive = (sub) => {
     if (
       window.confirm(
-        `Remove "${sub.product}" from the active dashboard? (Data is preserved and can be restored from backup)`
+        `Archive subscription for "${sub.product}"?\n\nIt will be hidden from the active overview table but securely preserved in backups.`
       )
     ) {
       onArchiveSubscription(sub.id);
@@ -40,7 +63,7 @@ export function SubscriptionsTable({
   const handleDelete = (sub) => {
     if (
       window.confirm(
-        `Permanently delete subscription for "${sub.product}"? This cannot be undone.`
+        `Are you sure you want to PERMANENTLY DELETE subscription for "${sub.product}"?\n\nThis cannot be undone.`
       )
     ) {
       onDeleteSubscription(sub.id);
@@ -57,8 +80,8 @@ export function SubscriptionsTable({
           </h2>
           <p>
             {isAdmin
-              ? 'Manage plans, renewal schedules, reminder notifications, and Magnific token allotments.'
-              : 'Overview of active creative tools, billing intervals, and associated accounts.'}
+              ? 'Manage creative tool subscriptions, plans, renewal schedules, and Magnific token allocations.'
+              : 'Overview of active creative tools, billing plans, and associated accounts.'}
           </p>
         </div>
 
@@ -74,6 +97,23 @@ export function SubscriptionsTable({
         )}
       </div>
 
+      {/* Subscription Summary Bar */}
+      <div className="sub-summary-bar">
+        <div className="sub-summary-item">
+          <Layers size={14} className="sub-summary-icon" />
+          <span><b>{subscriptions.length}</b> Total Licenses</span>
+        </div>
+        <div className="sub-summary-item">
+          <CheckCircle2 size={14} className="sub-summary-icon success" />
+          <span><b>{activeCount}</b> Active Plans</span>
+        </div>
+        <div className="sub-summary-item">
+          <DollarSign size={14} className="sub-summary-icon cost" />
+          <span><b>{formatMoney(knownMonthlyCost)}</b>/mo Active Cost</span>
+        </div>
+      </div>
+
+      {/* Multi-Filter Controls */}
       <div className="table-filter-bar">
         <div className="search-input-wrap">
           <Search
@@ -82,7 +122,7 @@ export function SubscriptionsTable({
           />
           <input
             type="text"
-            placeholder="Search subscriptions, tools, or accounts..."
+            placeholder="Search by product, tool, email, or note..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Search subscriptions"
@@ -97,10 +137,37 @@ export function SubscriptionsTable({
             aria-label="Filter by subscription status"
           >
             <option value="All">All Statuses ({subscriptions.length})</option>
-            <option value="Active">Active Only</option>
-            <option value="Inactive">Inactive Only</option>
+            <option value="Active">Active ({activeCount})</option>
+            <option value="Inactive">Inactive ({subscriptions.length - activeCount})</option>
           </select>
         </div>
+
+        <div className="select-input-wrap">
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            aria-label="Filter by billing plan"
+            style={{ minWidth: '135px' }}
+          >
+            <option value="All">All Plans</option>
+            <option value="Monthly">Monthly</option>
+            <option value="Yearly">Yearly</option>
+            <option value="Pay As You Go">Pay As You Go</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        {isFilteringActive && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleResetFilters}
+            title="Clear all active filters"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <RotateCcw size={12} /> Reset ({filtered.length}/{subscriptions.length})
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -130,6 +197,16 @@ export function SubscriptionsTable({
                         ? 'No subscription records available. Click "Add Subscription" to create one.'
                         : 'No subscriptions match your search and filter criteria.'}
                     </p>
+                    {isFilteringActive && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={handleResetFilters}
+                        style={{ marginTop: '8px' }}
+                      >
+                        <RotateCcw size={13} /> Reset Filters
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -169,7 +246,7 @@ export function SubscriptionsTable({
                         <button
                           type="button"
                           className="action-btn action-edit"
-                          title="Edit subscription"
+                          title={`Edit ${sub.product} subscription`}
                           onClick={() => onEditSubscription(sub)}
                           aria-label={`Edit ${sub.product}`}
                         >
@@ -178,7 +255,7 @@ export function SubscriptionsTable({
                         <button
                           type="button"
                           className="action-btn action-archive"
-                          title="Remove from dashboard (Archive)"
+                          title={`Archive ${sub.product} from dashboard`}
                           onClick={() => handleArchive(sub)}
                           aria-label={`Archive ${sub.product}`}
                         >
@@ -187,7 +264,7 @@ export function SubscriptionsTable({
                         <button
                           type="button"
                           className="action-btn action-delete"
-                          title="Delete permanently"
+                          title={`Delete ${sub.product} permanently`}
                           onClick={() => handleDelete(sub)}
                           aria-label={`Delete ${sub.product}`}
                         >

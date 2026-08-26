@@ -1,6 +1,6 @@
 /* ==========================================================================
    MARCOMMS WEBPORTAL — GLOBAL DESIGN SYSTEM & APPLICATION SHELL
-   Phase 2A & 2B Foundation
+   Phase 2A, 2B & 2C Foundation
    ========================================================================== */
 
 :root {
@@ -818,7 +818,7 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 /* ==========================================================================
-   Alerts Section
+   Alerts Section & Filter Tabs
    ========================================================================== */
 
 .alert-card {
@@ -829,6 +829,35 @@ input:disabled, select:disabled, textarea:disabled {
 .alert-header-icon {
   color: var(--danger);
   flex-shrink: 0;
+}
+
+.alert-header-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.alert-summary-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.alert-summary-pill.danger {
+  background: var(--danger-light);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+.alert-summary-pill.warning {
+  background: var(--warning-light);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
 }
 
 .count-pill {
@@ -851,6 +880,39 @@ input:disabled, select:disabled, textarea:disabled {
   background: var(--primary-50);
   color: var(--primary-hover);
   border: 1px solid var(--primary-200);
+}
+
+.alert-filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.alert-tab-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-surface-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.alert-tab-btn:hover {
+  background: var(--bg-surface-tertiary);
+  color: var(--text-primary);
+}
+
+.alert-tab-btn.active {
+  background: var(--primary-gradient);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: var(--shadow-xs);
 }
 
 .alert-list {
@@ -955,8 +1017,45 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 /* ==========================================================================
-   Table & Filter Bar
+   Subscription Summary Bar & Filter Controls
    ========================================================================== */
+
+.sub-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sub-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sub-summary-item b {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.sub-summary-icon {
+  color: var(--primary);
+}
+
+.sub-summary-icon.success {
+  color: var(--success);
+}
+
+.sub-summary-icon.cost {
+  color: #0d9488;
+}
 
 .table-filter-bar {
   display: flex;
@@ -1256,7 +1355,7 @@ tbody tr:hover {
 }
 
 /* ==========================================================================
-   Modals & Dialogs
+   Modals & Form Sections
    ========================================================================== */
 
 .modal-overlay {
@@ -1280,6 +1379,10 @@ tbody tr:hover {
   padding: 28px;
   position: relative;
   animation: modal-enter var(--transition-smooth);
+}
+
+.modal-card-lg {
+  width: min(720px, 100%);
 }
 
 @keyframes modal-enter {
@@ -1324,6 +1427,27 @@ tbody tr:hover {
   color: var(--text-primary);
 }
 
+.modal-form-section {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.modal-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.modal-section-title svg {
+  color: var(--primary);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1344,6 +1468,16 @@ tbody tr:hover {
   font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
+}
+
+.field-error-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger-text);
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 3px;
 }
 
 .modal-footer {
@@ -1865,6 +1999,11 @@ tbody tr:hover {
   }
   .select-input-wrap select {
     width: 100%;
+  }
+  .sub-summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
   .card-header {
     flex-direction: column;

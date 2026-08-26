@@ -128,6 +128,32 @@ function DashboardApp() {
   const [editingUser, setEditingUser] = useState(null);
   const [appError, setAppError] = useState(null);
 
+  // Client-Side Dark/Light Theme State & Persistence
+  const [theme, setTheme] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('kbz_theme');
+        if (saved === 'dark' || saved === 'light') return saved;
+      }
+    } catch {
+      // Safe fallback for restricted storage environments
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('kbz_theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
@@ -412,6 +438,8 @@ function DashboardApp() {
           onPrintMonthly={() => handlePrint('month')}
           onPrintYearly={() => handlePrint('year')}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           user={user}
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}

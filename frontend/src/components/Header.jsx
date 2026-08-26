@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search } from 'lucide-react';
+import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search, Sun, Moon } from 'lucide-react';
 
 export function Header({
   activeSection = 'dashboard',
@@ -8,6 +8,8 @@ export function Header({
   onPrintMonthly,
   onPrintYearly,
   onOpenCommandPalette,
+  theme = 'light',
+  onToggleTheme,
   user,
   isSuperAdmin,
   isAdmin
@@ -187,6 +189,38 @@ export function Header({
             ⌘K
           </kbd>
         </button>
+
+        {/* Client-Side Dark/Light Theme Switcher */}
+        {onToggleTheme && (
+          <button
+            type="button"
+            className="btn btn-soft theme-toggle-btn"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            aria-label="Toggle dark/light theme"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '7px 10px',
+              gap: '6px',
+              fontSize: '12px',
+              borderRadius: '8px'
+            }}
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun size={15} color="#f59e0b" />
+                <span style={{ fontSize: '11.5px', fontWeight: 600 }}>Light</span>
+              </>
+            ) : (
+              <>
+                <Moon size={15} color="#6366f1" />
+                <span style={{ fontSize: '11.5px', fontWeight: 600 }}>Dark</span>
+              </>
+            )}
+          </button>
+        )}
 
         {headerInfo.showMonthPicker && (
           <label className="month-picker-label">

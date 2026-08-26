@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search, Sun, Moon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search, Sun, Moon, WifiOff } from 'lucide-react';
 
 export function Header({
   activeSection = 'dashboard',
@@ -14,6 +14,20 @@ export function Header({
   isSuperAdmin,
   isAdmin
 }) {
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' && 'onLine' in navigator ? navigator.onLine : true));
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const getHeaderInfo = () => {
     switch (activeSection) {
       case 'alerts':
@@ -143,6 +157,27 @@ export function Header({
             >
               {isSuperAdmin ? <Crown size={11} color="#9333ea" /> : isAdmin ? <Shield size={10} /> : <Eye size={10} />}
               {isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMINISTRATOR' : 'VIEWER (READ-ONLY)'}
+            </span>
+          )}
+          {!isOnline && (
+            <span
+              className="offline-badge"
+              role="status"
+              aria-live="polite"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                background: '#fef2f2',
+                color: '#b91c1c',
+                border: '1px solid #fecaca'
+              }}
+            >
+              <WifiOff size={11} /> Offline Mode
             </span>
           )}
         </div>

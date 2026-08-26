@@ -242,7 +242,13 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
                   value={formData.cost}
                   onChange={(e) => handleChange('cost', e.target.value)}
                   disabled={isSaving}
+                  aria-invalid={!!validationErrors.cost}
                 />
+                {validationErrors.cost && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.cost}
+                  </span>
+                )}
               </div>
 
               <div className="form-group col-span-2">

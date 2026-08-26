@@ -250,7 +250,13 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                   value={formData.cost}
                   onChange={(e) => handleChange('cost', e.target.value)}
                   disabled={isSaving}
+                  aria-invalid={!!validationErrors.cost}
                 />
+                {validationErrors.cost && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.cost}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">
@@ -264,7 +270,13 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                   value={formData.initialTokens}
                   onChange={(e) => handleChange('initialTokens', e.target.value)}
                   disabled={isSaving}
+                  aria-invalid={!!validationErrors.initialTokens}
                 />
+                {validationErrors.initialTokens && (
+                  <span className="field-error-msg">
+                    <AlertCircle size={12} /> {validationErrors.initialTokens}
+                  </span>
+                )}
               </div>
             </div>
           </div>

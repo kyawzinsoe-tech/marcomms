@@ -1,4 +1,5 @@
 import { getAuthToken } from './authService';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 const STORAGE_KEY = 'creativeHubDashboardV3';
 const LEGACY_KEYS = ['creativeHubDashboardV2', 'creativeSubscriptionDashboardV1'];
@@ -115,10 +116,10 @@ export async function fetchDashboardData() {
   if (token) {
     try {
       const [subRes, tokRes] = await Promise.all([
-        fetch('/api/subscriptions', {
+        fetchWithRetry('/api/subscriptions', {
           headers: { Authorization: `Bearer ${token}` }
         }).then(handleApiResponse),
-        fetch('/api/tokens', {
+        fetchWithRetry('/api/tokens', {
           headers: { Authorization: `Bearer ${token}` }
         }).then(handleApiResponse)
       ]);

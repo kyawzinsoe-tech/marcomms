@@ -86,6 +86,12 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
     if (!formData.tokens || isNaN(Number(formData.tokens)) || Number(formData.tokens) <= 0) {
       errors.tokens = 'Tokens used must be a positive number greater than 0.';
     }
+    if (formData.cost !== '' && formData.cost !== undefined && formData.cost !== null) {
+      const numCost = Number(formData.cost);
+      if (isNaN(numCost) || numCost < 0) {
+        errors.cost = 'Token cost must be a positive number.';
+      }
+    }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);

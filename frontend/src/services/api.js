@@ -97,6 +97,17 @@ export function normalizeData(data) {
   return { reportMonth, subscriptions, tokenEntries };
 }
 
+export function handleApiResponse(response) {
+  if (response && response.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('marcomms:session-expired', {
+        detail: { message: 'Your session has expired. Please sign in again.' }
+      }));
+    }
+  }
+  return response;
+}
+
 export async function fetchDashboardData() {
   const token = getAuthToken();
 
@@ -106,10 +117,10 @@ export async function fetchDashboardData() {
       const [subRes, tokRes] = await Promise.all([
         fetch('/api/subscriptions', {
           headers: { Authorization: `Bearer ${token}` }
-        }),
+        }).then(handleApiResponse),
         fetch('/api/tokens', {
           headers: { Authorization: `Bearer ${token}` }
-        })
+        }).then(handleApiResponse)
       ]);
 
       if (subRes.ok && tokRes.ok) {
@@ -125,7 +136,7 @@ export async function fetchDashboardData() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
         return loaded;
       }
-    } catch (err) {
+    } catch {
       console.log('[API Service] Backend API error, using local storage cache');
     }
   }

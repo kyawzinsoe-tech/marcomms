@@ -35,6 +35,9 @@ jobs:
           npm --prefix frontend ci
           npm --prefix backend install
 
+      - name: Run Static Code Analysis (ESLint)
+        run: npm --prefix frontend run lint
+
       - name: Run Automated Test Suite (Frontend & Backend)
         run: npm test
 

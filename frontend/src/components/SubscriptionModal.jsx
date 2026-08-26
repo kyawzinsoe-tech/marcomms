@@ -91,6 +91,18 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
     if (!formData.tool.trim()) {
       errors.tool = 'Tool / Service category is required.';
     }
+    if (formData.cost !== '' && formData.cost !== undefined && formData.cost !== null) {
+      const numCost = Number(formData.cost);
+      if (isNaN(numCost) || numCost < 0) {
+        errors.cost = 'Monthly cost must be a positive number.';
+      }
+    }
+    if (formData.initialTokens !== '' && formData.initialTokens !== undefined && formData.initialTokens !== null) {
+      const numTokens = Number(formData.initialTokens);
+      if (isNaN(numTokens) || numTokens < 0) {
+        errors.initialTokens = 'Initial tokens must be a positive number.';
+      }
+    }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);

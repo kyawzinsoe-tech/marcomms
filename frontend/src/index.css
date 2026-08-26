@@ -1,6 +1,6 @@
 /* ==========================================================================
    MARCOMMS WEBPORTAL — GLOBAL DESIGN SYSTEM & APPLICATION SHELL
-   Phase 2A Foundation
+   Phase 2A & 2B Foundation
    ========================================================================== */
 
 :root {
@@ -179,6 +179,9 @@ a {
   width: 100%;
   margin: 0 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 /* ==========================================================================
@@ -453,9 +456,9 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: var(--space-6);
   gap: var(--space-5);
   flex-wrap: wrap;
+  padding-bottom: 2px;
 }
 
 .eyebrow {
@@ -682,7 +685,6 @@ input:disabled, select:disabled, textarea:disabled {
   border-radius: var(--radius-lg);
   padding: 22px 24px;
   box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-6);
   transition: box-shadow var(--transition-normal);
 }
 
@@ -718,14 +720,13 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 /* ==========================================================================
-   KPI Grid
+   KPI Grid & Cards
    ========================================================================== */
 
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
 }
 
 .kpi-card {
@@ -733,6 +734,7 @@ input:disabled, select:disabled, textarea:disabled {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: 18px 20px;
+  min-height: 108px;
   box-shadow: var(--shadow-xs);
   display: flex;
   flex-direction: column;
@@ -755,19 +757,32 @@ input:disabled, select:disabled, textarea:disabled {
   width: 3.5px;
   height: 100%;
   background: var(--primary);
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-.kpi-card.kpi-danger::before {
-  background: var(--danger);
-  opacity: 1;
-}
+.kpi-card-total::before { background: var(--primary); }
+.kpi-card-total .kpi-icon-wrap { background: var(--primary-50); color: var(--primary-hover); }
+
+.kpi-card-active::before { background: var(--success); }
+.kpi-card-active .kpi-icon-wrap { background: var(--success-light); color: var(--success-text); }
+
+.kpi-card-overdue.kpi-danger::before { background: var(--danger); }
+.kpi-card-overdue.kpi-danger .kpi-icon-wrap { background: var(--danger-light); color: var(--danger); }
+
+.kpi-card-overdue.kpi-neutral::before { background: #cbd5e1; }
+.kpi-card-overdue.kpi-neutral .kpi-icon-wrap { background: var(--bg-surface-secondary); color: var(--text-muted); }
+
+.kpi-card-cost::before { background: #0d9488; }
+.kpi-card-cost .kpi-icon-wrap { background: #f0fdfa; color: #0d9488; }
+
+.kpi-card-tokens::before { background: #8b5cf6; }
+.kpi-card-tokens .kpi-icon-wrap { background: #f5f3ff; color: #7c3aed; }
 
 .kpi-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .kpi-label {
@@ -775,7 +790,7 @@ input:disabled, select:disabled, textarea:disabled {
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .kpi-icon-wrap {
@@ -784,13 +799,6 @@ input:disabled, select:disabled, textarea:disabled {
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
-  background: var(--primary-50);
-  color: var(--primary);
-}
-
-.kpi-danger .kpi-icon-wrap {
-  background: var(--danger-light);
-  color: var(--danger);
 }
 
 .kpi-value {
@@ -799,8 +807,9 @@ input:disabled, select:disabled, textarea:disabled {
   font-weight: 800;
   color: var(--text-primary);
   line-height: 1.15;
-  margin-bottom: 4px;
-  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
 }
 
 .kpi-subtext {
@@ -809,12 +818,17 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 /* ==========================================================================
-   Alerts
+   Alerts Section
    ========================================================================== */
 
 .alert-card {
-  border-color: var(--danger-border);
-  background: linear-gradient(180deg, #ffffff 0%, #fffbfb 100%);
+  border-color: var(--border-default);
+  background: var(--bg-surface);
+}
+
+.alert-header-icon {
+  color: var(--danger);
+  flex-shrink: 0;
 }
 
 .count-pill {
@@ -830,7 +844,7 @@ input:disabled, select:disabled, textarea:disabled {
 .count-pill-danger {
   background: var(--danger-light);
   color: var(--danger-text);
-  border: 1px solid #fca5a5;
+  border: 1px solid var(--danger-border);
 }
 
 .count-pill-primary {
@@ -850,16 +864,28 @@ input:disabled, select:disabled, textarea:disabled {
   grid-template-columns: 1fr auto;
   gap: var(--space-4);
   align-items: center;
-  padding: 14px 16px;
+  padding: 13px 16px;
   border-radius: var(--radius-md);
   background: var(--bg-surface);
-  border: 1px solid var(--danger-border);
+  border: 1px solid var(--border-default);
   box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast);
+}
+
+.alert-item:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.alert-item.alert-overdue {
+  border-color: var(--danger-border);
+  border-left: 4px solid var(--danger);
+  background: linear-gradient(90deg, #fffbfb 0%, #ffffff 100%);
 }
 
 .alert-item.alert-due {
   border-color: var(--warning-border);
-  background: #fffdfa;
+  border-left: 4px solid var(--warning);
+  background: linear-gradient(90deg, #fffdf8 0%, #ffffff 100%);
 }
 
 .alert-item-info {
@@ -885,14 +911,14 @@ input:disabled, select:disabled, textarea:disabled {
 .alert-badge {
   font-size: 10.5px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
 }
 
 .alert-badge.overdue {
   background: var(--danger-light);
   color: var(--danger-text);
-  border: 1px solid #fca5a5;
+  border: 1px solid var(--danger-border);
 }
 
 .alert-badge.due {
@@ -902,19 +928,93 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 .alert-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.alert-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.alert-meta-item b {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .alert-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ==========================================================================
-   Tables
+   Table & Filter Bar
    ========================================================================== */
+
+.table-filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  padding-left: 36px;
+  height: 36px;
+}
+
+.select-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.select-input-wrap select {
+  padding-left: 32px;
+  height: 36px;
+  min-width: 155px;
+}
+
+.plan-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
 
 .table-container {
   width: 100%;
@@ -940,7 +1040,7 @@ th {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-default);
 }
@@ -1027,7 +1127,6 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: minmax(0, 2.3fr) minmax(300px, 0.85fr);
   gap: var(--space-6);
-  margin-bottom: var(--space-6);
 }
 
 .token-stat-grid {
@@ -1057,6 +1156,7 @@ tbody tr:hover {
   font-weight: 800;
   color: var(--text-primary);
   margin-top: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-container {
@@ -1064,6 +1164,7 @@ tbody tr:hover {
   border-radius: var(--radius-md);
   padding: 16px;
   background: var(--bg-surface);
+  min-height: 240px;
 }
 
 .chart-header {
@@ -1713,7 +1814,6 @@ tbody tr:hover {
 @media (max-width: 768px) {
   .topbar {
     gap: 14px;
-    margin-bottom: var(--space-4);
   }
   .topbar h1 {
     font-size: 20px;
@@ -1724,6 +1824,11 @@ tbody tr:hover {
   }
   .user-stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .alert-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   }
 }
 
@@ -1753,6 +1858,13 @@ tbody tr:hover {
   }
   .user-role-select {
     width: 100% !important;
+  }
+  .table-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .select-input-wrap select {
+    width: 100%;
   }
   .card-header {
     flex-direction: column;

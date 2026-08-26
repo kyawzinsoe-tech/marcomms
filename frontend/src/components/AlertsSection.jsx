@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Mail, Edit, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Mail, Edit, CheckCircle2, Loader2, Calendar, User, Clock } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
 import { sendEmailReminder } from '../services/emailService';
 
@@ -29,16 +29,16 @@ export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNo
   };
 
   return (
-    <section className="card alert-card" id="alerts">
+    <section className="card alert-card" id="alerts" aria-label="Subscription Expiration & Renewal Alerts">
       <div className="card-header">
         <div>
           <h2>
-            <AlertTriangle size={20} color="#ef4444" />
+            <AlertTriangle size={18} className="alert-header-icon" />
             Subscription Due / Overdue Alerts
           </h2>
           <p>
             {isAdmin
-              ? 'Expired subscriptions and renewals coming within the alert window.'
+              ? 'Expired subscriptions and renewals coming due within configured alert windows.'
               : 'Overview of subscriptions currently due or overdue for renewal.'}
           </p>
         </div>
@@ -80,10 +80,24 @@ export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNo
                     </span>
                   </div>
                   <div className="alert-meta">
-                    <b>Expiry:</b> {formatDate(sub.expiry)} &bull;{' '}
-                    <b>Account:</b> {sub.email || '—'} &bull;{' '}
-                    <b>Reminder Email:</b> {sub.reminderEmail || 'not set'} &bull;{' '}
-                    <b>Alert Window:</b> {sub.alertDays ?? 7} days
+                    <span className="alert-meta-item">
+                      <Calendar size={12} />
+                      <b>Expiry:</b> {formatDate(sub.expiry)}
+                    </span>
+                    <span className="alert-meta-item">
+                      <User size={12} />
+                      <b>Account:</b> {sub.email || '—'}
+                    </span>
+                    {sub.reminderEmail && (
+                      <span className="alert-meta-item">
+                        <Mail size={12} />
+                        <b>Reminder:</b> {sub.reminderEmail}
+                      </span>
+                    )}
+                    <span className="alert-meta-item">
+                      <Clock size={12} />
+                      <b>Alert Window:</b> {sub.alertDays ?? 7}d
+                    </span>
                   </div>
                 </div>
 
@@ -94,6 +108,7 @@ export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNo
                       className="btn btn-primary btn-sm"
                       disabled={sendingId === sub.id}
                       onClick={() => handleSendReminder(sub, diff)}
+                      title={`Send email reminder to ${sub.reminderEmail || sub.email || 'account holder'}`}
                     >
                       {sendingId === sub.id ? (
                         <>
@@ -110,6 +125,7 @@ export function AlertsSection({ alerts, isAdmin = true, onEditSubscription, onNo
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={() => onEditSubscription(sub)}
+                      title="Edit subscription details and reminder settings"
                     >
                       <Edit size={13} /> Edit
                     </button>

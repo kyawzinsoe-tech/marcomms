@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { useDashboardState } from './hooks/useDashboardState';
@@ -17,13 +17,10 @@ import { AlertsSection } from './components/AlertsSection';
 import { SubscriptionsTable } from './components/SubscriptionsTable';
 import { TokenSection } from './components/TokenSection';
 import { TokenHistoryTable } from './components/TokenHistoryTable';
-import { UserManagementSection } from './components/UserManagementSection';
 import { UserModal } from './components/UserModal';
-import { ReportsDataSection } from './components/ReportsDataSection';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { TokenModal } from './components/TokenModal';
-import { Building2, CreditCard, Megaphone } from 'lucide-react';
-import { PrintReport } from './components/PrintReport';
+import { Building2, CreditCard, Megaphone, Loader2 } from 'lucide-react';
 import { Toast } from './components/Toast';
 import { AssetLibrarySection } from './components/assets/AssetLibrarySection';
 import { SupplierDirectorySection } from './components/suppliers/SupplierDirectorySection';
@@ -31,6 +28,17 @@ import { ProductionOrdersSection } from './components/production-orders/Producti
 import { ErrorDialog } from './components/common/ErrorDialog';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
+
+// Lazy-loaded chunked components for optimized initial bundle loading
+const ReportsDataSection = lazy(() =>
+  import('./components/ReportsDataSection').then((m) => ({ default: m.ReportsDataSection }))
+);
+const UserManagementSection = lazy(() =>
+  import('./components/UserManagementSection').then((m) => ({ default: m.UserManagementSection }))
+);
+const PrintReport = lazy(() =>
+  import('./components/PrintReport').then((m) => ({ default: m.PrintReport }))
+);
 import { fetchSuppliers } from './services/supplierService';
 import { fetchProductionOrders } from './services/productionOrderService';
 import { fetchAssets } from './services/assetService';
@@ -516,19 +524,28 @@ function DashboardApp() {
 
         {/* VIEW 5: REPORTS & DATA */}
         {activeSection === 'reports' && (
-          <ReportsDataSection
-            reportMonth={reportMonth}
-            selectedYear={selectedYear}
-            subscriptions={state.subscriptions}
-            tokenEntries={selectedMonthEntries}
-            alerts={alerts}
-            fullState={state}
-            isAdmin={isAdmin}
-            onPrint={handlePrint}
-            onImport={importBackup}
-            onReset={resetToDemo}
-            onNotify={showToast}
-          />
+          <Suspense
+            fallback={
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>Loading Reports & Data Hub...</div>
+              </div>
+            }
+          >
+            <ReportsDataSection
+              reportMonth={reportMonth}
+              selectedYear={selectedYear}
+              subscriptions={state.subscriptions}
+              tokenEntries={selectedMonthEntries}
+              alerts={alerts}
+              fullState={state}
+              isAdmin={isAdmin}
+              onPrint={handlePrint}
+              onImport={importBackup}
+              onReset={resetToDemo}
+              onNotify={showToast}
+            />
+          </Suspense>
         )}
 
         {/* VIEW 6: KBZ BANK ASSET LIBRARY */}
@@ -585,15 +602,24 @@ function DashboardApp() {
 
         {/* VIEW 11: USER MANAGEMENT & ACTIVE SESSIONS */}
         {activeSection === 'user-management' && isAdmin && (
-          <UserManagementSection
-            users={usersList}
-            currentUserId={user?.id}
-            currentUserRole={user?.role}
-            isSuperAdmin={isSuperAdmin}
-            onAddUser={handleOpenAddUser}
-            onEditUser={handleOpenEditUser}
-            onDeleteUser={handleDeleteUser}
-          />
+          <Suspense
+            fallback={
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>Loading User Governance Hub...</div>
+              </div>
+            }
+          >
+            <UserManagementSection
+              users={usersList}
+              currentUserId={user?.id}
+              currentUserRole={user?.role}
+              isSuperAdmin={isSuperAdmin}
+              onAddUser={handleOpenAddUser}
+              onEditUser={handleOpenEditUser}
+              onDeleteUser={handleDeleteUser}
+            />
+          </Suspense>
         )}
 
         <footer style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '24px 0 12px' }}>
@@ -629,17 +655,19 @@ function DashboardApp() {
       )}
 
       {printType && (
-        <PrintReport
-          type={printType}
-          reportMonth={reportMonth}
-          selectedYear={selectedYear}
-          subscriptions={subscriptions}
-          tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
-          alerts={alerts}
-          suppliers={printData.suppliers}
-          productionOrders={printData.productionOrders}
-          assets={printData.assets}
-        />
+        <Suspense fallback={null}>
+          <PrintReport
+            type={printType}
+            reportMonth={reportMonth}
+            selectedYear={selectedYear}
+            subscriptions={subscriptions}
+            tokenEntries={printType === 'month' ? selectedMonthEntries : selectedYearEntries}
+            alerts={alerts}
+            suppliers={printData.suppliers}
+            productionOrders={printData.productionOrders}
+            assets={printData.assets}
+          />
+        </Suspense>
       )}
 
       {toast && (

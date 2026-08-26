@@ -44,9 +44,9 @@ export function Sidebar({
   ];
 
   const assetPillarItems = [
-    { id: 'asset-kbz-bank', label: 'KBZ Bank', icon: Building2, visible: canReadBank },
-    { id: 'asset-kbz-pay', label: 'KBZPay', icon: CreditCard, visible: canReadPay },
-    { id: 'asset-kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
+    { id: 'kbz-bank', label: 'KBZ Bank', icon: Building2, visible: canReadBank },
+    { id: 'kbz-pay', label: 'KBZPay', icon: CreditCard, visible: canReadPay },
+    { id: 'kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
   ].filter((item) => item.visible);
 
   const procurementItems = [
@@ -55,16 +55,12 @@ export function Sidebar({
   ].filter((item) => item.visible);
 
   const adminNavItems = [
-    { id: 'users', label: 'User Management', icon: Users, visible: canViewUsers }
+    { id: 'user-management', label: 'User Management', icon: Users, visible: canViewUsers }
   ].filter((item) => item.visible);
 
   const handleNav = (id, e) => {
     e.preventDefault();
     onNavigate(id);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   const renderNavGroup = (items) => (

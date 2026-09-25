@@ -30,6 +30,7 @@ import { ProductionOrdersSection } from './components/production-orders/Producti
 import { ErrorDialog } from './components/common/ErrorDialog';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
+import { ImportantWorkSection } from './components/ImportantWorkSection';
 
 // Lazy-loaded chunked components for optimized initial bundle loading
 const ReportsDataSection = lazy(() =>
@@ -54,6 +55,8 @@ const HASH_MAP = {
   'tokens': 'tokens',
   'token-usage': 'tokens',
   'magnific': 'tokens',
+  'important-work': 'important-work',
+  'reminders': 'important-work',
   'reports': 'reports',
   'reports-data': 'reports',
   'kbz-bank': 'kbz-bank',
@@ -599,6 +602,10 @@ function DashboardApp() {
         )}
 
         {/* VIEW 6: KBZ BANK ASSET LIBRARY */}
+        {activeSection === 'important-work' && (
+          <ImportantWorkSection user={user} onNotify={showToast} />
+        )}
+
         {activeSection === 'kbz-bank' && can(PERMISSIONS.ASSET_READ_BANK) && (
           <AssetLibrarySection
             library="kbz_bank"

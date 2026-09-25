@@ -207,5 +207,22 @@ async function sendReminderEmail({ to, product, tool, expiry, status, account, d
   }
 }
 
-module.exports = { sendReminderEmail, isValidEmail };
+async function sendImportantWorkReminder({ title, description, ownerName, reminderEmail, dueDate, priority, status, links = [] }) {
+  if (!isValidEmail(reminderEmail)) throw new Error('A valid reminder email is required.');
+  const fromEmail = (process.env.REMINDER_FROM_EMAIL || '').trim();
+  if (!fromEmail) throw new Error('REMINDER_FROM_EMAIL environment variable is not configured on the server.');
+  const safeLinks = links.slice(0, 10).map((link) =>
+    `<li><strong>${escapeHtml(link.type)}</strong>: <a href="${escapeHtml(link.url)}">${escapeHtml(link.label || link.type)}</a></li>`
+  ).join('');
+  const textLinks = links.slice(0, 10).map((link) => `${link.type}: ${link.url}`).join('\n');
+  const subject = `[Important Work] ${title} — due ${dueDate}`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto"><h2>${escapeHtml(title)}</h2><p><strong>Due:</strong> ${escapeHtml(dueDate)} · <strong>Priority:</strong> ${escapeHtml(priority)} · <strong>Status:</strong> ${escapeHtml(status)}</p><p><strong>Owner:</strong> ${escapeHtml(ownerName || 'Not assigned')}</p><p>${escapeHtml(description || '')}</p><h3>Linked documents</h3><ul>${safeLinks}</ul><p style="color:#64748b;font-size:12px">Sent by KBZ Marcomms Creative Hub.</p></div>`;
+  const text = `Important Work Reminder\n\n${title}\nDue: ${dueDate}\nPriority: ${priority}\nStatus: ${status}\nOwner: ${ownerName || 'Not assigned'}\n\n${description || ''}\n\n${textLinks}`;
+  const result = await new SESClient({ region: process.env.AWS_REGION || 'us-east-1' }).send(new SendEmailCommand({
+    Source: fromEmail, Destination: { ToAddresses: [reminderEmail.trim()] },
+    Message: { Subject: { Data: subject, Charset: 'UTF-8' }, Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } } }
+  }));
+  return { success: true, provider: 'aws-ses', messageId: result.MessageId };
+}
 
+module.exports = { sendReminderEmail, sendImportantWorkReminder, isValidEmail };

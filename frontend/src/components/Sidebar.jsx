@@ -13,7 +13,8 @@ import {
   Megaphone,
   Truck,
   Printer,
-  User as UserIcon
+  User as UserIcon,
+  BellRing
 } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
 
@@ -40,6 +41,7 @@ export function Sidebar({
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertCount },
     { id: 'subscriptions', label: 'Subscriptions', icon: Layers },
     { id: 'tokens', label: 'Token Usage', icon: Zap },
+    { id: 'important-work', label: 'Important Work', icon: BellRing },
     { id: 'reports', label: 'Reports & Data', icon: FileText, separatorBefore: true }
   ];
 

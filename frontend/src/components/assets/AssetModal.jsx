@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Layers, Link as LinkIcon, Tag, AlertCircle, FileText } from 'lucide-react';
+import { X, Loader2, Layers, Upload, Tag, AlertCircle, FileText } from 'lucide-react';
 import { ASSET_LIBRARY_LABELS } from '../../services/assetService';
 
 const CATEGORY_OPTIONS = [
@@ -15,32 +15,6 @@ const CATEGORY_OPTIONS = [
 ];
 
 const FILE_TYPE_OPTIONS = ['PNG', 'JPEG'];
-
-/**
- * Validates URLs including HTTP, HTTPS, S3, Google Drive share links, and relative paths
- */
-function isValidUrl(urlString) {
-  if (!urlString || typeof urlString !== 'string') return false;
-  const trimmed = urlString.trim();
-  if (!trimmed) return false;
-
-  // Allow relative paths
-  if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
-    return true;
-  }
-
-  // Allow standard URLs and custom protocols (e.g. s3://, drive://)
-  try {
-    const parsed = new URL(trimmed);
-    return ['http:', 'https:', 's3:', 'drive:'].includes(parsed.protocol) || parsed.hostname.length > 0;
-  } catch {
-    // Check if it's a domain/link pattern like drive.google.com/...
-    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
-      return true;
-    }
-    return false;
-  }
-}
 
 export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
   const [formData, setFormData] = useState({
@@ -59,11 +33,13 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [localPreview, setLocalPreview] = useState('');
 
   useEffect(() => {
     setValidationErrors({});
     setIsSaving(false);
     setSelectedFile(null);
+    setLocalPreview('');
     if (asset) {
       setFormData({
         title: asset.title || '',
@@ -92,6 +68,10 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
       });
     }
   }, [asset, library, isOpen]);
+
+  useEffect(() => () => {
+    if (localPreview) URL.revokeObjectURL(localPreview);
+  }, [localPreview]);
 
   // Escape key handler
   useEffect(() => {
@@ -123,21 +103,12 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     const errors = {};
 
     const cleanTitle = (formData.title || '').trim();
-    const cleanFileUrl = (formData.fileUrl || '').trim();
-    const cleanThumbUrl = (formData.thumbnailUrl || '').trim();
-
     if (!cleanTitle) {
       errors.title = 'Asset title is required.';
     }
 
-    if (!cleanFileUrl && !selectedFile) {
-      errors.fileUrl = 'Select a PNG/JPEG file or provide a secure HTTPS URL.';
-    } else if (cleanFileUrl && !isValidUrl(cleanFileUrl)) {
-      errors.fileUrl = 'Please enter a valid URL, Google Drive link, or storage path.';
-    }
-
-    if (cleanThumbUrl && !isValidUrl(cleanThumbUrl)) {
-      errors.thumbnailUrl = 'Please enter a valid image preview URL or leave blank.';
+    if (!asset && !selectedFile) {
+      errors.file = 'Select a PNG or JPEG image.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -150,8 +121,8 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
       ...formData,
       title: cleanTitle,
       library: formData.library || library || 'kbz_bank',
-      fileUrl: cleanFileUrl,
-      thumbnailUrl: cleanThumbUrl,
+      fileUrl: asset?.fileUrl || '',
+      thumbnailUrl: asset?.thumbnailUrl || '',
       fileSize: formData.fileSize ? Number(formData.fileSize) : 0,
       tags: formData.tags
         ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -256,67 +227,45 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
             </div>
           </div>
 
-          {/* Section 2: Storage & Preview Links */}
+          {/* Section 2: Secure upload */}
           <div className="modal-form-section">
             <div className="modal-section-title">
-              <LinkIcon size={15} />
-              <span>2. Storage Links & Specifications</span>
+              <Upload size={15} />
+              <span>2. Secure Image Upload & Preview</span>
             </div>
             <div className="form-grid">
-              {!asset && (
+              {(!asset || selectedFile) && (
                 <div className="form-group col-span-2">
                   <label htmlFor="asset-file">PNG/JPEG File *</label>
                   <input
                     id="asset-file"
                     type="file"
                     accept="image/png,image/jpeg,.png,.jpg,.jpeg"
-                    required={!formData.fileUrl}
+                    required={!asset}
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       setSelectedFile(file);
-                      if (file) handleChange('fileType', file.type === 'image/png' ? 'PNG' : 'JPEG');
+                      if (localPreview) URL.revokeObjectURL(localPreview);
+                      setLocalPreview(file ? URL.createObjectURL(file) : '');
+                      if (file) {
+                        handleChange('fileType', file.type === 'image/png' ? 'PNG' : 'JPEG');
+                        handleChange('fileSize', Math.ceil(file.size / 1024));
+                      }
                     }}
                     disabled={isSaving}
                   />
                   <small>Private storage · PNG/JPEG only · Maximum 10 MB</small>
+                  {validationErrors.file && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.file}</span>}
                 </div>
               )}
-              <div className="form-group col-span-2">
-                <label htmlFor="asset-file-url">Legacy HTTPS URL {asset ? '' : '(optional)'}</label>
-                <input
-                  id="asset-file-url"
-                  type="text"
-                  required={Boolean(asset && !selectedFile)}
-                  placeholder="https://drive.google.com/... or https://assets.company.com/logo.ai"
-                  value={formData.fileUrl}
-                  onChange={(e) => handleChange('fileUrl', e.target.value)}
-                  disabled={isSaving}
-                  aria-invalid={!!validationErrors.fileUrl}
-                />
-                {validationErrors.fileUrl && (
-                  <span className="field-error-msg">
-                    <AlertCircle size={12} /> {validationErrors.fileUrl}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group col-span-2">
-                <label htmlFor="asset-thumb-url">Image Thumbnail / Preview URL (Optional)</label>
-                <input
-                  id="asset-thumb-url"
-                  type="text"
-                  placeholder="https://assets.company.com/thumbnails/logo-preview.png"
-                  value={formData.thumbnailUrl}
-                  onChange={(e) => handleChange('thumbnailUrl', e.target.value)}
-                  disabled={isSaving}
-                  aria-invalid={!!validationErrors.thumbnailUrl}
-                />
-                {validationErrors.thumbnailUrl && (
-                  <span className="field-error-msg">
-                    <AlertCircle size={12} /> {validationErrors.thumbnailUrl}
-                  </span>
-                )}
-              </div>
+              {(localPreview || asset?.thumbnailUrl || asset?.fileUrl) && (
+                <div className="form-group col-span-2">
+                  <label>Image Preview</label>
+                  <div className="asset-upload-local-preview">
+                    <img src={localPreview || asset.thumbnailUrl || asset.fileUrl} alt="Selected asset preview" />
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="asset-file-type">File Type *</label>

@@ -125,7 +125,11 @@ export async function uploadBrandAsset(assetData, file, onProgress = () => {}) {
   if (!initResponse.ok) throw new Error(initData.error || 'Unable to initialize upload.');
 
   onProgress(2);
-  const uploadResponse = await fetch(initData.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+  const uploadResponse = await fetch(initData.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256', 'x-amz-meta-upload': 'marcomms-brand-asset' },
+    body: file
+  });
   if (!uploadResponse.ok) throw new Error('Secure storage upload failed.');
 
   onProgress(3);

@@ -81,10 +81,32 @@ async function createAssetDownloadUrl(key) {
   }), { expiresIn: 300 });
 }
 
+async function createPrivateUploadUrl({ key, mimeType, metadata = {} }) {
+  return getSignedUrl(getS3Client(), new PutObjectCommand({
+    Bucket: getAssetBucket(), Key: key, ContentType: mimeType,
+    ServerSideEncryption: 'AES256', Metadata: metadata
+  }), { expiresIn: 300 });
+}
+
+async function readPrivateFileSignature(key) {
+  return readAssetSignature(key);
+}
+
+async function createPrivateDownloadUrl(key, filename = 'document') {
+  const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+  return getSignedUrl(getS3Client(), new GetObjectCommand({
+    Bucket: getAssetBucket(), Key: key,
+    ResponseContentDisposition: `attachment; filename="${safeName}"`
+  }), { expiresIn: 300 });
+}
+
 module.exports = {
   uploadBackupToS3,
   createAssetUploadUrl,
   readAssetSignature,
   deleteAssetObject,
-  createAssetDownloadUrl
+  createAssetDownloadUrl,
+  createPrivateUploadUrl,
+  readPrivateFileSignature,
+  createPrivateDownloadUrl
 };

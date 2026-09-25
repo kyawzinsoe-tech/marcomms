@@ -9,6 +9,9 @@ Parameters:
   JwtSecret:
     Type: String
     NoEcho: true
+  SubscriptionCredentialKey:
+    Type: String
+    NoEcho: true
   AllowedOrigins:
     Type: String
     Default: "http://localhost:5173"
@@ -22,6 +25,7 @@ Globals:
       Variables:
         MONGODB_URI: !Ref MongoDbUri
         JWT_SECRET: !Ref JwtSecret
+        SUBSCRIPTION_CREDENTIAL_KEY: !Ref SubscriptionCredentialKey
         JWT_EXPIRES_IN: "7d"
         NODE_ENV: "production"
         AWS_S3_BUCKET: !Ref BackupBucket
@@ -56,7 +60,7 @@ Resources:
         RestrictPublicBuckets: true
       CorsConfiguration:
         CorsRules:
-          - AllowedHeaders: ['Content-Type']
+          - AllowedHeaders: ['Content-Type', 'x-amz-server-side-encryption', 'x-amz-meta-*']
             AllowedMethods: [PUT]
             AllowedOrigins: [!Ref AllowedOrigins]
             MaxAge: 300

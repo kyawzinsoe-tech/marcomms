@@ -1845,6 +1845,29 @@ tbody tr:hover {
   object-fit: contain;
 }
 
+.asset-upload-local-preview {
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-upload-local-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.subscription-invoice-upload small,
+.form-group small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .asset-upload-progress,
 .production-workflow-progress {
   display: flex;

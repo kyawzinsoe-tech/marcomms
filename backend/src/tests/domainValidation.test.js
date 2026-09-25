@@ -159,7 +159,7 @@ describe('Backend Domain Controller Validation Suite', () => {
       const originalFind = Subscription.find;
 
       Subscription.find = () => ({
-        sort: async () => [
+        select: () => ({ sort: async () => [
           {
             _id: 'sub_1',
             product: 'ChatGPT Plus',
@@ -169,7 +169,7 @@ describe('Backend Domain Controller Validation Suite', () => {
             archived: false,
             createdAt: new Date('2026-08-01')
           }
-        ]
+        ] })
       });
 
       const req = { query: { archived: 'false' } };

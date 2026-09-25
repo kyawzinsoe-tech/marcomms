@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Layers, Calendar, Mail, FileText, AlertCircle } from 'lucide-react';
+import { X, Loader2, Layers, Calendar, Mail, FileText, AlertCircle, Lock, Upload } from 'lucide-react';
 
 export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
   const [formData, setFormData] = useState({
@@ -19,6 +19,9 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
 
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [invoiceFile, setInvoiceFile] = useState(null);
+  const [uploadStage, setUploadStage] = useState('');
 
   useEffect(() => {
     if (subscription) {
@@ -54,6 +57,9 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
     }
     setValidationErrors({});
     setIsSaving(false);
+    setAccountPassword('');
+    setInvoiceFile(null);
+    setUploadStage('');
   }, [subscription, isOpen]);
 
   // Escape key handler
@@ -103,6 +109,9 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
         errors.initialTokens = 'Initial tokens must be a positive number.';
       }
     }
+    if (accountPassword && accountPassword.length < 8) errors.accountPassword = 'Password must contain at least 8 characters.';
+    if (invoiceFile && !['application/pdf', 'image/png', 'image/jpeg'].includes(invoiceFile.type)) errors.invoiceFile = 'Invoice must be PDF, PNG, or JPEG.';
+    if (invoiceFile && invoiceFile.size > 10 * 1024 * 1024) errors.invoiceFile = 'Invoice must be 10 MB or smaller.';
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -111,7 +120,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
 
     setIsSaving(true);
     try {
-      await onSave(formData);
+      await onSave({ ...formData, accountPassword: accountPassword || undefined }, invoiceFile, setUploadStage);
       onClose();
     } catch {
       // Error handled by parent handler
@@ -159,6 +168,23 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                     <AlertCircle size={12} /> {validationErrors.product}
                   </span>
                 )}
+              </div>
+
+              <div className="form-group col-span-2">
+                <label htmlFor="sub-password"><Lock size={13} /> Account Password</label>
+                <input
+                  id="sub-password"
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={200}
+                  placeholder={subscription?.hasPassword ? 'Leave blank to keep the stored password' : 'Minimum 8 characters'}
+                  value={accountPassword}
+                  onChange={(e) => { setAccountPassword(e.target.value); setValidationErrors((prev) => ({ ...prev, accountPassword: '' })); }}
+                  disabled={isSaving}
+                  aria-invalid={!!validationErrors.accountPassword}
+                />
+                <small>Encrypted storage only. Passwords are never shown in reports, exports, or this form.</small>
+                {validationErrors.accountPassword && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.accountPassword}</span>}
               </div>
 
               <div className="form-group">
@@ -345,6 +371,25 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                 disabled={isSaving}
               />
             </div>
+            <div className="form-group subscription-invoice-upload">
+              <label htmlFor="sub-invoice"><Upload size={13} /> Monthly / Yearly Invoice or Payslip</label>
+              <input
+                id="sub-invoice"
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+                onChange={(e) => { setInvoiceFile(e.target.files?.[0] || null); setValidationErrors((prev) => ({ ...prev, invoiceFile: '' })); }}
+                disabled={isSaving || !!subscription?.invoice}
+              />
+              <small>Private storage · PDF/PNG/JPEG only · Maximum 10 MB{subscription?.invoice?.originalName ? ` · Current: ${subscription.invoice.originalName}` : ''}</small>
+              {validationErrors.invoiceFile && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.invoiceFile}</span>}
+            </div>
+            {isSaving && uploadStage && (
+              <div className="asset-upload-progress" aria-live="polite">
+                {['authorizing', 'uploading', 'verifying', 'complete'].map((stage) => (
+                  <span key={stage} className={['authorizing', 'uploading', 'verifying', 'complete'].indexOf(stage) <= ['authorizing', 'uploading', 'verifying', 'complete'].indexOf(uploadStage) ? 'done' : ''}>{stage}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">

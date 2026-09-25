@@ -84,6 +84,7 @@ export async function loginUser(email, password) {
     email: data.user.email,
     role: normalizeRole(data.user.role),
     avatar: data.user.avatar,
+    productionApprover: Boolean(data.user.productionApprover),
     token: data.token
   };
 
@@ -137,6 +138,7 @@ export async function fetchUsersApi() {
           name: u.name,
           email: u.email,
           role: normalizeRole(u.role),
+          productionApprover: Boolean(u.productionApprover),
           avatar: u.avatar,
           createdAt: u.createdAt
         }));
@@ -216,6 +218,19 @@ export async function createUser(userData, currentUser = null) {
     } catch {}
     throw new Error(errMsg);
   }
+}
+
+export async function setProductionApprover(id, enabled) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch(`/api/users/${id}/production-approver`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ enabled })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to update production approver.');
+  return data.user;
 }
 
 export async function updateUser(id, updatedFields, currentUser = null) {

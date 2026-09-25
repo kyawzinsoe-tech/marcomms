@@ -160,3 +160,25 @@ export async function deleteProductionOrder(id) {
 
   return data;
 }
+
+export async function advanceProductionWorkflow(id, note = '') {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch(`/api/production-orders/${id}/workflow/advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ note })
+  }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to advance workflow.');
+  return data.productionOrder;
+}
+
+export async function fetchApprovalAudit() {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch('/api/production-orders/approval-audit', { headers: { Authorization: `Bearer ${token}` } }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to load approval audit.');
+  return Array.isArray(data.approvalAudit) ? data.approvalAudit : [];
+}

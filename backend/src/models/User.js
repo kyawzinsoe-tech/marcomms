@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
       default: ''
+    },
+    productionApprover: {
+      type: Boolean,
+      default: false
     }
   },
   {

@@ -3,7 +3,8 @@ const {
   getUsers,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  setProductionApprover
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const { requireAdmin } = require('../middleware/adminMiddleware');
@@ -20,5 +21,7 @@ router.route('/')
 router.route('/:id')
   .put(updateUser)
   .delete(deleteUser);
+
+router.patch('/:id/production-approver', setProductionApprover);
 
 module.exports = router;

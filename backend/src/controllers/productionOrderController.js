@@ -1,7 +1,27 @@
 const mongoose = require('mongoose');
 const ProductionOrder = require('../models/ProductionOrder');
+const { WORKFLOW_STEPS } = require('../models/ProductionOrder');
 const Supplier = require('../models/Supplier');
-const { PERMISSIONS, hasPermission } = require('../config/rbac');
+const ApprovalAudit = require('../models/ApprovalAudit');
+const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
+
+const APPROVAL_STEPS = new Set(['sample_approval', 'invoice_head_approval']);
+const STATUS_BY_STEP = {
+  quotations: 'Draft', sample_approval: 'Sample Proofing', vendor_procedure: 'Submitted',
+  invoice_head_approval: 'Submitted', bulk_production: 'In Production',
+  delivery_confirmation: 'In Production', invoice_delivery_order: 'Delivered',
+  final_payment: 'Delivered', closed: 'Delivered'
+};
+
+function publicHistory(history = []) {
+  return history.map((item) => ({ step: item.step, action: item.action, actorName: item.actorName, actorRole: item.actorRole, note: item.note, at: item.at }));
+}
+
+function canApproveWorkflow(user, step) {
+  return APPROVAL_STEPS.has(step) && normalizeRole(user?.role) === ROLES.HEAD_BRAND && user?.productionApprover === true;
+}
+
+exports._workflowSecurity = { canApproveWorkflow, APPROVAL_STEPS };
 
 // Generate unique order number helper: PO-YYYYMMDD-XXXX
 function generateOrderNumber() {
@@ -84,6 +104,8 @@ exports.getProductionOrders = async (req, res, next) => {
         orderDate: o.orderDate,
         deliveryDeadline: o.deliveryDeadline,
         status: o.status,
+        workflowStep: o.workflowStep,
+        workflowHistory: publicHistory(o.workflowHistory),
         proofApprovedBy: o.proofApprovedBy
           ? {
               id: String(o.proofApprovedBy._id),
@@ -146,6 +168,8 @@ exports.getProductionOrderById = async (req, res, next) => {
         orderDate: order.orderDate,
         deliveryDeadline: order.deliveryDeadline,
         status: order.status,
+        workflowStep: order.workflowStep,
+        workflowHistory: publicHistory(order.workflowHistory),
         proofApprovedBy: order.proofApprovedBy,
         proofApprovedAt: order.proofApprovedAt,
         notes: order.notes,
@@ -225,6 +249,8 @@ exports.createProductionOrder = async (req, res, next) => {
       orderDate: orderDate || new Date().toISOString().slice(0, 10),
       deliveryDeadline: (deliveryDeadline || '').trim(),
       status: status || 'Draft',
+      workflowStep: 'quotations',
+      workflowHistory: [{ step: 'quotations', action: 'CREATED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role }],
       notes: (notes || '').trim(),
       createdBy: req.user._id
     });
@@ -249,6 +275,8 @@ exports.createProductionOrder = async (req, res, next) => {
         orderDate: populated.orderDate,
         deliveryDeadline: populated.deliveryDeadline,
         status: populated.status,
+        workflowStep: populated.workflowStep,
+        workflowHistory: publicHistory(populated.workflowHistory),
         proofApprovedBy: populated.proofApprovedBy,
         proofApprovedAt: populated.proofApprovedAt,
         notes: populated.notes,
@@ -263,6 +291,58 @@ exports.createProductionOrder = async (req, res, next) => {
     }
     next(error);
   }
+};
+
+// POST /api/production-orders/:id/workflow/advance
+exports.advanceWorkflow = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid production order ID format.' });
+    const order = await ProductionOrder.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Production order not found.' });
+    const currentStep = order.workflowStep || 'quotations';
+    const currentIndex = WORKFLOW_STEPS.indexOf(currentStep);
+    if (currentIndex < 0 || currentIndex === WORKFLOW_STEPS.length - 1) return res.status(409).json({ error: 'Workflow is already complete.' });
+
+    const isApproval = APPROVAL_STEPS.has(currentStep);
+    if (isApproval) {
+      if (!canApproveWorkflow(req.user, currentStep)) {
+        return res.status(403).json({ error: 'Only an Admin-designated Head approver can approve this step.' });
+      }
+    } else if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_UPDATE)) {
+      return res.status(403).json({ error: 'Insufficient permission to advance this workflow.' });
+    }
+
+    const note = String(req.body.note || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
+    const action = isApproval ? 'APPROVED' : 'COMPLETED';
+    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note });
+    if (isApproval) {
+      await ApprovalAudit.create({
+        order: order._id, step: currentStep, decision: 'APPROVED', approver: req.user._id,
+        approverName: req.user.name, approverEmail: req.user.email, approverRole: req.user.role,
+        note, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
+      });
+      order.proofApprovedBy = req.user._id;
+      order.proofApprovedAt = new Date();
+    }
+    order.workflowStep = WORKFLOW_STEPS[currentIndex + 1];
+    order.status = STATUS_BY_STEP[order.workflowStep];
+    await order.save();
+    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, workflowHistory: publicHistory(order.workflowHistory), status: order.status } });
+  } catch (error) { next(error); }
+};
+
+// GET /api/production-orders/approval-audit — deliberately Admin/Super Admin only
+exports.getApprovalAudit = async (req, res, next) => {
+  try {
+    const role = normalizeRole(req.user.role);
+    if (![ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(role)) return res.status(403).json({ error: 'Approval audit is restricted to Administrators.' });
+    const rows = await ApprovalAudit.find().populate('order', 'orderNumber campaignName').sort({ createdAt: -1 }).limit(500);
+    res.status(200).json({ count: rows.length, approvalAudit: rows.map((row) => ({
+      id: String(row._id), order: row.order, step: row.step, decision: row.decision,
+      approverName: row.approverName, approverEmail: row.approverEmail, approverRole: row.approverRole,
+      note: row.note, createdAt: row.createdAt
+    })) });
+  } catch (error) { next(error); }
 };
 
 // PUT /api/production-orders/:id
@@ -281,7 +361,11 @@ exports.updateProductionOrder = async (req, res, next) => {
       return res.status(404).json({ error: 'Production order not found.' });
     }
 
-    const updates = { ...req.body };
+    const allowedFields = [
+      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'specification',
+      'quantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
+    ];
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
 
     // Automatically recalculate totalCost if unitCost or quantity is updated
     if (updates.quantity !== undefined || updates.unitCost !== undefined) {
@@ -289,14 +373,6 @@ exports.updateProductionOrder = async (req, res, next) => {
       const u = updates.unitCost !== undefined ? Number(updates.unitCost) : existing.unitCost;
       if (updates.totalCost === undefined) {
         updates.totalCost = q * u;
-      }
-    }
-
-    // Proof Approval handling
-    if (updates.approveProof === true || updates.status === 'Sample Proofing' || updates.status === 'In Production') {
-      if (hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_APPROVE_PROOF)) {
-        updates.proofApprovedBy = req.user._id;
-        updates.proofApprovedAt = new Date();
       }
     }
 

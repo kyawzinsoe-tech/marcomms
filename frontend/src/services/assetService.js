@@ -109,6 +109,35 @@ export async function createAsset(assetData) {
   return data.asset;
 }
 
+export async function uploadBrandAsset(assetData, file, onProgress = () => {}) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  if (!file || !['image/png', 'image/jpeg'].includes(file.type)) throw new Error('Only PNG and JPEG images are allowed.');
+  if (file.size < 1 || file.size > 10 * 1024 * 1024) throw new Error('Image size must be between 1 byte and 10 MB.');
+
+  onProgress(1);
+  const initResponse = await fetch('/api/assets/uploads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...assetData, originalName: file.name, mimeType: file.type, fileSize: file.size })
+  }).then(handleApiResponse);
+  const initData = await initResponse.json().catch(() => ({}));
+  if (!initResponse.ok) throw new Error(initData.error || 'Unable to initialize upload.');
+
+  onProgress(2);
+  const uploadResponse = await fetch(initData.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+  if (!uploadResponse.ok) throw new Error('Secure storage upload failed.');
+
+  onProgress(3);
+  const completeResponse = await fetch(`/api/assets/${initData.assetId}/complete`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }
+  }).then(handleApiResponse);
+  const completeData = await completeResponse.json().catch(() => ({}));
+  if (!completeResponse.ok) throw new Error(completeData.error || 'Image verification failed.');
+  onProgress(4);
+  return completeData.asset;
+}
+
 /**
  * Update an existing asset
  * @param {string} id - Asset ID

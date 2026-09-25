@@ -2,6 +2,17 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: KBZ Marcomms Creative Subscription Hub - Serverless API Backend
 
+Parameters:
+  MongoDbUri:
+    Type: String
+    NoEcho: true
+  JwtSecret:
+    Type: String
+    NoEcho: true
+  AllowedOrigins:
+    Type: String
+    Default: "http://localhost:5173"
+
 Globals:
   Function:
     Timeout: 30
@@ -9,11 +20,13 @@ Globals:
     Runtime: nodejs20.x
     Environment:
       Variables:
-        MONGODB_URI: "mongodb+srv://kzsoe86_db_user:oKdKfVuO2EO9ZzRe@marcomms.aydgfu8.mongodb.net/marcomms_db?retryWrites=true&w=majority"
-        JWT_SECRET: "kbz_marcomms_creative_hub_jwt_super_secret_key_2026!"
+        MONGODB_URI: !Ref MongoDbUri
+        JWT_SECRET: !Ref JwtSecret
         JWT_EXPIRES_IN: "7d"
         NODE_ENV: "production"
         AWS_S3_BUCKET: !Ref BackupBucket
+        AWS_ASSET_BUCKET: !Ref AssetBucket
+        ALLOWED_ORIGINS: !Ref AllowedOrigins
         REMINDER_FROM_EMAIL: "kyawzin.soe@kbzbank.com"
 
 Resources:
@@ -28,6 +41,26 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
+  AssetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "kbz-marcomms-assets-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['Content-Type']
+            AllowedMethods: [PUT]
+            AllowedOrigins: [!Ref AllowedOrigins]
+            MaxAge: 300
+
   # Lambda Function
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -37,6 +70,8 @@ Resources:
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref BackupBucket
+        - S3CrudPolicy:
+            BucketName: !Ref AssetBucket
         - Statement:
             - Effect: Allow
               Action:

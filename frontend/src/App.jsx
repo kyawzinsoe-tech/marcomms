@@ -6,7 +6,8 @@ import {
   fetchUsersApi,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  setProductionApprover
 } from './services/authService';
 import { ROLES, PERMISSIONS, normalizeRole } from './config/rbac';
 import { LoginPage } from './components/LoginPage';
@@ -200,6 +201,16 @@ function DashboardApp() {
       } catch (err) {
         console.warn('[User Sync] Failed to refresh users from backend:', err.message);
       }
+    }
+  };
+
+  const handleSetProductionApprover = async (targetUser, enabled) => {
+    try {
+      await setProductionApprover(targetUser.id, enabled);
+      await refreshUsers();
+      showToast(`${targetUser.name} ${enabled ? 'assigned as' : 'removed from'} Production Approver.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to update approver.', 'error');
     }
   };
 
@@ -646,6 +657,7 @@ function DashboardApp() {
               onAddUser={handleOpenAddUser}
               onEditUser={handleOpenEditUser}
               onDeleteUser={handleDeleteUser}
+              onSetProductionApprover={handleSetProductionApprover}
             />
           </Suspense>
         )}
@@ -754,4 +766,3 @@ export function App() {
 }
 
 export default App;
-

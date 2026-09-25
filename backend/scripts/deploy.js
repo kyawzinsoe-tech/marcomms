@@ -157,12 +157,17 @@ async function deployLambda(roleArn, zipBuffer) {
   console.log(`[Lambda] Checking Lambda function: ${FUNCTION_NAME}...`);
   const envVars = {
     MONGODB_URI: process.env.MONGODB_URI,
-    JWT_SECRET: process.env.JWT_SECRET || 'kbz_marcomms_creative_hub_jwt_super_secret_key_2026!',
+    JWT_SECRET: process.env.JWT_SECRET,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     NODE_ENV: 'production',
     AWS_S3_BUCKET: process.env.AWS_S3_BUCKET || 'kbz-marcomms-backups-888725256922',
+    AWS_ASSET_BUCKET: process.env.AWS_ASSET_BUCKET,
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:5173',
     REMINDER_FROM_EMAIL: process.env.REMINDER_FROM_EMAIL || 'kyawzin.soe@kbzbank.com'
   };
+  if (!envVars.MONGODB_URI || !envVars.JWT_SECRET || !envVars.AWS_ASSET_BUCKET) {
+    throw new Error('MONGODB_URI, JWT_SECRET, and AWS_ASSET_BUCKET must be configured before deployment.');
+  }
 
   try {
     const fn = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));

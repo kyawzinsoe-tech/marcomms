@@ -1,4 +1,10 @@
-const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 function getS3Client() {
   const region = process.env.AWS_REGION || 'us-east-1';
@@ -41,6 +47,44 @@ async function uploadBackupToS3(key, data) {
   }
 }
 
+function getAssetBucket() {
+  const bucket = process.env.AWS_ASSET_BUCKET || process.env.AWS_S3_BUCKET;
+  if (!bucket) throw new Error('AWS_ASSET_BUCKET is not configured');
+  return bucket;
+}
+
+async function createAssetUploadUrl({ key, mimeType }) {
+  return getSignedUrl(getS3Client(), new PutObjectCommand({
+    Bucket: getAssetBucket(),
+    Key: key,
+    ContentType: mimeType,
+    ServerSideEncryption: 'AES256',
+    Metadata: { upload: 'marcomms-brand-asset' }
+  }), { expiresIn: 300 });
+}
+
+async function readAssetSignature(key) {
+  const response = await getS3Client().send(new GetObjectCommand({
+    Bucket: getAssetBucket(), Key: key, Range: 'bytes=0-15'
+  }));
+  const bytes = await response.Body.transformToByteArray();
+  return { bytes: Buffer.from(bytes), contentType: response.ContentType, contentLength: response.ContentLength };
+}
+
+async function deleteAssetObject(key) {
+  await getS3Client().send(new DeleteObjectCommand({ Bucket: getAssetBucket(), Key: key }));
+}
+
+async function createAssetDownloadUrl(key) {
+  return getSignedUrl(getS3Client(), new GetObjectCommand({
+    Bucket: getAssetBucket(), Key: key, ResponseContentDisposition: 'inline'
+  }), { expiresIn: 300 });
+}
+
 module.exports = {
-  uploadBackupToS3
+  uploadBackupToS3,
+  createAssetUploadUrl,
+  readAssetSignature,
+  deleteAssetObject,
+  createAssetDownloadUrl
 };

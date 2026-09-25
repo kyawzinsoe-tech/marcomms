@@ -32,6 +32,7 @@ exports.getUsers = async (req, res, next) => {
         name: u.name,
         email: u.email,
         role: normalizeRole(u.role),
+        productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
       }))
@@ -39,6 +40,30 @@ exports.getUsers = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// PATCH /api/users/:id/production-approver — Admin-managed, Head-only, maximum four
+exports.setProductionApprover = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid user ID format.' });
+    const enabled = req.body.enabled === true;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (normalizeRole(user.role) !== ROLES.HEAD_BRAND) {
+      return res.status(400).json({ error: 'Only Head of Brand accounts can be designated as production approvers.' });
+    }
+    if (enabled && !user.productionApprover) {
+      const count = await User.countDocuments({ role: ROLES.HEAD_BRAND, productionApprover: true });
+      if (count >= 4) return res.status(409).json({ error: 'A maximum of four Head approvers is allowed.' });
+    }
+    user.productionApprover = enabled;
+    await user.save();
+    logAuditEvent({
+      actorId: req.user._id, actorRole: req.user.role, action: enabled ? 'PRODUCTION_APPROVER_ASSIGNED' : 'PRODUCTION_APPROVER_REMOVED',
+      targetEntity: 'User', targetId: user._id, ip: req.ip, outcome: 'SUCCESS', metadata: { email: user.email }
+    });
+    res.status(200).json({ user: { id: String(user._id), name: user.name, email: user.email, role: normalizeRole(user.role), productionApprover: user.productionApprover } });
+  } catch (error) { next(error); }
 };
 
 // POST /api/users
@@ -104,6 +129,7 @@ exports.createUser = async (req, res, next) => {
         name: newUser.name,
         email: newUser.email,
         role: normalizeRole(newUser.role),
+        productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
       }
@@ -209,6 +235,7 @@ exports.updateUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: normalizeRole(user.role),
+        productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt
       }

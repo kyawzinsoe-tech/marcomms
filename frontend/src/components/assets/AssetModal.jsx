@@ -14,7 +14,7 @@ const CATEGORY_OPTIONS = [
   'Signage & Print'
 ];
 
-const FILE_TYPE_OPTIONS = ['PNG', 'SVG', 'AI', 'PSD', 'PDF', 'EPS', 'ZIP', 'JPG', 'MP4'];
+const FILE_TYPE_OPTIONS = ['PNG', 'JPEG'];
 
 /**
  * Validates URLs including HTTP, HTTPS, S3, Google Drive share links, and relative paths
@@ -58,10 +58,12 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
 
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     setValidationErrors({});
     setIsSaving(false);
+    setSelectedFile(null);
     if (asset) {
       setFormData({
         title: asset.title || '',
@@ -128,9 +130,9 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
       errors.title = 'Asset title is required.';
     }
 
-    if (!cleanFileUrl) {
-      errors.fileUrl = 'File URL or storage link is required.';
-    } else if (!isValidUrl(cleanFileUrl)) {
+    if (!cleanFileUrl && !selectedFile) {
+      errors.fileUrl = 'Select a PNG/JPEG file or provide a secure HTTPS URL.';
+    } else if (cleanFileUrl && !isValidUrl(cleanFileUrl)) {
       errors.fileUrl = 'Please enter a valid URL, Google Drive link, or storage path.';
     }
 
@@ -156,6 +158,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
         : [],
       description: (formData.description || '').trim()
     };
+    if (selectedFile) payload.file = selectedFile;
 
     try {
       await onSave(payload);
@@ -260,12 +263,30 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
               <span>2. Storage Links & Specifications</span>
             </div>
             <div className="form-grid">
+              {!asset && (
+                <div className="form-group col-span-2">
+                  <label htmlFor="asset-file">PNG/JPEG File *</label>
+                  <input
+                    id="asset-file"
+                    type="file"
+                    accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                    required={!formData.fileUrl}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setSelectedFile(file);
+                      if (file) handleChange('fileType', file.type === 'image/png' ? 'PNG' : 'JPEG');
+                    }}
+                    disabled={isSaving}
+                  />
+                  <small>Private storage · PNG/JPEG only · Maximum 10 MB</small>
+                </div>
+              )}
               <div className="form-group col-span-2">
-                <label htmlFor="asset-file-url">File Download URL / Cloud Storage Link *</label>
+                <label htmlFor="asset-file-url">Legacy HTTPS URL {asset ? '' : '(optional)'}</label>
                 <input
                   id="asset-file-url"
                   type="text"
-                  required
+                  required={Boolean(asset && !selectedFile)}
                   placeholder="https://drive.google.com/... or https://assets.company.com/logo.ai"
                   value={formData.fileUrl}
                   onChange={(e) => handleChange('fileUrl', e.target.value)}

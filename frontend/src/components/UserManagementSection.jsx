@@ -38,7 +38,8 @@ export function UserManagementSection({
   currentUserId,
   onAddUser,
   onEditUser,
-  onDeleteUser
+  onDeleteUser,
+  onSetProductionApprover
 }) {
   const { can, user: currentUser, isSuperAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -561,6 +562,7 @@ export function UserManagementSection({
                 <tr>
                   <th scope="col" style={{ width: '30%' }}>User</th>
                   <th scope="col" style={{ width: '22%' }}>Assigned Role (RBAC)</th>
+                  <th scope="col" style={{ width: '16%' }}>Production Approval</th>
                   <th scope="col" style={{ width: '16%' }}>Created Date</th>
                   <th scope="col" style={{ width: '16%' }}>Active Sessions</th>
                   <th scope="col" style={{ textAlign: 'right', minWidth: '110px' }}>Actions</th>
@@ -621,6 +623,20 @@ export function UserManagementSection({
 
                       {/* Role Column */}
                       <td>{getRoleBadge(u.role)}</td>
+
+                      <td>
+                        {normalizeRole(u.role) === ROLES.HEAD_BRAND ? (
+                          <label className="form-check form-switch" style={{ display: 'inline-flex' }}>
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              checked={Boolean(u.productionApprover)}
+                              onChange={(event) => onSetProductionApprover?.(u, event.target.checked)}
+                            />
+                            <span className="form-check-label">{u.productionApprover ? 'Designated' : 'Not assigned'}</span>
+                          </label>
+                        ) : <span style={{ color: 'var(--text-subtle)', fontSize: '12px' }}>Head only</span>}
+                      </td>
 
                       {/* Created Date */}
                       <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>

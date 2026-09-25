@@ -19,6 +19,13 @@ describe('Production Workflow Approval Security', () => {
     assert.equal(_workflowSecurity.APPROVAL_STEPS.has('invoice_head_approval'), true);
   });
 
+  it('accepts only Google Drive evidence links for quotation skips', () => {
+    assert.equal(_workflowSecurity.isGoogleDriveUrl('https://drive.google.com/file/d/quotation/view'), true);
+    assert.equal(_workflowSecurity.isGoogleDriveUrl('https://docs.google.com/spreadsheets/d/quotation'), true);
+    assert.equal(_workflowSecurity.isGoogleDriveUrl('javascript:alert(1)'), false);
+    assert.equal(_workflowSecurity.isGoogleDriveUrl('https://example.com/quotation'), false);
+  });
+
   it('allows controlled early completion only for Admin and Head accounts', () => {
     assert.equal(_workflowSecurity.canForceComplete({ role: 'admin' }), true);
     assert.equal(_workflowSecurity.canForceComplete({ role: 'super_admin' }), true);

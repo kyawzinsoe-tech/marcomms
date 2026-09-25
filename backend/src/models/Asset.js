@@ -28,6 +28,11 @@ const assetSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    downloadUrl: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     fileType: {
       type: String,
       trim: true,

@@ -13,9 +13,13 @@ const STATUS_BY_STEP = {
   final_payment: 'Delivered', closed: 'Delivered'
 };
 
+function isGoogleDriveUrl(value) {
+  return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(value || '').trim());
+}
+
 function publicHistory(history = [], includeActors = false) {
   return history.map((item) => ({
-    step: item.step, action: item.action, note: item.note, at: item.at,
+    step: item.step, action: item.action, note: item.note, evidenceUrl: item.evidenceUrl, at: item.at,
     ...(includeActors ? { actorName: item.actorName, actorRole: item.actorRole } : {})
   }));
 }
@@ -24,7 +28,7 @@ function canApproveWorkflow(user, step) {
   return APPROVAL_STEPS.has(step) && normalizeRole(user?.role) === ROLES.HEAD_BRAND && user?.productionApprover === true;
 }
 
-exports._workflowSecurity = { canApproveWorkflow, APPROVAL_STEPS };
+exports._workflowSecurity = { canApproveWorkflow, isGoogleDriveUrl, APPROVAL_STEPS };
 
 function canForceComplete(user) {
   return [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HEAD_BRAND].includes(normalizeRole(user?.role));
@@ -331,11 +335,18 @@ exports.advanceWorkflow = async (req, res, next) => {
 
     const note = String(req.body.note || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
     const skip = req.body.skip === true;
+    const evidenceUrl = String(req.body.evidenceUrl || '').trim().slice(0, 1000);
     if (skip && currentStep !== 'quotations') {
       return res.status(400).json({ error: 'Only the Collect 3 Quotations step can be skipped.' });
     }
+    if (skip && note.length < 5) {
+      return res.status(400).json({ error: 'A reason is required when fewer than 3 quotations are available.' });
+    }
+    if (skip && !isGoogleDriveUrl(evidenceUrl)) {
+      return res.status(400).json({ error: 'A valid Google Drive evidence link is required to skip the quotation step.' });
+    }
     const action = skip ? 'SKIPPED' : isApproval ? 'APPROVED' : 'COMPLETED';
-    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note });
+    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note, evidenceUrl: skip ? evidenceUrl : '' });
     if (isApproval) {
       await ApprovalAudit.create({
         order: order._id, step: currentStep, decision: 'APPROVED', approver: req.user._id,

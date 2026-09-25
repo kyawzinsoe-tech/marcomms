@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, ExternalLink, Loader2, ShieldCheck } from 'lucide-react';
 import './ProductionWorkflow.css';
 
 const WORKFLOW_STEPS = [
@@ -16,6 +16,8 @@ const WORKFLOW_STEPS = [
 
 export function ProductionWorkflow({ order, user, advancing, onAdvance, onComplete }) {
   const [completionReason, setCompletionReason] = useState('');
+  const [skipReason, setSkipReason] = useState('');
+  const [quotationLink, setQuotationLink] = useState('');
   const currentIndex = Math.max(0, WORKFLOW_STEPS.findIndex(([key]) => key === (order.workflowStep || 'quotations')));
   const approvalStep = ['sample_approval', 'invoice_head_approval'].includes(order.workflowStep);
   const canApprove = user?.role === 'head_brand' && user?.productionApprover === true;
@@ -46,17 +48,35 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
         <span>{approvalStep ? <><ShieldCheck size={14} /> Designated Head approval required</> : 'Operational step'}</span>
         {order.workflowStep !== 'closed' && (
           <>
-          {order.workflowStep === 'quotations' && (
-            <button type="button" className="btn btn-outline btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order, true)}>
-              Skip — quotations unavailable
-            </button>
-          )}
           <button type="button" className="btn btn-primary btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order, false)}>
             {advancing ? <><Loader2 size={13} className="animate-spin" /> Saving & auditing…</> : approvalStep ? 'Approve & continue' : 'Complete & continue'}
           </button>
           </>
         )}
       </div>
+      {order.workflowStep === 'quotations' && canAdvance && (
+        <div className="quotation-skip-panel">
+          <strong>Fewer than 3 quotations?</strong>
+          <p>Enter the reason and attach a Google Drive evidence link. The skip is recorded in workflow history.</p>
+          <input type="text" maxLength={1000} value={skipReason} onChange={(event) => setSkipReason(event.target.value)} placeholder="Reason quotations are unavailable" aria-label="Quotation skip reason" />
+          <input type="url" maxLength={1000} value={quotationLink} onChange={(event) => setQuotationLink(event.target.value)} placeholder="https://drive.google.com/..." aria-label="Quotation evidence Google Drive link" />
+          <button type="button" className="btn btn-outline btn-sm" disabled={advancing || skipReason.trim().length < 5 || !/^https:\/\/(drive|docs)\.google\.com\//i.test(quotationLink.trim())} onClick={() => onAdvance(order, true, { reason: skipReason.trim(), evidenceUrl: quotationLink.trim() })}>
+            <ExternalLink size={13} /> Record link & skip quotation step
+          </button>
+        </div>
+      )}
+      {Array.isArray(order.workflowHistory) && order.workflowHistory.length > 0 && (
+        <details className="workflow-history-panel">
+          <summary>Workflow history ({order.workflowHistory.length})</summary>
+          {order.workflowHistory.map((item, index) => (
+            <div className="workflow-history-item" key={`${item.step}-${item.at || index}`}>
+              <span><strong>{item.action}</strong> · {item.step.replaceAll('_', ' ')}</span>
+              {item.note && <small>{item.note}</small>}
+              {item.evidenceUrl && <a href={item.evidenceUrl} target="_blank" rel="noopener noreferrer">Open evidence <ExternalLink size={11} /></a>}
+            </div>
+          ))}
+        </details>
+      )}
       {canComplete && (
         <div className="production-workflow-override">
           <input

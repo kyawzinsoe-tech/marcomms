@@ -12,9 +12,17 @@
 .production-workflow-actions > span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; }
 .production-workflow-override { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-default); }
 .production-workflow-override input { flex: 1; min-width: 180px; }
+.quotation-skip-panel { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) auto; align-items: center; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--warning-border, #f2c46d); border-radius: var(--radius-md); background: var(--warning-light, #fff8e8); }
+.quotation-skip-panel strong, .quotation-skip-panel p { grid-column: 1 / -1; margin: 0; }
+.quotation-skip-panel p { color: var(--text-muted); font-size: 12px; }
+.workflow-history-panel { margin-top: 12px; border-top: 1px solid var(--border-default); padding-top: 10px; }
+.workflow-history-panel summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.workflow-history-item { display: grid; gap: 3px; padding: 8px 0; border-bottom: 1px solid var(--border-default); font-size: 12px; }
+.workflow-history-item small { color: var(--text-muted); }
+.workflow-history-item a { display: inline-flex; align-items: center; gap: 4px; width: fit-content; }
 .production-workflow-complete { display: flex; align-items: center; gap: 10px; color: var(--success-text); background: var(--success-light); }
 .production-workflow-complete div { display: flex; flex-direction: column; gap: 2px; }
 .production-workflow-complete span { color: var(--text-muted); font-size: 12px; }
-@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } }
+@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } .quotation-skip-panel { grid-template-columns: 1fr; } }
 .approval-audit-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .approval-audit-panel summary { display: flex; align-items: center; gap: 6px; font-weight: 700; }

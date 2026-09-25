@@ -23,4 +23,11 @@ describe('Brand Asset Upload Security', () => {
   it('enforces a 10 MB maximum', () => {
     assert.equal(_assetValidation.MAX_ASSET_BYTES, 10 * 1024 * 1024);
   });
+
+  it('accepts only Google Drive or Google Docs download links', () => {
+    assert.equal(_assetValidation.safeGoogleDriveUrl('https://drive.google.com/file/d/abc/view'), 'https://drive.google.com/file/d/abc/view');
+    assert.equal(_assetValidation.safeGoogleDriveUrl('https://docs.google.com/document/d/abc'), 'https://docs.google.com/document/d/abc');
+    assert.equal(_assetValidation.safeGoogleDriveUrl('https://evil.example/download'), null);
+    assert.equal(_assetValidation.safeGoogleDriveUrl(''), '');
+  });
 });

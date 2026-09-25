@@ -27,7 +27,13 @@ function hasValidSignature(bytes, mimeType) {
   return mimeType === 'image/jpeg' && bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 }
 
-exports._assetValidation = { hasValidSignature, safeOriginalName, MAX_ASSET_BYTES };
+function safeGoogleDriveUrl(value) {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  return /^https:\/\/(drive|docs)\.google\.com\//i.test(url) ? url.slice(0, 1000) : null;
+}
+
+exports._assetValidation = { hasValidSignature, safeOriginalName, safeGoogleDriveUrl, MAX_ASSET_BYTES };
 
 // Helper to check read permission for a library
 function canReadLibrary(user, library) {
@@ -72,6 +78,8 @@ exports.getAssets = async (req, res, next) => {
     if (archived !== 'true') {
       query.archived = false;
     }
+    // Incomplete/rejected uploads are operational records, not usable assets.
+    query.$or = [{ uploadStatus: { $in: ['ready', 'external'] } }, { uploadStatus: { $exists: false } }];
 
     // Library filter & RBAC check
     if (library) {
@@ -103,7 +111,7 @@ exports.getAssets = async (req, res, next) => {
     // Search query
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [{ title: regex }, { description: regex }, { tags: regex }];
+      query.$and = [{ $or: [{ title: regex }, { description: regex }, { tags: regex }] }];
     }
 
     const assets = await Asset.find(query).select('+storageKey').sort({ createdAt: -1 });
@@ -113,7 +121,7 @@ exports.getAssets = async (req, res, next) => {
       if (a.uploadStatus === 'ready' && a.storageKey) securedUrl = await createAssetDownloadUrl(a.storageKey);
       return {
         id: String(a._id), title: a.title, library: a.library, category: a.category,
-        fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl,
+        fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl, downloadUrl: a.downloadUrl,
         fileType: a.fileType, fileSize: a.fileSize, version: a.version, tags: a.tags,
         description: a.description, archived: a.archived, uploadStatus: a.uploadStatus,
         originalName: a.originalName, createdBy: a.createdBy, createdAt: a.createdAt, updatedAt: a.updatedAt
@@ -153,6 +161,7 @@ exports.getAssetById = async (req, res, next) => {
         category: asset.category,
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
+        downloadUrl: asset.downloadUrl,
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -172,7 +181,7 @@ exports.getAssetById = async (req, res, next) => {
 // POST /api/assets
 exports.createAsset = async (req, res, next) => {
   try {
-    const { title, library, category, fileUrl, thumbnailUrl, fileType, fileSize, version, tags, description } = req.body;
+    const { title, library, category, fileUrl, thumbnailUrl, downloadUrl, fileType, fileSize, version, tags, description } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Asset title is required.' });
@@ -190,6 +199,8 @@ exports.createAsset = async (req, res, next) => {
     if (!fileUrl || !/^https:\/\//i.test(fileUrl.trim())) {
       return res.status(400).json({ error: 'A secure HTTPS asset URL is required.' });
     }
+    const safeDownloadUrl = safeGoogleDriveUrl(downloadUrl);
+    if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
     const normalizedType = String(fileType || '').toUpperCase().trim();
     if (!['PNG', 'JPG', 'JPEG'].includes(normalizedType)) {
       return res.status(400).json({ error: 'Only PNG and JPEG brand assets are allowed.' });
@@ -201,6 +212,7 @@ exports.createAsset = async (req, res, next) => {
       category: safeText(category || 'General', 100),
       fileUrl: fileUrl.trim(),
       thumbnailUrl: (thumbnailUrl || '').trim(),
+      downloadUrl: safeDownloadUrl,
       fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType,
       fileSize: Number(fileSize || 0),
       version: safeText(version || '1.0', 30),
@@ -217,6 +229,7 @@ exports.createAsset = async (req, res, next) => {
         category: asset.category,
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
+        downloadUrl: asset.downloadUrl,
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -234,25 +247,44 @@ exports.createAsset = async (req, res, next) => {
 
 exports.initializeAssetUpload = async (req, res, next) => {
   try {
-    const { title, library, category, originalName, mimeType, fileSize, version, tags, description } = req.body;
+    const { title, library, category, originalName, mimeType, fileSize, downloadUrl, version, tags, description } = req.body;
     const targetLibrary = library || 'kbz_bank';
     const size = Number(fileSize);
     if (!title || !safeText(title)) return res.status(400).json({ error: 'Asset title is required.' });
     if (!canWriteLibrary(req.user, targetLibrary, 'create')) return res.status(403).json({ error: 'Access denied.' });
     if (!ALLOWED_IMAGE_TYPES[mimeType]) return res.status(400).json({ error: 'Only PNG and JPEG images are allowed.' });
     if (!Number.isInteger(size) || size < 1 || size > MAX_ASSET_BYTES) return res.status(400).json({ error: 'Image size must be between 1 byte and 10 MB.' });
+    const safeDownloadUrl = safeGoogleDriveUrl(downloadUrl);
+    if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
 
     const name = safeOriginalName(originalName, mimeType);
     const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
+    // Generate the S3 URL before inserting a pending record so configuration
+    // failures cannot leave blank cards in MongoDB.
+    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
     const asset = await Asset.create({
       title: safeText(title), library: targetLibrary, category: safeText(category || 'General', 100),
       fileType: ALLOWED_IMAGE_TYPES[mimeType], fileSize: size, storageKey: key,
       originalName: name, mimeType, uploadStatus: 'pending', version: safeText(version || '1.0', 30),
+      downloadUrl: safeDownloadUrl,
       tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
       description: safeText(description, 2000), createdBy: req.user._id
     });
-    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
     res.status(201).json({ assetId: String(asset._id), uploadUrl, expiresIn: 300 });
+  } catch (error) { next(error); }
+};
+
+exports.abortAssetUpload = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    if (!asset) return res.status(204).end();
+    if (asset.uploadStatus !== 'pending') return res.status(409).json({ error: 'Only pending uploads can be cancelled.' });
+    const isOwner = String(asset.createdBy) === String(req.user._id);
+    if (!isOwner && !canWriteLibrary(req.user, asset.library, 'delete')) return res.status(403).json({ error: 'Access denied.' });
+    if (asset.storageKey) await deleteAssetObject(asset.storageKey).catch(() => {});
+    await Asset.findByIdAndDelete(asset._id);
+    return res.status(204).end();
   } catch (error) { next(error); }
 };
 
@@ -274,7 +306,7 @@ exports.completeAssetUpload = async (req, res, next) => {
     asset.uploadStatus = 'ready';
     await asset.save();
     const url = await createAssetDownloadUrl(asset.storageKey);
-    res.status(200).json({ asset: { id: String(asset._id), title: asset.title, library: asset.library, fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url, thumbnailUrl: url, uploadStatus: asset.uploadStatus } });
+    res.status(200).json({ asset: { id: String(asset._id), title: asset.title, library: asset.library, fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url, thumbnailUrl: url, downloadUrl: asset.downloadUrl, uploadStatus: asset.uploadStatus } });
   } catch (error) { next(error); }
 };
 
@@ -305,8 +337,13 @@ exports.updateAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to update ${asset.library} assets.` });
     }
 
-    const allowed = ['title', 'category', 'version', 'tags', 'description', 'archived'];
+    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'archived'];
     const safeUpdates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
+    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'downloadUrl')) {
+      const safeDownloadUrl = safeGoogleDriveUrl(safeUpdates.downloadUrl);
+      if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
+      safeUpdates.downloadUrl = safeDownloadUrl;
+    }
     const updated = await Asset.findByIdAndUpdate(
       req.params.id,
       safeUpdates,
@@ -321,6 +358,7 @@ exports.updateAsset = async (req, res, next) => {
         category: updated.category,
         fileUrl: updated.fileUrl,
         thumbnailUrl: updated.thumbnailUrl,
+        downloadUrl: updated.downloadUrl,
         fileType: updated.fileType,
         fileSize: updated.fileSize,
         version: updated.version,

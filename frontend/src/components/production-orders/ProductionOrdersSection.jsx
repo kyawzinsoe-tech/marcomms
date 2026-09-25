@@ -247,10 +247,15 @@ export function ProductionOrdersSection({ user, onNotify }) {
     }
   };
 
-  const handleAdvanceWorkflow = async (order, skip = false) => {
+  const handleAdvanceWorkflow = async (order, skip = false, skipDetails = {}) => {
     setAdvancingWorkflowId(order.id);
     try {
-      await advanceProductionWorkflow(order.id, skip ? 'Quotations were unavailable; step skipped by operator.' : '', skip);
+      await advanceProductionWorkflow(
+        order.id,
+        skip ? (skipDetails.reason || '') : '',
+        skip,
+        skip ? (skipDetails.evidenceUrl || '') : ''
+      );
       onNotify?.(`${skip ? 'Quotation step skipped' : 'Workflow advanced'} for ${order.orderNumber}.`, 'success');
       await loadAllData();
     } catch (err) {
@@ -750,7 +755,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
 
                   <td>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpandedWorkflowId((id) => id === order.id ? null : order.id)}>
-                      <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide' : 'Open'}
+                      <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide Process' : 'View 9-Step Process'}
                     </button>
                   </td>
 
@@ -787,7 +792,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 {expandedWorkflowId === order.id && (
                   <tr>
                     <td colSpan={(canEdit || canDelete) ? 10 : 9}>
-                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} />
+                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} onViewOrder={canEdit ? handleOpenEdit : undefined} />
                     </td>
                   </tr>
                 )}

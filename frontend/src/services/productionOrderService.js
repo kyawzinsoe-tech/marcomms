@@ -162,13 +162,13 @@ export async function deleteProductionOrder(id) {
   return data;
 }
 
-export async function advanceProductionWorkflow(id, note = '', skip = false) {
+export async function advanceProductionWorkflow(id, note = '', skip = false, evidenceUrl = '') {
   const token = getAuthToken();
   if (!token) throw new Error('Authentication required.');
   const response = await fetch(`/api/production-orders/${id}/workflow/advance`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ note, skip })
+    body: JSON.stringify({ note, skip, evidenceUrl })
   }).then(handleApiResponse);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Unable to advance workflow.');

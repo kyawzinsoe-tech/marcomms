@@ -13,21 +13,30 @@ const STATUS_BY_STEP = {
   final_payment: 'Delivered', closed: 'Delivered'
 };
 
+function isGoogleDriveUrl(value) {
+  return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(value || '').trim());
+}
+
 function publicHistory(history = [], includeActors = false) {
   return history.map((item) => ({
-    step: item.step, action: item.action, note: item.note, at: item.at,
+    step: item.step, action: item.action, note: item.note, evidenceUrl: item.evidenceUrl, at: item.at,
     ...(includeActors ? { actorName: item.actorName, actorRole: item.actorRole } : {})
   }));
 }
 
-function canApproveWorkflow(user, step) {
-  return APPROVAL_STEPS.has(step) && normalizeRole(user?.role) === ROLES.HEAD_BRAND && user?.productionApprover === true;
+function isWorkflowApprover(user) {
+  const role = normalizeRole(user?.role);
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN || (role === ROLES.HEAD_BRAND && user?.productionApprover === true);
 }
 
-exports._workflowSecurity = { canApproveWorkflow, APPROVAL_STEPS };
+function canApproveWorkflow(user, step) {
+  return APPROVAL_STEPS.has(step) && isWorkflowApprover(user);
+}
+
+exports._workflowSecurity = { canApproveWorkflow, isWorkflowApprover, isGoogleDriveUrl, APPROVAL_STEPS };
 
 function canForceComplete(user) {
-  return [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HEAD_BRAND].includes(normalizeRole(user?.role));
+  return isWorkflowApprover(user);
 }
 exports._workflowSecurity.canForceComplete = canForceComplete;
 
@@ -114,6 +123,7 @@ exports.getProductionOrders = async (req, res, next) => {
         status: o.status,
         workflowStep: o.workflowStep,
         workflowHistory: publicHistory(o.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
+        workflowEvidence: Object.fromEntries(o.workflowEvidence || []),
         completedAt: o.completedAt,
         completionMode: o.completionMode,
         completionReason: o.completionReason,
@@ -181,6 +191,7 @@ exports.getProductionOrderById = async (req, res, next) => {
         status: order.status,
         workflowStep: order.workflowStep,
         workflowHistory: publicHistory(order.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
+        workflowEvidence: Object.fromEntries(order.workflowEvidence || []),
         completedAt: order.completedAt,
         completionMode: order.completionMode,
         completionReason: order.completionReason,
@@ -323,7 +334,7 @@ exports.advanceWorkflow = async (req, res, next) => {
     const isApproval = APPROVAL_STEPS.has(currentStep);
     if (isApproval) {
       if (!canApproveWorkflow(req.user, currentStep)) {
-        return res.status(403).json({ error: 'Only an Admin-designated Head approver can approve this step.' });
+        return res.status(403).json({ error: 'Only an Administrator or designated Head approver can approve this step.' });
       }
     } else if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_UPDATE)) {
       return res.status(403).json({ error: 'Insufficient permission to advance this workflow.' });
@@ -331,11 +342,26 @@ exports.advanceWorkflow = async (req, res, next) => {
 
     const note = String(req.body.note || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
     const skip = req.body.skip === true;
-    if (skip && currentStep !== 'quotations') {
-      return res.status(400).json({ error: 'Only the Collect 3 Quotations step can be skipped.' });
+    const evidenceUrl = String(req.body.evidenceUrl || '').trim().slice(0, 1000);
+    if (skip && !isWorkflowApprover(req.user)) {
+      return res.status(403).json({ error: 'Only an Administrator or designated Head approver can skip a workflow step.' });
     }
+    if (skip && evidenceUrl && !isGoogleDriveUrl(evidenceUrl)) {
+      return res.status(400).json({ error: 'Evidence must be a valid Google Drive or Google Docs link.' });
+    }
+    if (!skip && currentStep === 'quotations' && !isGoogleDriveUrl(evidenceUrl)) {
+      return res.status(400).json({ error: 'Add the Google Drive link containing the three quotations, or use Skip for an urgent exception.' });
+    }
+    if (evidenceUrl && !isGoogleDriveUrl(evidenceUrl)) {
+      return res.status(400).json({ error: 'Evidence must be a valid Google Drive or Google Docs link.' });
+    }
+    const auditNote = skip ? (note || 'Step skipped as an authorized exception.') : note;
     const action = skip ? 'SKIPPED' : isApproval ? 'APPROVED' : 'COMPLETED';
-    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note });
+    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note: auditNote, evidenceUrl });
+    if (evidenceUrl) {
+      if (!order.workflowEvidence) order.workflowEvidence = new Map();
+      order.workflowEvidence.set(currentStep, evidenceUrl);
+    }
     if (isApproval) {
       await ApprovalAudit.create({
         order: order._id, step: currentStep, decision: 'APPROVED', approver: req.user._id,
@@ -344,6 +370,13 @@ exports.advanceWorkflow = async (req, res, next) => {
       });
       order.proofApprovedBy = req.user._id;
       order.proofApprovedAt = new Date();
+    }
+    if (skip) {
+      await ApprovalAudit.create({
+        order: order._id, step: currentStep, decision: 'SKIPPED', approver: req.user._id,
+        approverName: req.user.name, approverEmail: req.user.email, approverRole: req.user.role,
+        note: auditNote, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
+      });
     }
     order.workflowStep = WORKFLOW_STEPS[currentIndex + 1];
     order.status = order.workflowStep === 'closed' ? 'Completed' : STATUS_BY_STEP[order.workflowStep];
@@ -361,7 +394,7 @@ exports.advanceWorkflow = async (req, res, next) => {
         note: order.completionReason, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
       });
     }
-    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, workflowHistory: publicHistory(order.workflowHistory), status: order.status } });
+    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, workflowHistory: publicHistory(order.workflowHistory), workflowEvidence: Object.fromEntries(order.workflowEvidence || []), status: order.status } });
   } catch (error) { next(error); }
 };
 

@@ -1,0 +1,13 @@
+.important-work-page { display: grid; gap: 18px; }
+.important-work-page .section-header h2 { display: flex; align-items: center; gap: 9px; }
+.important-work-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 18px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-surface); }
+.important-work-form h3, .important-work-form .wide { grid-column: 1 / -1; }
+.work-link-row { display: grid; grid-template-columns: 150px 1fr 2fr; gap: 8px; }
+.work-form-actions, .work-card-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.important-work-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; }
+.important-work-card { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border-default); border-left: 5px solid #f59e0b; border-radius: var(--radius-lg); background: var(--bg-surface); }
+.important-work-card.priority-critical { border-left-color: #dc2626; }.important-work-card.priority-low { border-left-color: #22c55e; }
+.work-card-head { display: flex; justify-content: space-between; gap: 12px; }.work-card-head h3 { margin: 3px 0 0; }.work-card-head span { font-size: 11px; text-transform: uppercase; color: var(--text-muted); }.work-card-head > b { color: var(--warning-text, #b45309); font-size: 12px; }
+.important-work-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }.important-work-card dl div { padding: 8px; background: var(--bg-surface-secondary); border-radius: var(--radius-sm); }.important-work-card dt { color: var(--text-muted); font-size: 11px; }.important-work-card dd { margin: 3px 0 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.work-links { display: flex; flex-wrap: wrap; gap: 7px; }.work-links a { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); text-decoration: none; font-size: 12px; }
+@media (max-width: 760px) { .important-work-form { grid-template-columns: 1fr; }.important-work-form > * { grid-column: 1 !important; }.work-link-row { grid-template-columns: 1fr; } }

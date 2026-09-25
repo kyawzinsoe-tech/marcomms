@@ -437,14 +437,14 @@ export function AssetLibrarySection({
                 </span>
 
                 <div className="asset-card-actions">
-                  {asset.fileUrl && (
+                  {(asset.downloadUrl || asset.fileUrl) && (
                     <a
-                      href={asset.fileUrl}
+                      href={asset.downloadUrl || asset.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-primary btn-sm"
                       style={{ textDecoration: 'none' }}
-                      title={`Download ${asset.title}`}
+                      title={`${asset.downloadUrl ? 'Open Google Drive download' : 'Download'} ${asset.title}`}
                       aria-label={`Download ${asset.title}`}
                     >
                       <Download size={13} /> Download

@@ -23,6 +23,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
     category: 'Logos & Lockups',
     fileUrl: '',
     thumbnailUrl: '',
+    downloadUrl: '',
     fileType: 'PNG',
     fileSize: '',
     version: '1.0',
@@ -47,6 +48,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
         category: asset.category || 'General',
         fileUrl: asset.fileUrl || '',
         thumbnailUrl: asset.thumbnailUrl || '',
+        downloadUrl: asset.downloadUrl || '',
         fileType: asset.fileType || 'PNG',
         fileSize: asset.fileSize ? String(asset.fileSize) : '',
         version: asset.version || '1.0',
@@ -60,6 +62,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
         category: 'Logos & Lockups',
         fileUrl: '',
         thumbnailUrl: '',
+        downloadUrl: '',
         fileType: 'PNG',
         fileSize: '',
         version: '1.0',
@@ -123,6 +126,7 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
       library: formData.library || library || 'kbz_bank',
       fileUrl: asset?.fileUrl || '',
       thumbnailUrl: asset?.thumbnailUrl || '',
+      downloadUrl: (formData.downloadUrl || '').trim(),
       fileSize: formData.fileSize ? Number(formData.fileSize) : 0,
       tags: formData.tags
         ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -294,6 +298,18 @@ export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
                   onChange={(e) => handleChange('fileSize', e.target.value)}
                   disabled={isSaving}
                 />
+              </div>
+              <div className="form-group col-span-2">
+                <label htmlFor="asset-download-url">Google Drive Download Link (Optional)</label>
+                <input
+                  id="asset-download-url"
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={formData.downloadUrl}
+                  onChange={(e) => handleChange('downloadUrl', e.target.value)}
+                  disabled={isSaving}
+                />
+                <small>Only Google Drive/Google Docs HTTPS links are accepted. Make sure intended users have Drive access.</small>
               </div>
             </div>
           </div>

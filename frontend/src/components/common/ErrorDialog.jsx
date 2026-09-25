@@ -15,7 +15,7 @@ export function formatErrorMessage(rawError, fallback = 'An unexpected error occ
   if (lower.includes('jwt') || lower.includes('session') || lower.includes('401') || lower.includes('unauthorized') || lower.includes('sign in')) {
     return 'Your session has expired or is invalid. Please sign in again.';
   }
-  if (lower.includes('403') || lower.includes('permission') || lower.includes('access denied') || lower.includes('forbidden')) {
+  if (lower.includes('permission') || lower.includes('access denied') || lower.includes('forbidden')) {
     return 'You do not have permission to perform this action.';
   }
   if (lower.includes('failed to load assets') || lower.includes('failed to fetch assets')) {

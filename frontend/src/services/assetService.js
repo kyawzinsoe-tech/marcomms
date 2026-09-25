@@ -130,12 +130,17 @@ export async function uploadBrandAsset(assetData, file, onProgress = () => {}) {
     onProgress(2);
     const uploadResponse = await fetch(initData.uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256', 'x-amz-meta-upload': 'marcomms-brand-asset' },
+      // The presigner hoists asset metadata into the signed query string.
+      // Re-sending that metadata as an unsigned x-amz header makes S3 reject
+      // the otherwise valid URL with SignatureDoesNotMatch.
+      headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256' },
       body: file
     });
     if (!uploadResponse.ok) {
       const requestId = uploadResponse.headers.get('x-amz-request-id');
-      throw new Error(`Secure storage upload failed (HTTP ${uploadResponse.status}${requestId ? `, request ${requestId}` : ''}).`);
+      const responseText = await uploadResponse.text().catch(() => '');
+      const s3Code = responseText.match(/<Code>([^<]+)<\/Code>/i)?.[1];
+      throw new Error(`Secure storage upload failed${s3Code ? `: ${s3Code}` : ''} (HTTP ${uploadResponse.status}${requestId ? `, request ${requestId}` : ''}).`);
     }
 
     onProgress(3);

@@ -129,7 +129,6 @@ exports.getProductionOrders = async (req, res, next) => {
             }
           : null,
         proofApprovedAt: o.proofApprovedAt,
-        productionStartedAt: o.productionStartedAt,
         notes: o.notes,
         archived: o.archived,
         createdBy: o.createdBy
@@ -191,7 +190,6 @@ exports.getProductionOrderById = async (req, res, next) => {
         completionReason: order.completionReason,
         proofApprovedBy: order.proofApprovedBy,
         proofApprovedAt: order.proofApprovedAt,
-        productionStartedAt: order.productionStartedAt,
         notes: order.notes,
         archived: order.archived,
         createdBy: order.createdBy,
@@ -360,9 +358,6 @@ exports.advanceWorkflow = async (req, res, next) => {
     }
     order.workflowStep = WORKFLOW_STEPS[currentIndex + 1];
     order.status = order.workflowStep === 'closed' ? 'Completed' : STATUS_BY_STEP[order.workflowStep];
-    if (order.workflowStep === 'bulk_production' && !order.productionStartedAt) {
-      order.productionStartedAt = new Date();
-    }
     if (order.workflowStep === 'closed') {
       order.completedBy = req.user._id;
       order.completedAt = new Date();

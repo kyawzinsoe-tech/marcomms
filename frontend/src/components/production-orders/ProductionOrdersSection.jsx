@@ -792,7 +792,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 {expandedWorkflowId === order.id && (
                   <tr>
                     <td colSpan={(canEdit || canDelete) ? 10 : 9}>
-                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} />
+                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} onViewOrder={canEdit ? handleOpenEdit : undefined} />
                     </td>
                   </tr>
                 )}

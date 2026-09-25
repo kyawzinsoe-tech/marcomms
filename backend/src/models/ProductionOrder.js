@@ -89,9 +89,6 @@ const productionOrderSchema = new mongoose.Schema(
     proofApprovedAt: {
       type: Date
     },
-    productionStartedAt: {
-      type: Date
-    },
     completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     completedAt: { type: Date },
     completionMode: { type: String, enum: ['workflow', 'authorized_override'], default: undefined },

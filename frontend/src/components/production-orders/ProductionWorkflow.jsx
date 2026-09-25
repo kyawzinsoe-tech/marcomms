@@ -7,14 +7,14 @@ const WORKFLOW_STEPS = [
   ['sample_approval', 'Sample Approval'],
   ['vendor_procedure', 'Vendor Procedure'],
   ['invoice_head_approval', 'Invoice & Head Approval'],
-  ['bulk_production', 'Production Order / Bulk Production'],
+  ['bulk_production', 'Bulk Production'],
   ['delivery_confirmation', 'Confirm Delivery'],
   ['invoice_delivery_order', 'Invoice & Delivery Order'],
   ['final_payment', 'Final Payment'],
   ['closed', 'Close Project']
 ];
 
-export function ProductionWorkflow({ order, user, advancing, onAdvance, onComplete }) {
+export function ProductionWorkflow({ order, user, advancing, onAdvance, onComplete, onViewOrder }) {
   const [completionReason, setCompletionReason] = useState('');
   const [skipReason, setSkipReason] = useState('');
   const [quotationLink, setQuotationLink] = useState('');
@@ -25,7 +25,6 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
   const canAdvance = approvalStep ? canApprove : canOperate;
   const canComplete = ['head_brand', 'admin', 'super_admin'].includes(user?.role);
   const isProductionOrderStep = order.workflowStep === 'bulk_production';
-  const supplierName = order.supplier?.name || 'Not assigned';
   const actionLabel = isProductionOrderStep
     ? 'Complete production & continue'
     : approvalStep
@@ -48,19 +47,14 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
           <li key={key} className={`${index < currentIndex ? 'complete' : ''} ${index === currentIndex ? 'current' : ''}`}>
             <span className="workflow-node">{index < currentIndex ? <Check size={12} /> : index + 1}</span>
             <span>{label}</span>
+            {key === 'bulk_production' && (
+              <button type="button" className="workflow-po-link" onClick={() => onViewOrder?.(order)} disabled={!onViewOrder}>
+                <ExternalLink size={11} /> {order.orderNumber}
+              </button>
+            )}
           </li>
         ))}
       </ol>
-      {isProductionOrderStep && (
-        <section className="production-order-milestone" aria-label="Production order details">
-          <div><span>PO Number</span><strong>{order.orderNumber}</strong></div>
-          <div><span>Supplier</span><strong>{supplierName}</strong></div>
-          <div><span>Quantity</span><strong>{Number(order.quantity || 0).toLocaleString()}</strong></div>
-          <div><span>Total Cost</span><strong>{Number(order.totalCost || 0).toLocaleString()}</strong></div>
-          <div><span>PO / Start Date</span><strong>{order.productionStartedAt ? new Date(order.productionStartedAt).toLocaleDateString() : order.orderDate || '—'}</strong></div>
-          <div><span>Delivery Target</span><strong>{order.deliveryDeadline || '—'}</strong></div>
-        </section>
-      )}
       <div className="production-workflow-actions">
         <span>{approvalStep ? <><ShieldCheck size={14} /> Designated Head approval required</> : isProductionOrderStep ? 'PO issued · production in progress' : 'Operational step'}</span>
         {order.workflowStep !== 'closed' && (

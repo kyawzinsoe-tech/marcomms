@@ -95,6 +95,8 @@ function DashboardApp() {
     selectedMonthTokenCost,
     alerts,
     overdueCount,
+    executiveSummary,
+    dashboardError,
     setReportMonth,
     addSubscription,
     updateSubscription,
@@ -460,13 +462,18 @@ function DashboardApp() {
         {activeSection === 'dashboard' && (
           <>
             <KpiGrid
-              totalCount={totalSubscriptionsCount}
-              activeCount={activeSubscriptionsCount}
+              totalCount={executiveSummary?.subscriptions?.total ?? totalSubscriptionsCount}
+              activeCount={executiveSummary?.subscriptions?.active ?? activeSubscriptionsCount}
               activePercentage={activePercentage}
               overdueCount={overdueCount}
               monthlyCost={knownMonthlyCost}
               monthTokensUsed={selectedMonthTokensUsed}
+              productionTotal={executiveSummary?.production?.total}
+              productionCompleted={executiveSummary?.production?.completed}
+              dataSource={executiveSummary?.source}
             />
+
+            {dashboardError && <div className="dashboard-data-warning" role="alert">{dashboardError}</div>}
 
             {alerts.length > 0 && (
               <AlertsSection
@@ -575,7 +582,7 @@ function DashboardApp() {
               reportMonth={reportMonth}
               selectedYear={selectedYear}
               subscriptions={state.subscriptions}
-              tokenEntries={selectedMonthEntries}
+              tokenEntries={state.tokenEntries}
               alerts={alerts}
               fullState={state}
               isAdmin={isAdmin}

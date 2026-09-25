@@ -12,6 +12,7 @@ const assetRoutes = require('./routes/assetRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const productionOrderRoutes = require('./routes/productionOrderRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
@@ -62,6 +63,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/production-orders', productionOrderRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error Handling
 app.use(errorHandler);

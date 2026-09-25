@@ -164,6 +164,15 @@ export async function fetchDashboardData() {
   return normalizeData(DEMO_DATA);
 }
 
+export async function fetchExecutiveSummary() {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetchWithRetry('/api/dashboard/summary', { headers: { Authorization: `Bearer ${token}` } }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to load live executive metrics.');
+  return data;
+}
+
 export async function saveDashboardData(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

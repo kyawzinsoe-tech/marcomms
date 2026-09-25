@@ -12,12 +12,14 @@ const productionOrderSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Order number is required'],
       unique: true,
-      trim: true
+      trim: true,
+      maxlength: [40, 'Order number cannot exceed 40 characters']
     },
     campaignName: {
       type: String,
       required: [true, 'Campaign or project name is required'],
-      trim: true
+      trim: true,
+      maxlength: [120, 'Campaign name cannot exceed 120 characters']
     },
     supplier: {
       type: mongoose.Schema.Types.ObjectId,
@@ -31,11 +33,13 @@ const productionOrderSchema = new mongoose.Schema(
     itemDescription: {
       type: String,
       required: [true, 'Item description is required'],
-      trim: true
+      trim: true,
+      maxlength: [300, 'Item description cannot exceed 300 characters']
     },
     specification: {
       type: String,
-      default: ''
+      default: '',
+      maxlength: [1000, 'Specification cannot exceed 1000 characters']
     },
     quantity: {
       type: Number,
@@ -60,7 +64,7 @@ const productionOrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Draft', 'Submitted', 'Sample Proofing', 'In Production', 'Delivered', 'Cancelled'],
+      enum: ['Draft', 'Submitted', 'Sample Proofing', 'In Production', 'Delivered', 'Completed', 'Cancelled'],
       default: 'Draft'
     },
     workflowStep: {
@@ -84,9 +88,14 @@ const productionOrderSchema = new mongoose.Schema(
     proofApprovedAt: {
       type: Date
     },
+    completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    completedAt: { type: Date },
+    completionMode: { type: String, enum: ['workflow', 'authorized_override'], default: undefined },
+    completionReason: { type: String, default: '', maxlength: 1000 },
     notes: {
       type: String,
-      default: ''
+      default: '',
+      maxlength: [2000, 'Notes cannot exceed 2000 characters']
     },
     archived: {
       type: Boolean,

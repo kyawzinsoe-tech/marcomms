@@ -18,4 +18,12 @@ describe('Production Workflow Approval Security', () => {
     assert.equal(_workflowSecurity.APPROVAL_STEPS.has('sample_approval'), true);
     assert.equal(_workflowSecurity.APPROVAL_STEPS.has('invoice_head_approval'), true);
   });
+
+  it('allows controlled early completion only for Admin and Head accounts', () => {
+    assert.equal(_workflowSecurity.canForceComplete({ role: 'admin' }), true);
+    assert.equal(_workflowSecurity.canForceComplete({ role: 'super_admin' }), true);
+    assert.equal(_workflowSecurity.canForceComplete({ role: 'head_brand' }), true);
+    assert.equal(_workflowSecurity.canForceComplete({ role: 'procurement_officer' }), false);
+    assert.equal(_workflowSecurity.canForceComplete({ role: 'viewer' }), false);
+  });
 });

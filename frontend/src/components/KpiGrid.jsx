@@ -8,7 +8,10 @@ export function KpiGrid({
   activePercentage,
   overdueCount,
   monthlyCost,
-  monthTokensUsed
+  monthTokensUsed,
+  productionTotal,
+  productionCompleted,
+  dataSource
 }) {
   return (
     <section className="kpi-grid" id="dashboard" aria-label="Executive KPI Summary">
@@ -65,6 +68,11 @@ export function KpiGrid({
         </div>
         <div className="kpi-value">{formatNumber(monthTokensUsed)}</div>
         <div className="kpi-subtext">Magnific AI consumed</div>
+      </div>
+      <div className="kpi-card">
+        <div className="kpi-header"><span className="kpi-label">Production Orders</span><div className="kpi-icon-wrap" aria-hidden="true"><CheckCircle2 size={16} /></div></div>
+        <div className="kpi-value">{productionCompleted ?? '—'} / {productionTotal ?? '—'}</div>
+        <div className="kpi-subtext">Completed / Total · {dataSource === 'database' ? 'Live database' : 'Unavailable'}</div>
       </div>
     </section>
   );

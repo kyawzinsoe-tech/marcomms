@@ -10,6 +10,11 @@
 .production-workflow-steps li.current .workflow-node { color: white; border-color: var(--primary); background: var(--primary); }
 .production-workflow-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
 .production-workflow-actions > span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; }
-@media (max-width: 720px) { .production-workflow-actions { align-items: stretch; flex-direction: column; } }
+.production-workflow-override { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-default); }
+.production-workflow-override input { flex: 1; min-width: 180px; }
+.production-workflow-complete { display: flex; align-items: center; gap: 10px; color: var(--success-text); background: var(--success-light); }
+.production-workflow-complete div { display: flex; flex-direction: column; gap: 2px; }
+.production-workflow-complete span { color: var(--text-muted); font-size: 12px; }
+@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } }
 .approval-audit-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .approval-audit-panel summary { display: flex; align-items: center; gap: 6px; font-weight: 700; }

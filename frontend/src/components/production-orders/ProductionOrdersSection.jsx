@@ -27,6 +27,7 @@ import {
   deleteProductionOrder,
   advanceProductionWorkflow,
   fetchApprovalAudit,
+  completeProductionWorkflow,
   PRODUCTION_STATUSES
 } from '../../services/productionOrderService';
 import { fetchSuppliers } from '../../services/supplierService';
@@ -121,11 +122,11 @@ export function ProductionOrdersSection({ user, onNotify }) {
     const total = orders.length;
     const inProduction = orders.filter((o) => o.status === 'In Production').length;
     const sampleProofing = orders.filter((o) => o.status === 'Sample Proofing').length;
-    const delivered = orders.filter((o) => o.status === 'Delivered').length;
+    const completed = orders.filter((o) => o.status === 'Completed').length;
     const totalSpend = orders
       .filter((o) => o.status !== 'Cancelled')
       .reduce((sum, o) => sum + (Number(o.totalCost) || 0), 0);
-    return { total, inProduction, sampleProofing, delivered, totalSpend };
+    return { total, inProduction, sampleProofing, completed, totalSpend };
   }, [orders]);
 
   // Filtered & Sorted Orders without mutating original arrays
@@ -191,7 +192,8 @@ export function ProductionOrdersSection({ user, onNotify }) {
           'Submitted': 3,
           'Draft': 4,
           'Delivered': 5,
-          'Cancelled': 6
+          'Completed': 6,
+          'Cancelled': 7
         };
         return (orderPriority[a.status] || 99) - (orderPriority[b.status] || 99);
       }
@@ -258,6 +260,20 @@ export function ProductionOrdersSection({ user, onNotify }) {
     }
   };
 
+  const handleCompleteWorkflow = async (order, reason) => {
+    setAdvancingWorkflowId(order.id);
+    try {
+      await completeProductionWorkflow(order.id, reason);
+      onNotify?.(`Production order ${order.orderNumber} completed.`, 'success');
+      await loadAllData();
+      if (['admin', 'super_admin'].includes(user?.role)) fetchApprovalAudit().then(setApprovalAudit).catch(() => {});
+    } catch (err) {
+      setErrorMessage(err.message || 'Unable to complete production workflow.');
+    } finally {
+      setAdvancingWorkflowId(null);
+    }
+  };
+
   // Safe Delete Handlers
   const handlePromptDelete = (order) => {
     if (!canDelete) return;
@@ -284,7 +300,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
     let color = 'var(--text-secondary)';
     let border = 'var(--border-default)';
 
-    if (status === 'Delivered') {
+    if (status === 'Delivered' || status === 'Completed') {
       background = 'var(--success-light)';
       color = 'var(--success-text)';
       border = 'var(--success-border)';
@@ -413,7 +429,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         <div className="sub-summary-item">
           <CheckCircle2 size={14} className="sub-summary-icon success" />
           <span>
-            <b>{metrics.delivered}</b> Delivered
+            <b>{metrics.completed}</b> Completed
           </span>
         </div>
 
@@ -771,7 +787,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 {expandedWorkflowId === order.id && (
                   <tr>
                     <td colSpan={(canEdit || canDelete) ? 10 : 9}>
-                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} />
+                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} />
                     </td>
                   </tr>
                 )}

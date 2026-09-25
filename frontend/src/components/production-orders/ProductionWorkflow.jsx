@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Check, Loader2, ShieldCheck } from 'lucide-react';
 import './ProductionWorkflow.css';
 
@@ -14,12 +14,23 @@ const WORKFLOW_STEPS = [
   ['closed', 'Close Project']
 ];
 
-export function ProductionWorkflow({ order, user, advancing, onAdvance }) {
+export function ProductionWorkflow({ order, user, advancing, onAdvance, onComplete }) {
+  const [completionReason, setCompletionReason] = useState('');
   const currentIndex = Math.max(0, WORKFLOW_STEPS.findIndex(([key]) => key === (order.workflowStep || 'quotations')));
   const approvalStep = ['sample_approval', 'invoice_head_approval'].includes(order.workflowStep);
   const canApprove = user?.role === 'head_brand' && user?.productionApprover === true;
   const canOperate = ['procurement_officer', 'admin', 'super_admin'].includes(user?.role);
   const canAdvance = approvalStep ? canApprove : canOperate;
+  const canComplete = ['head_brand', 'admin', 'super_admin'].includes(user?.role);
+
+  if ((order.workflowStep || 'quotations') === 'closed' || order.status === 'Completed') {
+    return (
+      <div className="production-workflow production-workflow-complete" role="status">
+        <Check size={18} />
+        <div><strong>Complete</strong><span>Production workflow completed {order.completedAt ? new Date(order.completedAt).toLocaleString() : ''}</span></div>
+      </div>
+    );
+  }
 
   return (
     <div className="production-workflow" aria-label={`Workflow for ${order.orderNumber}`}>
@@ -46,6 +57,21 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance }) {
           </>
         )}
       </div>
+      {canComplete && (
+        <div className="production-workflow-override">
+          <input
+            type="text"
+            maxLength={1000}
+            value={completionReason}
+            onChange={(event) => setCompletionReason(event.target.value)}
+            placeholder="Completion reason required (Admin/Head override)"
+            aria-label="Early completion reason"
+          />
+          <button type="button" className="btn btn-primary btn-sm" disabled={advancing || completionReason.trim().length < 5} onClick={() => onComplete(order, completionReason.trim())}>
+            <Check size={13} /> Complete
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -137,6 +137,8 @@ export function ProductionOrderModal({
 
     if (!cleanCampaign) {
       errors.campaignName = 'Campaign / project name is required.';
+    } else if (cleanCampaign.length > 120) {
+      errors.campaignName = 'Campaign / project title cannot exceed 120 characters.';
     }
 
     if (!cleanSupplier) {
@@ -145,6 +147,8 @@ export function ProductionOrderModal({
 
     if (!cleanItem) {
       errors.itemDescription = 'Item description is required.';
+    } else if (cleanItem.length > 300) {
+      errors.itemDescription = 'Item description cannot exceed 300 characters.';
     }
 
     if (isNaN(qty) || qty < 1) {
@@ -228,6 +232,7 @@ export function ProductionOrderModal({
                 <input
                   id="order-campaign"
                   type="text"
+                  maxLength={120}
                   required
                   placeholder="e.g. KBZPay Thingyan Promo 2026"
                   value={formData.campaignName}
@@ -289,6 +294,7 @@ export function ProductionOrderModal({
                 <input
                   id="order-item"
                   type="text"
+                  maxLength={300}
                   required
                   placeholder="e.g. A2 Wall Posters / Acrylic QR Standees / Merchant Welcome Kits"
                   value={formData.itemDescription}
@@ -318,6 +324,7 @@ export function ProductionOrderModal({
                 <input
                   id="order-spec"
                   type="text"
+                  maxLength={1000}
                   placeholder="e.g. 260gsm Art Card, 4C x 0C, Matt Lamination, Spot UV on Logo"
                   value={formData.specification}
                   onChange={(e) => handleChange('specification', e.target.value)}
@@ -467,6 +474,7 @@ export function ProductionOrderModal({
                 <textarea
                   id="order-notes"
                   rows={2}
+                  maxLength={2000}
                   placeholder="Packaging instructions, delivery warehouse address, branch distribution contact..."
                   value={formData.notes}
                   onChange={(e) => handleChange('notes', e.target.value)}

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const approvalAuditSchema = new mongoose.Schema({
   order: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductionOrder', required: true, index: true },
   step: { type: String, required: true },
-  decision: { type: String, enum: ['APPROVED', 'REJECTED'], required: true },
+  decision: { type: String, enum: ['APPROVED', 'REJECTED', 'COMPLETED'], required: true },
   approver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   approverName: { type: String, required: true },
   approverEmail: { type: String, required: true },

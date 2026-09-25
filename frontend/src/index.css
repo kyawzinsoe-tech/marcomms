@@ -1900,6 +1900,20 @@ tbody tr:hover {
   .production-workflow-progress span::before { animation: none; }
 }
 
+.dashboard-data-warning {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  color: var(--warning-text);
+  background: var(--warning-light);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+}
+
+.report-data-source { margin: 0 16px 12px; padding: 7px 10px; border-radius: var(--radius-sm); font-size: 12px; }
+.report-data-source.live { color: var(--success-text); background: var(--success-light); }
+.report-data-source.error { color: var(--danger-text); background: var(--danger-light); }
+
 .asset-thumbnail-fallback {
   width: 100%;
   height: 90px;

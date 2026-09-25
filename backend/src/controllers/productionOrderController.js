@@ -13,8 +13,11 @@ const STATUS_BY_STEP = {
   final_payment: 'Delivered', closed: 'Delivered'
 };
 
-function publicHistory(history = []) {
-  return history.map((item) => ({ step: item.step, action: item.action, actorName: item.actorName, actorRole: item.actorRole, note: item.note, at: item.at }));
+function publicHistory(history = [], includeActors = false) {
+  return history.map((item) => ({
+    step: item.step, action: item.action, note: item.note, at: item.at,
+    ...(includeActors ? { actorName: item.actorName, actorRole: item.actorRole } : {})
+  }));
 }
 
 function canApproveWorkflow(user, step) {
@@ -22,6 +25,11 @@ function canApproveWorkflow(user, step) {
 }
 
 exports._workflowSecurity = { canApproveWorkflow, APPROVAL_STEPS };
+
+function canForceComplete(user) {
+  return [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HEAD_BRAND].includes(normalizeRole(user?.role));
+}
+exports._workflowSecurity.canForceComplete = canForceComplete;
 
 // Generate unique order number helper: PO-YYYYMMDD-XXXX
 function generateOrderNumber() {
@@ -105,7 +113,10 @@ exports.getProductionOrders = async (req, res, next) => {
         deliveryDeadline: o.deliveryDeadline,
         status: o.status,
         workflowStep: o.workflowStep,
-        workflowHistory: publicHistory(o.workflowHistory),
+        workflowHistory: publicHistory(o.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
+        completedAt: o.completedAt,
+        completionMode: o.completionMode,
+        completionReason: o.completionReason,
         proofApprovedBy: o.proofApprovedBy
           ? {
               id: String(o.proofApprovedBy._id),
@@ -169,7 +180,10 @@ exports.getProductionOrderById = async (req, res, next) => {
         deliveryDeadline: order.deliveryDeadline,
         status: order.status,
         workflowStep: order.workflowStep,
-        workflowHistory: publicHistory(order.workflowHistory),
+        workflowHistory: publicHistory(order.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
+        completedAt: order.completedAt,
+        completionMode: order.completionMode,
+        completionReason: order.completionReason,
         proofApprovedBy: order.proofApprovedBy,
         proofApprovedAt: order.proofApprovedAt,
         notes: order.notes,
@@ -222,6 +236,9 @@ exports.createProductionOrder = async (req, res, next) => {
 
     if (!itemDescription || !itemDescription.trim()) {
       return res.status(400).json({ error: 'Item description is required.' });
+    }
+    if (campaignName.trim().length > 120 || itemDescription.trim().length > 300 || String(specification || '').trim().length > 1000 || String(notes || '').trim().length > 2000) {
+      return res.status(400).json({ error: 'Production order text exceeds the allowed length.' });
     }
 
     const qty = Number(quantity || 1);
@@ -329,9 +346,52 @@ exports.advanceWorkflow = async (req, res, next) => {
       order.proofApprovedAt = new Date();
     }
     order.workflowStep = WORKFLOW_STEPS[currentIndex + 1];
-    order.status = STATUS_BY_STEP[order.workflowStep];
+    order.status = order.workflowStep === 'closed' ? 'Completed' : STATUS_BY_STEP[order.workflowStep];
+    if (order.workflowStep === 'closed') {
+      order.completedBy = req.user._id;
+      order.completedAt = new Date();
+      order.completionMode = 'workflow';
+      order.completionReason = 'All required production workflow steps completed.';
+    }
     await order.save();
+    if (order.workflowStep === 'closed') {
+      await ApprovalAudit.create({
+        order: order._id, step: 'closed', decision: 'COMPLETED', approver: req.user._id,
+        approverName: req.user.name, approverEmail: req.user.email, approverRole: req.user.role,
+        note: order.completionReason, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
+      });
+    }
     res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, workflowHistory: publicHistory(order.workflowHistory), status: order.status } });
+  } catch (error) { next(error); }
+};
+
+// POST /api/production-orders/:id/workflow/complete — controlled Admin/Head override
+exports.completeWorkflow = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid production order ID format.' });
+    if (!canForceComplete(req.user)) {
+      return res.status(403).json({ error: 'Only Admin or Head accounts can complete a workflow early.' });
+    }
+    const reason = String(req.body.reason || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
+    if (reason.length < 5) return res.status(400).json({ error: 'A completion reason of at least 5 characters is required.' });
+    const order = await ProductionOrder.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Production order not found.' });
+    if (order.status === 'Completed' || order.workflowStep === 'closed') return res.status(409).json({ error: 'Production order is already complete.' });
+
+    order.workflowHistory.push({ step: order.workflowStep || 'quotations', action: 'COMPLETED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note: reason });
+    order.workflowStep = 'closed';
+    order.status = 'Completed';
+    order.completedBy = req.user._id;
+    order.completedAt = new Date();
+    order.completionMode = 'authorized_override';
+    order.completionReason = reason;
+    await order.save();
+    await ApprovalAudit.create({
+      order: order._id, step: 'closed', decision: 'COMPLETED', approver: req.user._id,
+      approverName: req.user.name, approverEmail: req.user.email, approverRole: req.user.role,
+      note: reason, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
+    });
+    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, status: order.status, completedAt: order.completedAt, completionMode: order.completionMode, completionReason: order.completionReason } });
   } catch (error) { next(error); }
 };
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Check, ExternalLink, Loader2, ShieldCheck, SkipForward } from 'lucide-react';
 import './ProductionWorkflow.css';
 
@@ -29,6 +29,11 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
   const skippedSteps = useMemo(() => new Set((order.workflowHistory || []).filter((item) => item.action === 'SKIPPED').map((item) => item.step)), [order.workflowHistory]);
   const evidenceByStep = order.workflowEvidence || {};
   const submit = (skip) => onAdvance(order, skip, { reason: note.trim(), evidenceUrl: evidenceUrl.trim() });
+
+  useEffect(() => {
+    setNote('');
+    setEvidenceUrl('');
+  }, [currentStep]);
 
   if (currentStep === 'closed' || order.status === 'Completed') {
     return <div className="production-workflow production-workflow-complete" role="status"><Check size={18} /><div><strong>Complete</strong><span>Production workflow completed {order.completedAt ? new Date(order.completedAt).toLocaleString() : ''}</span></div></div>;

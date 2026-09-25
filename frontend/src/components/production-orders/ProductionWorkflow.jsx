@@ -7,7 +7,7 @@ const WORKFLOW_STEPS = [
   ['sample_approval', 'Sample Approval'],
   ['vendor_procedure', 'Vendor Procedure'],
   ['invoice_head_approval', 'Invoice & Head Approval'],
-  ['bulk_production', 'Bulk Production'],
+  ['bulk_production', 'Production Order / Bulk Production'],
   ['delivery_confirmation', 'Confirm Delivery'],
   ['invoice_delivery_order', 'Invoice & Delivery Order'],
   ['final_payment', 'Final Payment'],
@@ -24,6 +24,13 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
   const canOperate = ['procurement_officer', 'admin', 'super_admin'].includes(user?.role);
   const canAdvance = approvalStep ? canApprove : canOperate;
   const canComplete = ['head_brand', 'admin', 'super_admin'].includes(user?.role);
+  const isProductionOrderStep = order.workflowStep === 'bulk_production';
+  const supplierName = order.supplier?.name || 'Not assigned';
+  const actionLabel = isProductionOrderStep
+    ? 'Complete production & continue'
+    : approvalStep
+      ? 'Approve & continue'
+      : 'Complete & continue';
 
   if ((order.workflowStep || 'quotations') === 'closed' || order.status === 'Completed') {
     return (
@@ -44,12 +51,22 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
           </li>
         ))}
       </ol>
+      {isProductionOrderStep && (
+        <section className="production-order-milestone" aria-label="Production order details">
+          <div><span>PO Number</span><strong>{order.orderNumber}</strong></div>
+          <div><span>Supplier</span><strong>{supplierName}</strong></div>
+          <div><span>Quantity</span><strong>{Number(order.quantity || 0).toLocaleString()}</strong></div>
+          <div><span>Total Cost</span><strong>{Number(order.totalCost || 0).toLocaleString()}</strong></div>
+          <div><span>PO / Start Date</span><strong>{order.productionStartedAt ? new Date(order.productionStartedAt).toLocaleDateString() : order.orderDate || '—'}</strong></div>
+          <div><span>Delivery Target</span><strong>{order.deliveryDeadline || '—'}</strong></div>
+        </section>
+      )}
       <div className="production-workflow-actions">
-        <span>{approvalStep ? <><ShieldCheck size={14} /> Designated Head approval required</> : 'Operational step'}</span>
+        <span>{approvalStep ? <><ShieldCheck size={14} /> Designated Head approval required</> : isProductionOrderStep ? 'PO issued · production in progress' : 'Operational step'}</span>
         {order.workflowStep !== 'closed' && (
           <>
           <button type="button" className="btn btn-primary btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order, false)}>
-            {advancing ? <><Loader2 size={13} className="animate-spin" /> Saving & auditing…</> : approvalStep ? 'Approve & continue' : 'Complete & continue'}
+            {advancing ? <><Loader2 size={13} className="animate-spin" /> Saving & auditing…</> : actionLabel}
           </button>
           </>
         )}

@@ -10,6 +10,10 @@
 .production-workflow-steps li.current .workflow-node { color: white; border-color: var(--primary); background: var(--primary); }
 .production-workflow-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
 .production-workflow-actions > span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; }
+.production-order-milestone { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)); gap: 8px; margin-top: 14px; padding: 12px; border: 1px solid var(--primary); border-radius: var(--radius-md); background: var(--bg-surface); }
+.production-order-milestone div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.production-order-milestone span { color: var(--text-muted); font-size: 11px; }
+.production-order-milestone strong { overflow-wrap: anywhere; color: var(--text-primary); font-size: 13px; }
 .production-workflow-override { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-default); }
 .production-workflow-override input { flex: 1; min-width: 180px; }
 .quotation-skip-panel { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) auto; align-items: center; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--warning-border, #f2c46d); border-radius: var(--radius-md); background: var(--warning-light, #fff8e8); }
@@ -23,6 +27,6 @@
 .production-workflow-complete { display: flex; align-items: center; gap: 10px; color: var(--success-text); background: var(--success-light); }
 .production-workflow-complete div { display: flex; flex-direction: column; gap: 2px; }
 .production-workflow-complete span { color: var(--text-muted); font-size: 12px; }
-@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } .quotation-skip-panel { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } .production-order-milestone, .quotation-skip-panel { grid-template-columns: 1fr; } }
 .approval-audit-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .approval-audit-panel summary { display: flex; align-items: center; gap: 6px; font-weight: 700; }

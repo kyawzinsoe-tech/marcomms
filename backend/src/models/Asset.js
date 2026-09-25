@@ -20,7 +20,7 @@ const assetSchema = new mongoose.Schema(
     },
     fileUrl: {
       type: String,
-      required: [true, 'File URL or storage URI is required'],
+      default: '',
       trim: true
     },
     thumbnailUrl: {
@@ -37,6 +37,10 @@ const assetSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    storageKey: { type: String, default: '', select: false },
+    originalName: { type: String, default: '' },
+    mimeType: { type: String, enum: ['', 'image/png', 'image/jpeg'], default: '' },
+    uploadStatus: { type: String, enum: ['external', 'pending', 'ready', 'rejected'], default: 'external' },
     version: {
       type: String,
       trim: true,

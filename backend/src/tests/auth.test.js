@@ -2,7 +2,8 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
+const { ROLES, PERMISSIONS, normalizeRole, canViewRole, canAssignRole, hasPermission } = require('../config/rbac');
+const { _sessionSecurity } = require('../controllers/sessionController');
 
 describe('Backend Auth & RBAC Security Suite', () => {
   it('hashes and compares passwords securely with bcrypt', async () => {
@@ -50,5 +51,33 @@ describe('Backend Auth & RBAC Security Suite', () => {
     assert.strictEqual(hasPermission(superAdmin, PERMISSIONS.DATA_RESET), true);
     assert.strictEqual(hasPermission(viewer, PERMISSIONS.SUBSCRIPTION_CREATE), false);
     assert.strictEqual(hasPermission(viewer, PERMISSIONS.DASHBOARD_VIEW), true);
+  });
+
+  it('shows only the requester role and lower accounts', () => {
+    assert.strictEqual(canViewRole(ROLES.SUPER_ADMIN, ROLES.SUPER_ADMIN), true);
+    assert.strictEqual(canViewRole(ROLES.ADMIN, ROLES.SUPER_ADMIN), false);
+    assert.strictEqual(canViewRole(ROLES.ADMIN, ROLES.ADMIN), true);
+    assert.strictEqual(canViewRole(ROLES.ADMIN, ROLES.HEAD_BRAND), true);
+    assert.strictEqual(canViewRole(ROLES.ADMIN, ROLES.VIEWER), true);
+  });
+
+  it('allows role assignment only below the requester level', () => {
+    assert.strictEqual(canAssignRole(ROLES.SUPER_ADMIN, ROLES.SUPER_ADMIN), true);
+    assert.strictEqual(canAssignRole(ROLES.ADMIN, ROLES.SUPER_ADMIN), false);
+    assert.strictEqual(canAssignRole(ROLES.ADMIN, ROLES.ADMIN), false);
+    assert.strictEqual(canAssignRole(ROLES.ADMIN, ROLES.HEAD_BRAND), true);
+    assert.strictEqual(canAssignRole(ROLES.ADMIN, ROLES.VIEWER), true);
+  });
+
+  it('keeps one session per user/device and prefers the refreshing session', () => {
+    const userId = '507f1f77bcf86cd799439011';
+    const sessions = [
+      { _id: 'old', userId, deviceId: 'mac', tokenHash: 'old-token' },
+      { _id: 'current', userId, deviceId: 'mac', tokenHash: 'current-token' },
+      { _id: 'phone', userId, deviceId: 'phone', tokenHash: 'phone-token' }
+    ];
+    const result = _sessionSecurity.selectUniqueSessions(sessions, 'current-token');
+    assert.deepStrictEqual(result.sessions.map((session) => session._id), ['current', 'phone']);
+    assert.deepStrictEqual(result.duplicateIds, ['old']);
   });
 });

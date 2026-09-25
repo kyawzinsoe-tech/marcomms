@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
+const { ROLES, PERMISSIONS, normalizeRole, canViewRole, canAssignRole, hasPermission } = require('../config/rbac');
 const { logAuditEvent } = require('../utils/auditLogger');
 
 // Helper to find user by MongoDB _id or email safely
@@ -24,7 +24,10 @@ exports.getUsers = async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied. Insufficient permissions to view users.' });
     }
 
-    const users = await User.find().sort({ createdAt: -1 });
+    // Defence in depth: do not return higher-level identities and rely on the
+    // frontend to hide them. Admin sees Admin and lower; Super Admin sees all.
+    const users = (await User.find().sort({ createdAt: -1 }))
+      .filter((user) => canViewRole(req.user.role, user.role));
     res.status(200).json({
       count: users.length,
       users: users.map((u) => ({
@@ -32,6 +35,7 @@ exports.getUsers = async (req, res, next) => {
         name: u.name,
         email: u.email,
         role: normalizeRole(u.role),
+        productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
       }))
@@ -39,6 +43,30 @@ exports.getUsers = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// PATCH /api/users/:id/production-approver — Admin-managed, Head-only, maximum four
+exports.setProductionApprover = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid user ID format.' });
+    const enabled = req.body.enabled === true;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (normalizeRole(user.role) !== ROLES.HEAD_BRAND) {
+      return res.status(400).json({ error: 'Only Head of Brand accounts can be designated as production approvers.' });
+    }
+    if (enabled && !user.productionApprover) {
+      const count = await User.countDocuments({ role: ROLES.HEAD_BRAND, productionApprover: true });
+      if (count >= 4) return res.status(409).json({ error: 'A maximum of four Head approvers is allowed.' });
+    }
+    user.productionApprover = enabled;
+    await user.save();
+    logAuditEvent({
+      actorId: req.user._id, actorRole: req.user.role, action: enabled ? 'PRODUCTION_APPROVER_ASSIGNED' : 'PRODUCTION_APPROVER_REMOVED',
+      targetEntity: 'User', targetId: user._id, ip: req.ip, outcome: 'SUCCESS', metadata: { email: user.email }
+    });
+    res.status(200).json({ user: { id: String(user._id), name: user.name, email: user.email, role: normalizeRole(user.role), productionApprover: user.productionApprover } });
+  } catch (error) { next(error); }
 };
 
 // POST /api/users
@@ -104,6 +132,7 @@ exports.createUser = async (req, res, next) => {
         name: newUser.name,
         email: newUser.email,
         role: normalizeRole(newUser.role),
+        productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
       }
@@ -151,10 +180,11 @@ exports.updateUser = async (req, res, next) => {
     if (role) {
       const newRole = normalizeRole(role);
       if (newRole !== targetCurrentRole) {
-        // Only Super Admin can change roles
-        if (normalizeRole(requester.role) !== ROLES.SUPER_ADMIN) {
+        // Hierarchical assignment: Super Admin may assign any role; Admin may
+        // assign only roles below Admin and can never elevate to a peer/parent.
+        if (!canAssignRole(requester.role, newRole)) {
           return res.status(403).json({
-            error: 'Access denied. Only Super Administrators are authorized to change or assign roles.'
+            error: 'Access denied. You can only assign roles below your own account level.'
           });
         }
 
@@ -209,6 +239,7 @@ exports.updateUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: normalizeRole(user.role),
+        productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt
       }

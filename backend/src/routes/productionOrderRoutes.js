@@ -4,7 +4,10 @@ const {
   getProductionOrderById,
   createProductionOrder,
   updateProductionOrder,
-  deleteProductionOrder
+  deleteProductionOrder,
+  advanceWorkflow,
+  getApprovalAudit,
+  completeWorkflow
 } = require('../controllers/productionOrderController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -15,6 +18,10 @@ router.use(protect);
 router.route('/')
   .get(getProductionOrders)
   .post(createProductionOrder);
+
+router.get('/approval-audit', getApprovalAudit);
+router.post('/:id/workflow/advance', advanceWorkflow);
+router.post('/:id/workflow/complete', completeWorkflow);
 
 router.route('/:id')
   .get(getProductionOrderById)

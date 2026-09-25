@@ -3,6 +3,9 @@ const {
   getAssets,
   getAssetById,
   createAsset,
+  initializeAssetUpload,
+  completeAssetUpload,
+  getAssetDownloadUrl,
   updateAsset,
   deleteAsset
 } = require('../controllers/assetController');
@@ -15,6 +18,10 @@ router.use(protect);
 router.route('/')
   .get(getAssets)
   .post(createAsset);
+
+router.post('/uploads', initializeAssetUpload);
+router.post('/:id/complete', completeAssetUpload);
+router.get('/:id/download-url', getAssetDownloadUrl);
 
 router.route('/:id')
   .get(getAssetById)

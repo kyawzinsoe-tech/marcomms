@@ -3,6 +3,37 @@ const mongoose = require('mongoose');
 const Session = require('../models/Session');
 const User = require('../models/User');
 
+function selectUniqueSessions(sessions, currentTokenHash) {
+  const retainedByDevice = new Map();
+  const duplicateIds = [];
+  for (const session of sessions) {
+    if (!session.userId) continue;
+    const populatedUserId = session.userId._id || session.userId;
+    const deviceKey = session.deviceId || `legacy:${session.userAgent || 'Unknown Device'}`;
+    const key = `${populatedUserId}:${deviceKey}`;
+    const retained = retainedByDevice.get(key);
+    if (!retained) {
+      retainedByDevice.set(key, session);
+      continue;
+    }
+    const sessionIsCurrent = currentTokenHash && session.tokenHash === currentTokenHash;
+    const retainedIsCurrent = currentTokenHash && retained.tokenHash === currentTokenHash;
+    if (sessionIsCurrent && !retainedIsCurrent) {
+      duplicateIds.push(retained._id);
+      retainedByDevice.set(key, session);
+    } else {
+      duplicateIds.push(session._id);
+    }
+  }
+  const duplicateSet = new Set(duplicateIds.map(String));
+  return {
+    sessions: sessions.filter((session) => !duplicateSet.has(String(session._id))),
+    duplicateIds
+  };
+}
+
+exports._sessionSecurity = { selectUniqueSessions };
+
 // GET /api/sessions
 exports.getSessions = async (req, res, next) => {
   try {
@@ -27,10 +58,24 @@ exports.getSessions = async (req, res, next) => {
       filter.userId = req.user._id;
     }
 
-    const sessions = await Session.find(filter)
+    let sessions = await Session.find(filter)
       .populate('userId', 'name email role avatar')
       .sort({ lastSeenAt: -1 })
       .limit(100);
+
+    // Keep exactly one active session for a user on the same browser/device.
+    // Prefer the session making this refresh request so refresh never signs
+    // out the caller; otherwise retain the most recently active session.
+    const uniqueResult = selectUniqueSessions(sessions, currentTokenHash);
+    const { duplicateIds } = uniqueResult;
+
+    if (duplicateIds.length > 0) {
+      await Session.updateMany(
+        { _id: { $in: duplicateIds }, status: 'active' },
+        { status: 'revoked', revokedAt: new Date(), revokedBy: req.user._id }
+      );
+    }
+    sessions = uniqueResult.sessions;
 
     const formatted = sessions
       .filter((s) => s.userId) // Ensure valid user
@@ -58,7 +103,8 @@ exports.getSessions = async (req, res, next) => {
 
     res.status(200).json({
       count: formatted.length,
-      sessions: formatted
+      sessions: formatted,
+      duplicatesRevoked: duplicateIds.length
     });
   } catch (error) {
     next(error);

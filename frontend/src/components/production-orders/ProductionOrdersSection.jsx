@@ -17,13 +17,17 @@ import {
   RotateCcw,
   DollarSign,
   AlertTriangle,
-  Download
+  Download,
+  ListChecks
 } from 'lucide-react';
 import {
   fetchProductionOrders,
   createProductionOrder,
   updateProductionOrder,
   deleteProductionOrder,
+  advanceProductionWorkflow,
+  fetchApprovalAudit,
+  completeProductionWorkflow,
   PRODUCTION_STATUSES
 } from '../../services/productionOrderService';
 import { fetchSuppliers } from '../../services/supplierService';
@@ -31,6 +35,7 @@ import { fetchAssets } from '../../services/assetService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { exportProductionOrdersToCsv } from '../../utils/exportCsv';
 import { ProductionOrderModal } from './ProductionOrderModal';
+import { ProductionWorkflow } from './ProductionWorkflow';
 import { ErrorDialog } from '../common/ErrorDialog';
 
 export function ProductionOrdersSection({ user, onNotify }) {
@@ -54,8 +59,9 @@ export function ProductionOrdersSection({ user, onNotify }) {
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Quick Sign-off Loading State
-  const [signingOffId, setSigningOffId] = useState(null);
+  const [expandedWorkflowId, setExpandedWorkflowId] = useState(null);
+  const [advancingWorkflowId, setAdvancingWorkflowId] = useState(null);
+  const [approvalAudit, setApprovalAudit] = useState([]);
 
   // RBAC Permission checks
   const canRead = useMemo(() => {
@@ -76,11 +82,6 @@ export function ProductionOrdersSection({ user, onNotify }) {
   const canDelete = useMemo(() => {
     if (!user) return false;
     return hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_DELETE);
-  }, [user]);
-
-  const canApproveProof = useMemo(() => {
-    if (!user) return false;
-    return hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_APPROVE_PROOF);
   }, [user]);
 
   const loadAllData = useCallback(async () => {
@@ -110,16 +111,22 @@ export function ProductionOrdersSection({ user, onNotify }) {
     loadAllData();
   }, [loadAllData]);
 
+  useEffect(() => {
+    if (['admin', 'super_admin'].includes(user?.role)) {
+      fetchApprovalAudit().then(setApprovalAudit).catch(() => setApprovalAudit([]));
+    }
+  }, [user?.role]);
+
   // Derived Summary Metrics
   const metrics = useMemo(() => {
     const total = orders.length;
     const inProduction = orders.filter((o) => o.status === 'In Production').length;
     const sampleProofing = orders.filter((o) => o.status === 'Sample Proofing').length;
-    const delivered = orders.filter((o) => o.status === 'Delivered').length;
+    const completed = orders.filter((o) => o.status === 'Completed').length;
     const totalSpend = orders
       .filter((o) => o.status !== 'Cancelled')
       .reduce((sum, o) => sum + (Number(o.totalCost) || 0), 0);
-    return { total, inProduction, sampleProofing, delivered, totalSpend };
+    return { total, inProduction, sampleProofing, completed, totalSpend };
   }, [orders]);
 
   // Filtered & Sorted Orders without mutating original arrays
@@ -185,7 +192,8 @@ export function ProductionOrdersSection({ user, onNotify }) {
           'Submitted': 3,
           'Draft': 4,
           'Delivered': 5,
-          'Cancelled': 6
+          'Completed': 6,
+          'Cancelled': 7
         };
         return (orderPriority[a.status] || 99) - (orderPriority[b.status] || 99);
       }
@@ -239,18 +247,30 @@ export function ProductionOrdersSection({ user, onNotify }) {
     }
   };
 
-  // Proof Sign-off Handler
-  const handleQuickApproveProof = async (order) => {
-    if (!canApproveProof) return;
-    setSigningOffId(order.id);
+  const handleAdvanceWorkflow = async (order, skip = false) => {
+    setAdvancingWorkflowId(order.id);
     try {
-      await updateProductionOrder(order.id, { approveProof: true });
-      onNotify?.(`Sample proof signed off for order "${order.orderNumber}".`, 'success');
+      await advanceProductionWorkflow(order.id, skip ? 'Quotations were unavailable; step skipped by operator.' : '', skip);
+      onNotify?.(`${skip ? 'Quotation step skipped' : 'Workflow advanced'} for ${order.orderNumber}.`, 'success');
       await loadAllData();
     } catch (err) {
-      setErrorMessage(err.message || 'Unable to sign off sample proof.');
+      setErrorMessage(err.message || 'Unable to advance production workflow.');
     } finally {
-      setSigningOffId(null);
+      setAdvancingWorkflowId(null);
+    }
+  };
+
+  const handleCompleteWorkflow = async (order, reason) => {
+    setAdvancingWorkflowId(order.id);
+    try {
+      await completeProductionWorkflow(order.id, reason);
+      onNotify?.(`Production order ${order.orderNumber} completed.`, 'success');
+      await loadAllData();
+      if (['admin', 'super_admin'].includes(user?.role)) fetchApprovalAudit().then(setApprovalAudit).catch(() => {});
+    } catch (err) {
+      setErrorMessage(err.message || 'Unable to complete production workflow.');
+    } finally {
+      setAdvancingWorkflowId(null);
     }
   };
 
@@ -280,7 +300,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
     let color = 'var(--text-secondary)';
     let border = 'var(--border-default)';
 
-    if (status === 'Delivered') {
+    if (status === 'Delivered' || status === 'Completed') {
       background = 'var(--success-light)';
       color = 'var(--success-text)';
       border = 'var(--success-border)';
@@ -409,7 +429,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         <div className="sub-summary-item">
           <CheckCircle2 size={14} className="sub-summary-icon success" />
           <span>
-            <b>{metrics.delivered}</b> Delivered
+            <b>{metrics.completed}</b> Completed
           </span>
         </div>
 
@@ -560,6 +580,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 <th scope="col" style={{ width: '9%' }}>Deadline</th>
                 <th scope="col" style={{ width: '8%' }}>Status</th>
                 <th scope="col" style={{ width: '6%' }}>Proof Sign-off</th>
+                <th scope="col" style={{ width: '6%' }}>Workflow</th>
                 {(canEdit || canDelete) && (
                   <th scope="col" style={{ textAlign: 'right', minWidth: '80px' }}>Actions</th>
                 )}
@@ -567,7 +588,8 @@ export function ProductionOrdersSection({ user, onNotify }) {
             </thead>
             <tbody>
               {processedOrders.map((order) => (
-                <tr key={order.id}>
+                <React.Fragment key={order.id}>
+                <tr>
                   {/* Order Number & Date */}
                   <td>
                     <div
@@ -719,23 +741,17 @@ export function ProductionOrdersSection({ user, onNotify }) {
                       >
                         <ShieldCheck size={12} /> Approved
                       </div>
-                    ) : canApproveProof ? (
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={() => handleQuickApproveProof(order)}
-                        disabled={signingOffId === order.id}
-                        style={{ fontSize: '11px', padding: '2px 8px', height: '26px' }}
-                        title="Sign off sample proof for this order"
-                        aria-label={`Sign off sample proof for order ${order.orderNumber}`}
-                      >
-                        <CheckCircle2 size={11} className={signingOffId === order.id ? 'animate-spin' : ''} /> Sign-off
-                      </button>
                     ) : (
                       <span style={{ fontSize: '11px', color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
                         Pending
                       </span>
                     )}
+                  </td>
+
+                  <td>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpandedWorkflowId((id) => id === order.id ? null : order.id)}>
+                      <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide' : 'Open'}
+                    </button>
                   </td>
 
                   {/* Actions */}
@@ -768,10 +784,32 @@ export function ProductionOrdersSection({ user, onNotify }) {
                     </td>
                   )}
                 </tr>
+                {expandedWorkflowId === order.id && (
+                  <tr>
+                    <td colSpan={(canEdit || canDelete) ? 10 : 9}>
+                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} />
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {['admin', 'super_admin'].includes(user?.role) && (
+        <details className="approval-audit-panel">
+          <summary><ShieldCheck size={14} /> Approval audit ({approvalAudit.length})</summary>
+          <div className="table-container">
+            <table className="table table-sm" aria-label="Production approval audit">
+              <thead><tr><th>Order</th><th>Step</th><th>Approver</th><th>Decision</th><th>Date</th></tr></thead>
+              <tbody>{approvalAudit.map((row) => (
+                <tr key={row.id}><td>{row.order?.orderNumber || '—'}</td><td>{row.step}</td><td>{row.approverName}<br /><small>{row.approverEmail}</small></td><td>{row.decision}</td><td>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       {/* Production Order Modal (Create / Edit) */}

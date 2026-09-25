@@ -1,6 +1,33 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Asset = require('../models/Asset');
 const { PERMISSIONS, hasPermission } = require('../config/rbac');
+const {
+  createAssetUploadUrl,
+  readAssetSignature,
+  deleteAssetObject,
+  createAssetDownloadUrl
+} = require('../services/s3Service');
+
+const ALLOWED_IMAGE_TYPES = { 'image/png': 'PNG', 'image/jpeg': 'JPEG' };
+const MAX_ASSET_BYTES = 10 * 1024 * 1024;
+
+function safeText(value, max = 200) {
+  return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+}
+
+function safeOriginalName(value, mimeType) {
+  const ext = mimeType === 'image/png' ? '.png' : '.jpg';
+  const base = safeText(value, 120).replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.{2,}/g, '.');
+  return `${(base.replace(/\.(png|jpe?g)$/i, '') || 'asset').slice(0, 100)}${ext}`;
+}
+
+function hasValidSignature(bytes, mimeType) {
+  if (mimeType === 'image/png') return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  return mimeType === 'image/jpeg' && bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+exports._assetValidation = { hasValidSignature, safeOriginalName, MAX_ASSET_BYTES };
 
 // Helper to check read permission for a library
 function canReadLibrary(user, library) {
@@ -79,27 +106,23 @@ exports.getAssets = async (req, res, next) => {
       query.$or = [{ title: regex }, { description: regex }, { tags: regex }];
     }
 
-    const assets = await Asset.find(query).sort({ createdAt: -1 });
+    const assets = await Asset.find(query).select('+storageKey').sort({ createdAt: -1 });
+
+    const serializedAssets = await Promise.all(assets.map(async (a) => {
+      let securedUrl = '';
+      if (a.uploadStatus === 'ready' && a.storageKey) securedUrl = await createAssetDownloadUrl(a.storageKey);
+      return {
+        id: String(a._id), title: a.title, library: a.library, category: a.category,
+        fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl,
+        fileType: a.fileType, fileSize: a.fileSize, version: a.version, tags: a.tags,
+        description: a.description, archived: a.archived, uploadStatus: a.uploadStatus,
+        originalName: a.originalName, createdBy: a.createdBy, createdAt: a.createdAt, updatedAt: a.updatedAt
+      };
+    }));
 
     res.status(200).json({
       count: assets.length,
-      assets: assets.map((a) => ({
-        id: String(a._id),
-        title: a.title,
-        library: a.library,
-        category: a.category,
-        fileUrl: a.fileUrl,
-        thumbnailUrl: a.thumbnailUrl,
-        fileType: a.fileType,
-        fileSize: a.fileSize,
-        version: a.version,
-        tags: a.tags,
-        description: a.description,
-        archived: a.archived,
-        createdBy: a.createdBy,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt
-      }))
+      assets: serializedAssets
     });
   } catch (error) {
     next(error);
@@ -113,7 +136,7 @@ exports.getAssetById = async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid asset ID format.' });
     }
 
-    const asset = await Asset.findById(req.params.id);
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
     if (!asset) {
       return res.status(404).json({ error: 'Asset not found.' });
     }
@@ -164,21 +187,25 @@ exports.createAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to create assets in ${targetLibrary}.` });
     }
 
-    if (!fileUrl || !fileUrl.trim()) {
-      return res.status(400).json({ error: 'File URL or asset URI is required.' });
+    if (!fileUrl || !/^https:\/\//i.test(fileUrl.trim())) {
+      return res.status(400).json({ error: 'A secure HTTPS asset URL is required.' });
+    }
+    const normalizedType = String(fileType || '').toUpperCase().trim();
+    if (!['PNG', 'JPG', 'JPEG'].includes(normalizedType)) {
+      return res.status(400).json({ error: 'Only PNG and JPEG brand assets are allowed.' });
     }
 
     const asset = await Asset.create({
-      title: title.trim(),
+      title: safeText(title),
       library: targetLibrary,
-      category: (category || 'General').trim(),
+      category: safeText(category || 'General', 100),
       fileUrl: fileUrl.trim(),
       thumbnailUrl: (thumbnailUrl || '').trim(),
-      fileType: (fileType || 'PNG').toUpperCase().trim(),
+      fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType,
       fileSize: Number(fileSize || 0),
-      version: (version || '1.0').trim(),
-      tags: Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-      description: (description || '').trim(),
+      version: safeText(version || '1.0', 30),
+      tags: (Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',') : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
+      description: safeText(description, 2000),
       createdBy: req.user._id
     });
 
@@ -205,6 +232,63 @@ exports.createAsset = async (req, res, next) => {
   }
 };
 
+exports.initializeAssetUpload = async (req, res, next) => {
+  try {
+    const { title, library, category, originalName, mimeType, fileSize, version, tags, description } = req.body;
+    const targetLibrary = library || 'kbz_bank';
+    const size = Number(fileSize);
+    if (!title || !safeText(title)) return res.status(400).json({ error: 'Asset title is required.' });
+    if (!canWriteLibrary(req.user, targetLibrary, 'create')) return res.status(403).json({ error: 'Access denied.' });
+    if (!ALLOWED_IMAGE_TYPES[mimeType]) return res.status(400).json({ error: 'Only PNG and JPEG images are allowed.' });
+    if (!Number.isInteger(size) || size < 1 || size > MAX_ASSET_BYTES) return res.status(400).json({ error: 'Image size must be between 1 byte and 10 MB.' });
+
+    const name = safeOriginalName(originalName, mimeType);
+    const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
+    const asset = await Asset.create({
+      title: safeText(title), library: targetLibrary, category: safeText(category || 'General', 100),
+      fileType: ALLOWED_IMAGE_TYPES[mimeType], fileSize: size, storageKey: key,
+      originalName: name, mimeType, uploadStatus: 'pending', version: safeText(version || '1.0', 30),
+      tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
+      description: safeText(description, 2000), createdBy: req.user._id
+    });
+    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
+    res.status(201).json({ assetId: String(asset._id), uploadUrl, expiresIn: 300 });
+  } catch (error) { next(error); }
+};
+
+exports.completeAssetUpload = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    if (!asset) return res.status(404).json({ error: 'Asset not found.' });
+    if (!canWriteLibrary(req.user, asset.library, 'create')) return res.status(403).json({ error: 'Access denied.' });
+    if (asset.uploadStatus !== 'pending') return res.status(409).json({ error: 'Upload is not pending.' });
+    const object = await readAssetSignature(asset.storageKey);
+    const valid = object.contentType === asset.mimeType && hasValidSignature(object.bytes, asset.mimeType);
+    if (!valid) {
+      await deleteAssetObject(asset.storageKey).catch(() => {});
+      asset.uploadStatus = 'rejected';
+      await asset.save();
+      return res.status(400).json({ error: 'Uploaded file signature does not match PNG/JPEG.' });
+    }
+    asset.uploadStatus = 'ready';
+    await asset.save();
+    const url = await createAssetDownloadUrl(asset.storageKey);
+    res.status(200).json({ asset: { id: String(asset._id), title: asset.title, library: asset.library, fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url, thumbnailUrl: url, uploadStatus: asset.uploadStatus } });
+  } catch (error) { next(error); }
+};
+
+exports.getAssetDownloadUrl = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    if (!asset) return res.status(404).json({ error: 'Asset not found.' });
+    if (!canReadLibrary(req.user, asset.library)) return res.status(403).json({ error: 'Access denied.' });
+    if (asset.uploadStatus !== 'ready' || !asset.storageKey) return res.status(409).json({ error: 'Asset is not ready.' });
+    res.status(200).json({ url: await createAssetDownloadUrl(asset.storageKey), expiresIn: 300 });
+  } catch (error) { next(error); }
+};
+
 // PUT /api/assets/:id
 exports.updateAsset = async (req, res, next) => {
   try {
@@ -221,9 +305,11 @@ exports.updateAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to update ${asset.library} assets.` });
     }
 
+    const allowed = ['title', 'category', 'version', 'tags', 'description', 'archived'];
+    const safeUpdates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
     const updated = await Asset.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      safeUpdates,
       { new: true, runValidators: true }
     );
 
@@ -256,7 +342,7 @@ exports.deleteAsset = async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid asset ID format.' });
     }
 
-    const asset = await Asset.findById(req.params.id);
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
     if (!asset) {
       return res.status(404).json({ error: 'Asset not found.' });
     }
@@ -265,6 +351,7 @@ exports.deleteAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to delete ${asset.library} assets.` });
     }
 
+    if (asset.storageKey) await deleteAssetObject(asset.storageKey).catch(() => {});
     await Asset.findByIdAndDelete(req.params.id);
 
     res.status(200).json({

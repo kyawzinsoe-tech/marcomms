@@ -6,7 +6,8 @@ import {
   fetchUsersApi,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  setProductionApprover
 } from './services/authService';
 import { ROLES, PERMISSIONS, normalizeRole } from './config/rbac';
 import { LoginPage } from './components/LoginPage';
@@ -19,6 +20,7 @@ import { TokenSection } from './components/TokenSection';
 import { TokenHistoryTable } from './components/TokenHistoryTable';
 import { UserModal } from './components/UserModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { saveSubscriptionRecord, uploadSubscriptionInvoice } from './services/api';
 import { TokenModal } from './components/TokenModal';
 import { Building2, CreditCard, Megaphone, Loader2 } from 'lucide-react';
 import { Toast } from './components/Toast';
@@ -94,6 +96,8 @@ function DashboardApp() {
     selectedMonthTokenCost,
     alerts,
     overdueCount,
+    executiveSummary,
+    dashboardError,
     setReportMonth,
     addSubscription,
     updateSubscription,
@@ -203,6 +207,16 @@ function DashboardApp() {
     }
   };
 
+  const handleSetProductionApprover = async (targetUser, enabled) => {
+    try {
+      await setProductionApprover(targetUser.id, enabled);
+      await refreshUsers();
+      showToast(`${targetUser.name} ${enabled ? 'assigned as' : 'removed from'} Production Approver.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to update approver.', 'error');
+    }
+  };
+
   // Sync users from MongoDB when authenticated as Admin / Super Admin
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
@@ -275,14 +289,17 @@ function DashboardApp() {
     setIsSubModalOpen(true);
   };
 
-  const handleSaveSubscription = (formData) => {
+  const handleSaveSubscription = async (formData, invoiceFile, onProgress) => {
     if (!isAdmin) return;
-    if (editingSubscription) {
-      updateSubscription(editingSubscription.id, formData);
-      showToast(`Updated "${formData.product}" subscription.`, 'success');
-    } else {
-      addSubscription(formData);
-      showToast(`Added "${formData.product}" subscription.`, 'success');
+    try {
+      let saved = await saveSubscriptionRecord(formData, editingSubscription?.id);
+      if (invoiceFile) saved = await uploadSubscriptionInvoice(saved.id, invoiceFile, onProgress);
+      if (editingSubscription) updateSubscription(saved.id, saved, false);
+      else addSubscription(saved, false);
+      showToast(`${editingSubscription ? 'Updated' : 'Added'} "${formData.product}" subscription.`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Unable to save subscription.', 'error');
+      throw error;
     }
   };
 
@@ -449,13 +466,18 @@ function DashboardApp() {
         {activeSection === 'dashboard' && (
           <>
             <KpiGrid
-              totalCount={totalSubscriptionsCount}
-              activeCount={activeSubscriptionsCount}
+              totalCount={executiveSummary?.subscriptions?.total ?? totalSubscriptionsCount}
+              activeCount={executiveSummary?.subscriptions?.active ?? activeSubscriptionsCount}
               activePercentage={activePercentage}
               overdueCount={overdueCount}
               monthlyCost={knownMonthlyCost}
               monthTokensUsed={selectedMonthTokensUsed}
+              productionTotal={executiveSummary?.production?.total}
+              productionCompleted={executiveSummary?.production?.completed}
+              dataSource={executiveSummary?.source}
             />
+
+            {dashboardError && <div className="dashboard-data-warning" role="alert">{dashboardError}</div>}
 
             {alerts.length > 0 && (
               <AlertsSection
@@ -564,7 +586,7 @@ function DashboardApp() {
               reportMonth={reportMonth}
               selectedYear={selectedYear}
               subscriptions={state.subscriptions}
-              tokenEntries={selectedMonthEntries}
+              tokenEntries={state.tokenEntries}
               alerts={alerts}
               fullState={state}
               isAdmin={isAdmin}
@@ -646,6 +668,7 @@ function DashboardApp() {
               onAddUser={handleOpenAddUser}
               onEditUser={handleOpenEditUser}
               onDeleteUser={handleDeleteUser}
+              onSetProductionApprover={handleSetProductionApprover}
             />
           </Suspense>
         )}
@@ -677,7 +700,7 @@ function DashboardApp() {
             onClose={() => setIsUserModalOpen(false)}
             onSave={handleSaveUser}
             editingUser={editingUser}
-            isSuperAdmin={isSuperAdmin}
+            currentUserRole={user?.role}
           />
         </>
       )}
@@ -754,4 +777,3 @@ export function App() {
 }
 
 export default App;
-

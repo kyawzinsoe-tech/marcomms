@@ -12,15 +12,29 @@ const assetRoutes = require('./routes/assetRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const productionOrderRoutes = require('./routes/productionOrderRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
+  .split(',').map((value) => value.trim()).filter(Boolean);
 
 // Middlewares
 app.use(cors({
-  origin: '*',
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origin is not allowed by CORS policy.'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -49,6 +63,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/production-orders', productionOrderRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error Handling
 app.use(errorHandler);

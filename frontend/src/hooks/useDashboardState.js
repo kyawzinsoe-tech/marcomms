@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchDashboardData, saveDashboardData, normalizeData, generateId, DEMO_DATA } from '../services/api';
+import { fetchDashboardData, fetchExecutiveSummary, saveDashboardData, normalizeData, generateId, DEMO_DATA } from '../services/api';
 import { getTodayISO, calculateDayDiff } from '../utils/formatters';
 
 export function useDashboardState() {
@@ -9,12 +9,23 @@ export function useDashboardState() {
   });
   const [isLoaded, setIsLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState('Saved');
+  const [executiveSummary, setExecutiveSummary] = useState(null);
+  const [dashboardError, setDashboardError] = useState('');
 
   // Load from storage on mount
   useEffect(() => {
     async function init() {
-      const data = await fetchDashboardData();
-      setState(data);
+      const [dataResult, summaryResult] = await Promise.allSettled([fetchDashboardData(), fetchExecutiveSummary()]);
+      if (dataResult.status === 'fulfilled') {
+        const liveMonth = summaryResult.status === 'fulfilled' ? summaryResult.value.reportMonth : null;
+        setState(liveMonth ? { ...dataResult.value, reportMonth: liveMonth } : dataResult.value);
+      }
+      if (summaryResult.status === 'fulfilled') {
+        setExecutiveSummary(summaryResult.value);
+        setDashboardError('');
+      } else {
+        setDashboardError('Live executive metrics are unavailable; subscription cards may be using cached data.');
+      }
       setIsLoaded(true);
     }
     init();
@@ -29,20 +40,22 @@ export function useDashboardState() {
   }, []);
 
   // Subscriptions Actions
-  const addSubscription = useCallback((item) => {
+  const addSubscription = useCallback((item, syncRemote = true) => {
     const newSub = {
       ...item,
       id: item.id || generateId('sub'),
       alertDays: Number(item.alertDays ?? 7),
       archived: false
     };
-    persistState({
+    const next = {
       ...state,
       subscriptions: [...state.subscriptions, newSub]
-    });
+    };
+    if (syncRemote) persistState(next);
+    else { setState(next); localStorage.setItem('creativeHubDashboardV3', JSON.stringify(next)); }
   }, [state, persistState]);
 
-  const updateSubscription = useCallback((id, updatedFields) => {
+  const updateSubscription = useCallback((id, updatedFields, syncRemote = true) => {
     const updated = state.subscriptions.map((sub) => {
       if (sub.id === id) {
         return {
@@ -53,10 +66,12 @@ export function useDashboardState() {
       }
       return sub;
     });
-    persistState({
+    const next = {
       ...state,
       subscriptions: updated
-    });
+    };
+    if (syncRemote) persistState(next);
+    else { setState(next); localStorage.setItem('creativeHubDashboardV3', JSON.stringify(next)); }
   }, [state, persistState]);
 
   const archiveSubscription = useCallback((id) => {
@@ -243,6 +258,8 @@ export function useDashboardState() {
     selectedMonthTokenCost,
     alerts,
     overdueCount,
+    executiveSummary,
+    dashboardError,
     setReportMonth,
     addSubscription,
     updateSubscription,

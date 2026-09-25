@@ -1,7 +1,17 @@
-import { ROLES, PERMISSIONS, normalizeRole, hasPermission } from '../config/rbac';
+import { ROLES, PERMISSIONS, normalizeRole, canAssignRole, hasPermission } from '../config/rbac';
 
 const AUTH_STORAGE_KEY = 'creativeHubAuthUser';
 const USERS_STORAGE_KEY = 'creativeHubUsersList';
+const DEVICE_STORAGE_KEY = 'marcommsDeviceId';
+
+function getDeviceId() {
+  let deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
+  if (!deviceId) {
+    deviceId = globalThis.crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
+  }
+  return deviceId;
+}
 
 export function getAuthToken() {
   const user = getCurrentUser();
@@ -53,7 +63,7 @@ export async function loginUser(email, password) {
   try {
     response = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Device-ID': getDeviceId() },
       body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
     });
   } catch (err) {
@@ -84,6 +94,7 @@ export async function loginUser(email, password) {
     email: data.user.email,
     role: normalizeRole(data.user.role),
     avatar: data.user.avatar,
+    productionApprover: Boolean(data.user.productionApprover),
     token: data.token
   };
 
@@ -137,6 +148,7 @@ export async function fetchUsersApi() {
           name: u.name,
           email: u.email,
           role: normalizeRole(u.role),
+          productionApprover: Boolean(u.productionApprover),
           avatar: u.avatar,
           createdAt: u.createdAt
         }));
@@ -218,6 +230,19 @@ export async function createUser(userData, currentUser = null) {
   }
 }
 
+export async function setProductionApprover(id, enabled) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch(`/api/users/${id}/production-approver`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ enabled })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to update production approver.');
+  return data.user;
+}
+
 export async function updateUser(id, updatedFields, currentUser = null) {
   const token = getAuthToken();
   const requester = currentUser || getCurrentUser();
@@ -245,8 +270,8 @@ export async function updateUser(id, updatedFields, currentUser = null) {
   if (updatedFields.role) {
     const newRole = normalizeRole(updatedFields.role);
     if (newRole !== targetCurrentRole) {
-      if (normalizeRole(requester?.role) !== ROLES.SUPER_ADMIN) {
-        throw new Error('Access denied. Only Super Administrators are authorized to change roles.');
+      if (!canAssignRole(requester?.role, newRole)) {
+        throw new Error('Access denied. You can only assign roles below your own account level.');
       }
       if (targetCurrentRole === ROLES.SUPER_ADMIN && newRole !== ROLES.SUPER_ADMIN) {
         const superAdminCount = users.filter((u) => normalizeRole(u.role) === ROLES.SUPER_ADMIN).length;

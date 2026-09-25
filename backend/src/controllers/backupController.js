@@ -174,7 +174,7 @@ exports.importBackup = async (req, res, next) => {
   try {
     const { subscriptions, tokenEntries, assets, suppliers, productionOrders, reportMonth } = req.body;
 
-    if (!Array.isArray(subscriptions) && !Array.isArray(assets) && !Array.isArray(suppliers)) {
+    if (!Array.isArray(subscriptions) && !Array.isArray(tokenEntries) && !Array.isArray(assets) && !Array.isArray(suppliers)) {
       return res.status(400).json({ error: 'Invalid backup file: structured array collections required.' });
     }
 
@@ -276,10 +276,10 @@ exports.importBackup = async (req, res, next) => {
       ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
       outcome: 'SUCCESS',
       metadata: {
-        subscriptionsCount: subscriptions.length,
-        tokenEntriesCount: tokenEntries.length,
-        assetsCount: assets.length,
-        suppliersCount: suppliers.length
+        subscriptionsCount: subscriptions?.length || 0,
+        tokenEntriesCount: tokenEntries?.length || 0,
+        assetsCount: assets?.length || 0,
+        suppliersCount: suppliers?.length || 0
       }
     });
 

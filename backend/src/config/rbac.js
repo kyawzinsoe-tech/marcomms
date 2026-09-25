@@ -14,6 +14,20 @@ const ROLES = {
   VIEWER: 'viewer'
 };
 
+// Highest to lowest account-governance level. This is deliberately separate
+// from feature permissions: being able to use a module does not grant access
+// to identities above the requester's management level.
+const ROLE_HIERARCHY = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.HEAD_BRAND,
+  ROLES.BANK_DESIGN,
+  ROLES.PAY_DESIGN,
+  ROLES.COMMS_DESIGN,
+  ROLES.PROCUREMENT_OFFICER,
+  ROLES.VIEWER
+];
+
 const PERMISSIONS = {
   // Navigation & Analytics
   DASHBOARD_VIEW: 'dashboard:view',
@@ -110,6 +124,21 @@ function normalizeRole(role) {
     return ROLES.ADMIN;
   }
   return ROLES.VIEWER;
+}
+
+function canViewRole(requesterRole, targetRole) {
+  const requesterIndex = ROLE_HIERARCHY.indexOf(normalizeRole(requesterRole));
+  const targetIndex = ROLE_HIERARCHY.indexOf(normalizeRole(targetRole));
+  return requesterIndex !== -1 && targetIndex !== -1 && targetIndex >= requesterIndex;
+}
+
+function canAssignRole(requesterRole, targetRole) {
+  const requester = normalizeRole(requesterRole);
+  const target = normalizeRole(targetRole);
+  if (requester === ROLES.SUPER_ADMIN) return true;
+  const requesterIndex = ROLE_HIERARCHY.indexOf(requester);
+  const targetIndex = ROLE_HIERARCHY.indexOf(target);
+  return requesterIndex !== -1 && targetIndex > requesterIndex;
 }
 
 /**
@@ -384,7 +413,10 @@ function hasPermission(user, permission, target = null, context = {}) {
 
 module.exports = {
   ROLES,
+  ROLE_HIERARCHY,
   PERMISSIONS,
   normalizeRole,
+  canViewRole,
+  canAssignRole,
   hasPermission
 };

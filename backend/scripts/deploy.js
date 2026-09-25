@@ -157,12 +157,18 @@ async function deployLambda(roleArn, zipBuffer) {
   console.log(`[Lambda] Checking Lambda function: ${FUNCTION_NAME}...`);
   const envVars = {
     MONGODB_URI: process.env.MONGODB_URI,
-    JWT_SECRET: process.env.JWT_SECRET || 'kbz_marcomms_creative_hub_jwt_super_secret_key_2026!',
+    JWT_SECRET: process.env.JWT_SECRET,
+    SUBSCRIPTION_CREDENTIAL_KEY: process.env.SUBSCRIPTION_CREDENTIAL_KEY,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     NODE_ENV: 'production',
     AWS_S3_BUCKET: process.env.AWS_S3_BUCKET || 'kbz-marcomms-backups-888725256922',
+    AWS_ASSET_BUCKET: process.env.AWS_ASSET_BUCKET,
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:5173',
     REMINDER_FROM_EMAIL: process.env.REMINDER_FROM_EMAIL || 'kyawzin.soe@kbzbank.com'
   };
+  if (!envVars.MONGODB_URI || !envVars.JWT_SECRET || !envVars.AWS_ASSET_BUCKET || !envVars.SUBSCRIPTION_CREDENTIAL_KEY) {
+    throw new Error('MONGODB_URI, JWT_SECRET, AWS_ASSET_BUCKET, and SUBSCRIPTION_CREDENTIAL_KEY must be configured before deployment.');
+  }
 
   try {
     const fn = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));
@@ -180,7 +186,7 @@ async function deployLambda(roleArn, zipBuffer) {
     await lambda.send(
       new UpdateFunctionConfigurationCommand({
         FunctionName: FUNCTION_NAME,
-        Runtime: 'nodejs20.x',
+        Runtime: 'nodejs22.x',
         Handler: 'src/lambda.handler',
         Timeout: 30,
         MemorySize: 512,
@@ -196,7 +202,7 @@ async function deployLambda(roleArn, zipBuffer) {
       const createRes = await lambda.send(
         new CreateFunctionCommand({
           FunctionName: FUNCTION_NAME,
-          Runtime: 'nodejs20.x',
+          Runtime: 'nodejs22.x',
           Role: roleArn,
           Handler: 'src/lambda.handler',
           Code: { ZipFile: zipBuffer },

@@ -21,6 +21,7 @@ import {
 import {
   fetchAssets,
   createAsset,
+  uploadBrandAsset,
   updateAsset,
   deleteAsset,
   ASSET_LIBRARY_LABELS
@@ -59,6 +60,7 @@ export function AssetLibrarySection({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
   const [pendingDeleteAsset, setPendingDeleteAsset] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // RBAC Permission checks for this specific library
   const canWrite = useMemo(() => {
@@ -168,11 +170,16 @@ export function AssetLibrarySection({
         await updateAsset(editingAsset.id, formData);
         onNotify?.(`Updated "${formData.title}" successfully.`, 'success');
       } else {
-        await createAsset({ ...formData, library });
+        if (formData.file) {
+          await uploadBrandAsset({ ...formData, library, file: undefined }, formData.file, setUploadProgress);
+        } else {
+          await createAsset({ ...formData, library });
+        }
         onNotify?.(`Uploaded "${formData.title}" to ${ASSET_LIBRARY_LABELS[library] || 'library'}.`, 'success');
       }
       setIsModalOpen(false);
       setEditingAsset(null);
+      setUploadProgress(0);
       await loadAssets();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to save brand asset.');
@@ -237,6 +244,15 @@ export function AssetLibrarySection({
           )}
         </div>
       </div>
+
+      {uploadProgress > 0 && (
+        <div className="asset-upload-progress" role="status" aria-live="polite">
+          <span className={uploadProgress >= 1 ? 'done' : ''}>Validating</span>
+          <span className={uploadProgress >= 2 ? 'done' : ''}>Uploading securely</span>
+          <span className={uploadProgress >= 3 ? 'done' : ''}>Checking file signature</span>
+          <span className={uploadProgress >= 4 ? 'done' : ''}>Ready</span>
+        </div>
+      )}
 
       {/* Library Summary Bar */}
       <div className="sub-summary-bar">

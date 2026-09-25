@@ -81,6 +81,8 @@ export function normalizeData(data) {
     alertDays: Number(x.alertDays ?? 7),
     initialTokens: x.initialTokens !== undefined && x.initialTokens !== null ? String(x.initialTokens) : '',
     purchaseNote: x.purchaseNote || '',
+    hasPassword: !!x.hasPassword,
+    invoice: x.invoice || null,
     archived: !!x.archived
   }));
 
@@ -164,6 +166,15 @@ export async function fetchDashboardData() {
   return normalizeData(DEMO_DATA);
 }
 
+export async function fetchExecutiveSummary() {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetchWithRetry('/api/dashboard/summary', { headers: { Authorization: `Bearer ${token}` } }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Unable to load live executive metrics.');
+  return data;
+}
+
 export async function saveDashboardData(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -177,7 +188,9 @@ export async function saveDashboardData(data) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(data)
+        // Subscription records use dedicated endpoints so encrypted credentials and
+        // private invoice metadata can never be overwritten by a dashboard snapshot.
+        body: JSON.stringify({ ...data, subscriptions: undefined })
       }).catch((e) => console.log('[API Sync] Background sync to MongoDB:', e.message));
     }
 
@@ -186,4 +199,43 @@ export async function saveDashboardData(data) {
     console.error('Error saving dashboard state:', error);
     return { success: false, error };
   }
+}
+
+async function authenticatedJson(url, options = {}) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch(url, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+  }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
+  return data;
+}
+
+export async function saveSubscriptionRecord(formData, id) {
+  const data = await authenticatedJson(id ? `/api/subscriptions/${id}` : '/api/subscriptions', {
+    method: id ? 'PUT' : 'POST',
+    body: JSON.stringify(formData)
+  });
+  return data.subscription;
+}
+
+export async function uploadSubscriptionInvoice(subscriptionId, file, onProgress = () => {}) {
+  onProgress('authorizing');
+  const setup = await authenticatedJson(`/api/subscriptions/${subscriptionId}/invoice/upload`, {
+    method: 'POST',
+    body: JSON.stringify({ originalName: file.name, mimeType: file.type, fileSize: file.size })
+  });
+  onProgress('uploading');
+  const upload = await fetch(setup.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256', 'x-amz-meta-purpose': 'subscription-invoice' },
+    body: file
+  });
+  if (!upload.ok) throw new Error('Invoice upload failed.');
+  onProgress('verifying');
+  const completed = await authenticatedJson(`/api/subscriptions/${subscriptionId}/invoice/complete`, { method: 'POST', body: '{}' });
+  onProgress('complete');
+  return completed.subscription;
 }

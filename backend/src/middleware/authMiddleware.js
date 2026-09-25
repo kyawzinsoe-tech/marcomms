@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
+const Session = require('../models/Session');
 
 async function protect(req, res, next) {
   let token = null;
@@ -25,6 +27,11 @@ async function protect(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const session = await Session.findOne({ tokenHash, status: 'active', expiresAt: { $gt: new Date() } }).select('_id');
+    if (!session) {
+      return res.status(401).json({ error: 'This session has been signed out or has expired.' });
+    }
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {

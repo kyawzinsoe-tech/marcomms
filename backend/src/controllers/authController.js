@@ -32,6 +32,11 @@ function formatUserAgent(uaString) {
   return `${browser} on ${os}`;
 }
 
+function hashDeviceId(value) {
+  const clean = String(value || '').trim().slice(0, 200);
+  return clean ? crypto.createHash('sha256').update(clean).digest('hex') : undefined;
+}
+
 // POST /api/auth/login
 exports.login = async (req, res, next) => {
   try {
@@ -50,21 +55,20 @@ exports.login = async (req, res, next) => {
     const token = generateToken(user._id);
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const userAgent = formatUserAgent(req.headers['user-agent']);
+    const deviceId = hashDeviceId(req.headers['x-device-id']);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // Safely record active session
-    try {
-      await Session.create({
-        userId: user._id,
-        tokenHash,
-        userAgent,
-        status: 'active',
-        lastSeenAt: new Date(),
-        expiresAt
-      });
-    } catch (sessionErr) {
-      console.warn('[Session] Could not persist session record:', sessionErr.message);
-    }
+    // A token without a persisted session could not be revoked reliably.
+    // Fail closed instead of issuing an untracked authentication token.
+    await Session.create({
+      userId: user._id,
+      tokenHash,
+      userAgent,
+      deviceId,
+      status: 'active',
+      lastSeenAt: new Date(),
+      expiresAt
+    });
 
     res.status(200).json({
       token,
@@ -73,6 +77,7 @@ exports.login = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar,
         createdAt: user.createdAt
       }
@@ -121,6 +126,7 @@ exports.getMe = async (req, res, next) => {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
+        productionApprover: Boolean(req.user.productionApprover),
         avatar: req.user.avatar,
         createdAt: req.user.createdAt
       }

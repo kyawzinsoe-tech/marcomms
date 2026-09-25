@@ -55,6 +55,16 @@ const subscriptionSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    credentialCiphertext: { type: String, select: false, default: '' },
+    invoice: {
+      storageKey: { type: String, select: false, default: '' },
+      originalName: { type: String, default: '' },
+      mimeType: { type: String, enum: ['', 'application/pdf', 'image/png', 'image/jpeg'], default: '' },
+      fileSize: { type: Number, default: 0 },
+      uploadStatus: { type: String, enum: ['none', 'pending', 'ready'], default: 'none' },
+      uploadedAt: Date,
+      uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    },
     archived: {
       type: Boolean,
       default: false

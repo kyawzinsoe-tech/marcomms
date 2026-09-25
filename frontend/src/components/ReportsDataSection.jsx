@@ -51,22 +51,25 @@ export function ReportsDataSection({
 
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [operationalDataStatus, setOperationalDataStatus] = useState('loading');
 
   useEffect(() => {
     async function loadOperationalMetrics() {
       try {
         const [supData, poData, bankAssets, payAssets, commsAssets] = await Promise.all([
-          fetchSuppliers().catch(() => []),
-          fetchProductionOrders().catch(() => []),
-          fetchAssets({ library: 'kbz_bank' }).catch(() => []),
-          fetchAssets({ library: 'kbz_pay' }).catch(() => []),
-          fetchAssets({ library: 'kbz_comms' }).catch(() => [])
+          fetchSuppliers(),
+          fetchProductionOrders(),
+          fetchAssets({ library: 'kbz_bank' }),
+          fetchAssets({ library: 'kbz_pay' }),
+          fetchAssets({ library: 'kbz_comms' })
         ]);
         setSuppliers(supData);
         setProductionOrders(poData);
         setAssets([...bankAssets, ...payAssets, ...commsAssets]);
+        setOperationalDataStatus('live');
       } catch (err) {
         console.warn('[Reports] Operational metrics fetch warning:', err.message);
+        setOperationalDataStatus('error');
       }
     }
 
@@ -230,6 +233,10 @@ export function ReportsDataSection({
             <Printer size={14} /> Annual PDF ({selectedYear})
           </button>
         </div>
+      </div>
+
+      <div className={operationalDataStatus === 'live' ? 'report-data-source live' : 'report-data-source error'} role="status">
+        {operationalDataStatus === 'loading' ? 'Loading live report data…' : operationalDataStatus === 'live' ? 'Live database data verified' : 'Some live report data could not be loaded; totals are not authoritative.'}
       </div>
 
       {/* Domain-Wide KPI Summary Bar */}

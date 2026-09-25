@@ -140,7 +140,7 @@ export async function fetchDashboardData() {
         return loaded;
       }
     } catch {
-      console.log('[API Service] Backend API error, using local storage cache');
+      // Offline fallback is intentional; avoid exposing network details in the browser console.
     }
   }
 
@@ -191,7 +191,7 @@ export async function saveDashboardData(data) {
         // Subscription records use dedicated endpoints so encrypted credentials and
         // private invoice metadata can never be overwritten by a dashboard snapshot.
         body: JSON.stringify({ ...data, subscriptions: undefined })
-      }).catch((e) => console.log('[API Sync] Background sync to MongoDB:', e.message));
+      }).catch(() => {});
     }
 
     return { success: true };

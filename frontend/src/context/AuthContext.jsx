@@ -1,8 +1,7 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, loginUser, logoutUser } from '../services/authService';
 import { ROLES, normalizeRole, hasPermission } from '../config/rbac';
-
-export const AuthContext = createContext(null);
+import { AuthContext } from './authContextValue';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -18,12 +17,9 @@ export function AuthProvider({ children }) {
 
   // Listen for decoupled session expiration events (e.g. 401 Unauthorized from API calls)
   useEffect(() => {
-    const handleSessionExpired = (e) => {
+    const handleSessionExpired = () => {
       logoutUser();
       setUser(null);
-      if (typeof window !== 'undefined' && e?.detail?.message) {
-        console.warn('[Session Expiry]', e.detail.message);
-      }
     };
 
     window.addEventListener('marcomms:session-expired', handleSessionExpired);

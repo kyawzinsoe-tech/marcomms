@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { useDashboardState } from './hooks/useDashboardState';
@@ -197,18 +197,18 @@ function DashboardApp() {
     }
   }, [isAuthenticated]);
 
-  const refreshUsers = async () => {
+  const refreshUsers = useCallback(async () => {
     if (isAuthenticated && isAdmin) {
       try {
         const liveUsers = await fetchUsersApi();
         if (Array.isArray(liveUsers)) {
           setUsersList(liveUsers);
         }
-      } catch (err) {
-        console.warn('[User Sync] Failed to refresh users from backend:', err.message);
+      } catch {
+        // A later manual refresh can retry without exposing backend details.
       }
     }
-  };
+  }, [isAuthenticated, isAdmin]);
 
   const handleSetProductionApprover = async (targetUser, enabled) => {
     try {
@@ -225,10 +225,10 @@ function DashboardApp() {
     if (isAuthenticated && isAdmin) {
       refreshUsers();
     }
-  }, [isAuthenticated, isAdmin]);
+  }, [isAuthenticated, isAdmin, refreshUsers]);
 
   // Route permission validator
-  const checkPermissionForSection = (sec) => {
+  const checkPermissionForSection = useCallback((sec) => {
     switch (sec) {
       case 'kbz-bank':
         return can(PERMISSIONS.ASSET_READ_BANK);
@@ -245,7 +245,7 @@ function DashboardApp() {
       default:
         return true;
     }
-  };
+  }, [can, isAdmin]);
 
   // Synchronize activeSection with window.location.hash and browser Back/Forward navigation
   useEffect(() => {
@@ -268,7 +268,7 @@ function DashboardApp() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [isAuthenticated, user, isAdmin]);
+  }, [isAuthenticated, checkPermissionForSection]);
 
   const handleNavigate = (sec) => {
     if (!checkPermissionForSection(sec)) return;

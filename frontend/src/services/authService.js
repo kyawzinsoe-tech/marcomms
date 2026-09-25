@@ -44,8 +44,8 @@ export async function logoutUser() {
           Authorization: `Bearer ${token}`
         }
       });
-    } catch (err) {
-      console.warn('[Auth Service] Logout network call error:', err.message);
+    } catch {
+      // Local logout must still complete when the server is unavailable.
     }
   }
   localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -66,7 +66,7 @@ export async function loginUser(email, password) {
       headers: { 'Content-Type': 'application/json', 'X-Device-ID': getDeviceId() },
       body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
     });
-  } catch (err) {
+  } catch {
     throw new Error('Authentication service unavailable. Unable to connect to server.');
   }
 

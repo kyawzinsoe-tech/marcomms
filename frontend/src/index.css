@@ -628,13 +628,6 @@ a {
   border-radius: var(--radius-sm);
 }
 
-.btn-lg {
-  height: 42px;
-  padding: 0 18px;
-  font-size: 14px;
-  border-radius: var(--radius-md);
-}
-
 .action-btn {
   width: 30px;
   height: 30px;
@@ -901,12 +894,6 @@ input:disabled, select:disabled, textarea:disabled {
   gap: 5px;
 }
 
-.count-pill-danger {
-  background: var(--danger-light);
-  color: var(--danger-text);
-  border: 1px solid var(--danger-border);
-}
-
 .count-pill-primary {
   background: var(--primary-50);
   color: var(--primary-hover);
@@ -1136,16 +1123,6 @@ input:disabled, select:disabled, textarea:disabled {
   min-width: 155px;
 }
 
-.plan-tag {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-}
-
 .table-container {
   width: 100%;
   overflow-x: auto;
@@ -1200,18 +1177,6 @@ tbody tr:hover {
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 600;
-}
-
-.badge-active {
-  background: var(--success-light);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
-}
-
-.badge-inactive {
-  background: var(--bg-surface-secondary);
-  color: var(--text-muted);
-  border: 1px solid var(--border-default);
 }
 
 .user-role-badge {
@@ -1411,13 +1376,6 @@ tbody tr:hover {
   font-size: 12px;
   color: var(--success-text);
   line-height: 1.4;
-}
-
-.backup-controls {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
 }
 
 .hidden-file-input {
@@ -1868,8 +1826,7 @@ tbody tr:hover {
   font-size: 12px;
 }
 
-.asset-upload-progress,
-.production-workflow-progress {
+.asset-upload-progress {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1878,8 +1835,7 @@ tbody tr:hover {
   border-bottom: 1px solid var(--border-default);
 }
 
-.asset-upload-progress span,
-.production-workflow-progress span {
+.asset-upload-progress span {
   position: relative;
   padding: 5px 10px 5px 26px;
   border-radius: var(--radius-full);
@@ -1888,8 +1844,7 @@ tbody tr:hover {
   font-size: 12px;
 }
 
-.asset-upload-progress span::before,
-.production-workflow-progress span::before {
+.asset-upload-progress span::before {
   content: '';
   position: absolute;
   left: 9px;
@@ -1903,14 +1858,12 @@ tbody tr:hover {
   animation: workflow-spin .8s linear infinite;
 }
 
-.asset-upload-progress span.done,
-.production-workflow-progress span.done {
+.asset-upload-progress span.done {
   color: var(--success-text);
   background: var(--success-light);
 }
 
-.asset-upload-progress span.done::before,
-.production-workflow-progress span.done::before {
+.asset-upload-progress span.done::before {
   border: 0;
   background: var(--success-text);
   animation: none;
@@ -1919,8 +1872,7 @@ tbody tr:hover {
 @keyframes workflow-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .asset-upload-progress span::before,
-  .production-workflow-progress span::before { animation: none; }
+  .asset-upload-progress span::before { animation: none; }
 }
 
 .dashboard-data-warning {
@@ -2006,34 +1958,6 @@ tbody tr:hover {
   display: flex;
   gap: 6px;
   align-items: center;
-}
-
-/* ==========================================================================
-   User Management Specific Layout
-   ========================================================================== */
-
-.user-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: var(--space-5);
-}
-
-.user-filter-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.user-search-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 220px;
-}
-
-.user-role-select {
-  width: 190px;
 }
 
 /* ==========================================================================
@@ -2299,9 +2223,6 @@ tbody tr:hover {
     width: 100%;
     justify-content: flex-start;
   }
-  .user-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .alert-meta {
     flex-direction: column;
     align-items: flex-start;
@@ -2324,17 +2245,6 @@ tbody tr:hover {
   }
   .alert-item {
     grid-template-columns: 1fr;
-  }
-  .user-filter-bar {
-    flex-direction: column;
-    width: 100%;
-  }
-  .user-search-wrap {
-    width: 100%;
-    min-width: 100%;
-  }
-  .user-role-select {
-    width: 100% !important;
   }
   .table-filter-bar {
     flex-direction: column;
@@ -2393,9 +2303,6 @@ tbody tr:hover {
   }
   .main-content {
     padding: 12px 10px;
-  }
-  .user-stats-grid {
-    grid-template-columns: 1fr;
   }
 }
 

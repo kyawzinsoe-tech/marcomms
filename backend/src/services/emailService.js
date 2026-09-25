@@ -174,19 +174,15 @@ async function sendReminderEmail({ to, product, tool, expiry, status, account, d
 
   try {
     const result = await sesClient.send(command);
-    console.log(`[SES Email Service] Email successfully sent to ${cleanTo}. MessageId: ${result.MessageId}`);
     return {
       success: true,
       provider: 'aws-ses',
       messageId: result.MessageId
     };
   } catch (err) {
-    // Log server-side for troubleshooting without leaking credentials
+    // Keep diagnostics free of recipient/sender PII.
     console.error('[SES Email Service] SES delivery failure:', {
       errorName: err.name,
-      errorMessage: err.message,
-      recipient: cleanTo,
-      from: fromEmail,
       region
     });
 

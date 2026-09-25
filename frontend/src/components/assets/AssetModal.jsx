@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Layers, Upload, Tag, AlertCircle, FileText } from 'lucide-react';
+import { X, Loader2, Layers, Upload, Tag, AlertCircle } from 'lucide-react';
 import { ASSET_LIBRARY_LABELS } from '../../services/assetService';
 
 const CATEGORY_OPTIONS = [

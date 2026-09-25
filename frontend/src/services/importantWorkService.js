@@ -16,4 +16,4 @@ async function request(path = '', options = {}) {
 export const fetchImportantWork = () => request('/').then((data) => data.items || []);
 export const createImportantWork = (item) => request('/', { method: 'POST', body: JSON.stringify(item) }).then((data) => data.item);
 export const updateImportantWork = (id, item) => request(`/${id}`, { method: 'PUT', body: JSON.stringify(item) }).then((data) => data.item);
-export const sendImportantWorkReminder = (id) => request(`/${id}/remind`, { method: 'POST' });
+export const deleteImportantWork = (id) => request(`/${id}`, { method: 'DELETE' });

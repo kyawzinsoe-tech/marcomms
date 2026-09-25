@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const ImportantWork = require('../models/ImportantWork');
 const { ROLES, normalizeRole } = require('../config/rbac');
-const { isValidEmail, sendImportantWorkReminder } = require('../services/emailService');
 
 const EDIT_ROLES = new Set([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.HEAD_BRAND]);
 const LINK_HOSTS = /^(drive\.google\.com|docs\.google\.com|1drv\.ms|[a-z0-9.-]+\.sharepoint\.com)$/i;
@@ -21,22 +20,21 @@ function sanitizeLinks(links) {
 }
 
 function payload(body) {
-  const links = sanitizeLinks(body.links);
-  const reminderEmail = safeText(body.reminderEmail, 254).toLowerCase();
   const dueDate = safeText(body.dueDate, 10);
   if (!safeText(body.title, 160)) throw Object.assign(new Error('Work title is required.'), { statusCode: 400 });
+  if (!safeText(body.designerName, 120)) throw Object.assign(new Error('Designer name is required.'), { statusCode: 400 });
+  if (!safeText(body.supervisorName, 120)) throw Object.assign(new Error('Supervising designer name is required.'), { statusCode: 400 });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw Object.assign(new Error('A valid due date is required.'), { statusCode: 400 });
-  if (!isValidEmail(reminderEmail)) throw Object.assign(new Error('A valid reminder email is required.'), { statusCode: 400 });
-  if (!links.length) throw Object.assign(new Error('Add at least one approved Excel, PDF, or Google Slides link.'), { statusCode: 400 });
   return {
-    title: safeText(body.title, 160), description: safeText(body.description, 2000), ownerName: safeText(body.ownerName, 120),
-    reminderEmail, dueDate, reminderDaysBefore: Math.min(90, Math.max(0, Number(body.reminderDaysBefore) || 0)),
-    priority: ['Low', 'Medium', 'High', 'Critical'].includes(body.priority) ? body.priority : 'High',
-    status: ['Planned', 'In Progress', 'Waiting', 'Completed', 'Cancelled'].includes(body.status) ? body.status : 'Planned', links
+    title: safeText(body.title, 160),
+    designerName: safeText(body.designerName, 120),
+    supervisorName: safeText(body.supervisorName, 120),
+    process: ['Planned', 'Designing', 'Review', 'Revision', 'Approved', 'Completed'].includes(body.process) ? body.process : 'Planned',
+    dueDate
   };
 }
 
-exports._importantWorkValidation = { sanitizeLinks };
+exports._importantWorkValidation = { sanitizeLinks, payload };
 exports.list = async (req, res, next) => {
   try { res.json({ items: await ImportantWork.find().sort({ dueDate: 1, priority: -1 }).lean() }); } catch (error) { next(error); }
 };
@@ -56,14 +54,12 @@ exports.update = async (req, res, next) => {
     res.json({ item });
   } catch (error) { next(error); }
 };
-exports.sendReminder = async (req, res, next) => {
+exports.remove = async (req, res, next) => {
   try {
-    if (!canEdit(req.user)) return res.status(403).json({ error: 'Only Admin or Head accounts can send reminders.' });
+    if (!canEdit(req.user)) return res.status(403).json({ error: 'Only Admin or Head accounts can delete important work.' });
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid work ID.' });
-    const item = await ImportantWork.findById(req.params.id);
+    const item = await ImportantWork.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: 'Important work item not found.' });
-    const result = await sendImportantWorkReminder(item.toObject());
-    item.lastReminderSentAt = new Date(); item.updatedBy = req.user._id; await item.save();
-    res.json({ success: true, provider: result.provider, sentAt: item.lastReminderSentAt });
+    res.status(204).end();
   } catch (error) { next(error); }
 };

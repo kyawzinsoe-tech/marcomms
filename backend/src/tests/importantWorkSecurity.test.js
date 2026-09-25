@@ -14,4 +14,16 @@ describe('Important Work Link Security', () => {
     assert.equal(links[0].type, 'Excel');
     assert.equal(links[1].type, 'Google Slides');
   });
+
+  it('requires the designer, supervisor and due date fields', () => {
+    const item = _importantWorkValidation.payload({
+      title: 'Campaign key visual',
+      designerName: 'Designer A',
+      supervisorName: 'Design Lead',
+      process: 'Review',
+      dueDate: '2026-10-01'
+    });
+    assert.equal(item.process, 'Review');
+    assert.throws(() => _importantWorkValidation.payload({ title: 'Missing people', dueDate: '2026-10-01' }), /Designer name/);
+  });
 });

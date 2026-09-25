@@ -2,9 +2,12 @@ const mongoose = require('mongoose');
 
 const importantWorkSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 160 },
+  designerName: { type: String, required: true, trim: true, maxlength: 120 },
+  supervisorName: { type: String, required: true, trim: true, maxlength: 120 },
+  process: { type: String, enum: ['Planned', 'Designing', 'Review', 'Revision', 'Approved', 'Completed'], default: 'Planned' },
   description: { type: String, default: '', trim: true, maxlength: 2000 },
   ownerName: { type: String, default: '', trim: true, maxlength: 120 },
-  reminderEmail: { type: String, required: true, trim: true, lowercase: true, maxlength: 254 },
+  reminderEmail: { type: String, default: '', trim: true, lowercase: true, maxlength: 254 },
   dueDate: { type: String, required: true },
   reminderDaysBefore: { type: Number, default: 3, min: 0, max: 90 },
   priority: { type: String, enum: ['Low', 'Medium', 'High', 'Critical'], default: 'High' },
@@ -19,5 +22,5 @@ const importantWorkSchema = new mongoose.Schema({
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
-importantWorkSchema.index({ dueDate: 1, status: 1, priority: 1 });
+importantWorkSchema.index({ dueDate: 1, process: 1 });
 module.exports = mongoose.model('ImportantWork', importantWorkSchema);

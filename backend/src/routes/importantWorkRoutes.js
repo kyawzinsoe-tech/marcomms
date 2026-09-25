@@ -5,5 +5,5 @@ router.use(protect);
 router.get('/', controller.list);
 router.post('/', controller.create);
 router.put('/:id', controller.update);
-router.post('/:id/remind', controller.sendReminder);
+router.delete('/:id', controller.remove);
 module.exports = router;

@@ -8,21 +8,12 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 function getS3Client() {
   const region = process.env.AWS_REGION || 'us-east-1';
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
   // Presigned browser PUT uploads provide the body after URL generation. Avoid
   // SDK default checksums calculated against the empty signing-time body.
-  const clientConfig = { region, requestChecksumCalculation: 'WHEN_REQUIRED' };
-
-  if (accessKeyId && secretAccessKey) {
-    return new S3Client({
-      ...clientConfig,
-      credentials: { accessKeyId, secretAccessKey }
-    });
-  }
-
-  // Uses default AWS IAM Role credentials if running inside AWS Lambda / EC2
-  return new S3Client(clientConfig);
+  // Never rebuild Lambda's temporary credentials manually: they also require
+  // AWS_SESSION_TOKEN. The SDK default provider safely uses the complete
+  // execution-role credential set and refreshes it automatically.
+  return new S3Client({ region, requestChecksumCalculation: 'WHEN_REQUIRED' });
 }
 
 async function uploadBackupToS3(key, data) {

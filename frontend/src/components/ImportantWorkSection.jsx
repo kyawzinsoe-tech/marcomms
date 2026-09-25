@@ -1,55 +1,77 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, ExternalLink, FileSpreadsheet, FileText, Loader2, Plus, Presentation, Save } from 'lucide-react';
-import { createImportantWork, fetchImportantWork, sendImportantWorkReminder, updateImportantWork } from '../services/importantWorkService';
+import React, { useCallback, useEffect, useState } from 'react';
+import { BellRing, Loader2, Pencil, Save, Trash2, X } from 'lucide-react';
+import { createImportantWork, deleteImportantWork, fetchImportantWork, updateImportantWork } from '../services/importantWorkService';
 import './ImportantWorkSection.css';
 
-const emptyForm = { title: '', description: '', ownerName: '', reminderEmail: '', dueDate: '', reminderDaysBefore: 3, priority: 'High', status: 'Planned', links: [{ type: 'Google Slides', label: '', url: '' }] };
-const editableRoles = new Set(['super_admin', 'admin', 'head_brand']);
-const icons = { Excel: FileSpreadsheet, PDF: FileText, 'Google Slides': Presentation };
+const EMPTY_FORM = { title: '', designerName: '', supervisorName: '', process: 'Planned', dueDate: '' };
+const PROCESSES = ['Planned', 'Designing', 'Review', 'Revision', 'Approved', 'Completed'];
+const EDIT_ROLES = new Set(['super_admin', 'admin', 'head_brand']);
 
 export function ImportantWorkSection({ user, onNotify }) {
-  const [items, setItems] = useState([]); const [form, setForm] = useState(emptyForm); const [editingId, setEditingId] = useState(null);
-  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState('');
-  const canEdit = editableRoles.has(user?.role);
-  const load = async () => { try { setLoading(true); setItems(await fetchImportantWork()); setError(''); } catch (e) { setError(e.message); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
-  const activeItems = useMemo(() => items.filter((item) => !['Completed', 'Cancelled'].includes(item.status)), [items]);
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const canEdit = EDIT_ROLES.has(user?.role);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await fetchImportantWork()); setError(''); }
+    catch (loadError) { setError(loadError.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
   const setField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
-  const setLink = (index, name, value) => setForm((current) => ({ ...current, links: current.links.map((link, i) => i === index ? { ...link, [name]: value } : link) }));
+  const resetForm = () => { setForm(EMPTY_FORM); setEditingId(null); setError(''); };
+
   const save = async (event) => {
     event.preventDefault(); setSaving(true); setError('');
-    try { editingId ? await updateImportantWork(editingId, form) : await createImportantWork(form); onNotify?.('Important work reminder saved.', 'success'); setForm(emptyForm); setEditingId(null); await load(); }
-    catch (e) { setError(e.message); } finally { setSaving(false); }
+    try {
+      if (editingId) await updateImportantWork(editingId, form);
+      else await createImportantWork(form);
+      onNotify?.(editingId ? 'Important work updated.' : 'Important work added.', 'success');
+      resetForm(); await load();
+    } catch (saveError) { setError(saveError.message); }
+    finally { setSaving(false); }
   };
-  const edit = (item) => { setEditingId(item._id); setForm({ ...emptyForm, ...item, links: item.links?.length ? item.links : emptyForm.links }); };
-  const remind = async (item) => { try { await sendImportantWorkReminder(item._id); onNotify?.(`Reminder sent to ${item.reminderEmail}.`, 'success'); await load(); } catch (e) { setError(e.message); } };
-  const dueLabel = (date) => { const days = Math.ceil((new Date(`${date}T23:59:59`) - new Date()) / 86400000); return days < 0 ? `${Math.abs(days)} day(s) overdue` : days === 0 ? 'Due today' : `Due in ${days} day(s)`; };
+
+  const edit = (item) => {
+    setEditingId(item._id);
+    setForm({ title: item.title || '', designerName: item.designerName || '', supervisorName: item.supervisorName || '', process: item.process || 'Planned', dueDate: item.dueDate || '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const remove = async (item) => {
+    if (!window.confirm(`Delete “${item.title}”?`)) return;
+    try {
+      await deleteImportantWork(item._id);
+      if (editingId === item._id) resetForm();
+      onNotify?.('Important work deleted.', 'success');
+      await load();
+    } catch (deleteError) { setError(deleteError.message); }
+  };
 
   return <section className="important-work-page">
-    <div className="section-header"><div><h2><BellRing size={22} /> Important Work & Reminders</h2><p>Database-backed deadlines with approved Excel, PDF and Google Slides links.</p></div><span className="status-badge status-active">{activeItems.length} active</span></div>
+    <header className="important-work-header"><div><h2><BellRing size={22} /> Important Work</h2><p>Design work, responsibility, process and due date.</p></div><span>{items.length} work item{items.length === 1 ? '' : 's'}</span></header>
     {error && <div className="error-banner">{error}</div>}
     {canEdit && <form className="important-work-form" onSubmit={save}>
       <h3>{editingId ? 'Edit important work' : 'Add important work'}</h3>
-      <input required maxLength="160" placeholder="Work title" value={form.title} onChange={(e) => setField('title', e.target.value)} />
-      <input maxLength="120" placeholder="Owner / PIC" value={form.ownerName} onChange={(e) => setField('ownerName', e.target.value)} />
-      <input required type="email" placeholder="Reminder email" value={form.reminderEmail} onChange={(e) => setField('reminderEmail', e.target.value)} />
-      <input required type="date" value={form.dueDate} onChange={(e) => setField('dueDate', e.target.value)} />
-      <select value={form.priority} onChange={(e) => setField('priority', e.target.value)}>{['Low','Medium','High','Critical'].map((v) => <option key={v}>{v}</option>)}</select>
-      <select value={form.status} onChange={(e) => setField('status', e.target.value)}>{['Planned','In Progress','Waiting','Completed','Cancelled'].map((v) => <option key={v}>{v}</option>)}</select>
-      <textarea className="wide" maxLength="2000" placeholder="Notes / next action" value={form.description} onChange={(e) => setField('description', e.target.value)} />
-      {form.links.map((link, index) => <div className="work-link-row wide" key={index}>
-        <select value={link.type} onChange={(e) => setLink(index, 'type', e.target.value)}>{['Excel','PDF','Google Slides'].map((v) => <option key={v}>{v}</option>)}</select>
-        <input maxLength="120" placeholder="Link label" value={link.label} onChange={(e) => setLink(index, 'label', e.target.value)} />
-        <input required type="url" maxLength="1000" placeholder="Google Drive, OneDrive or SharePoint HTTPS link" value={link.url} onChange={(e) => setLink(index, 'url', e.target.value)} />
-      </div>)}
-      <div className="wide work-form-actions"><button type="button" className="btn btn-outline" onClick={() => setForm((current) => ({ ...current, links: [...current.links, { type: 'PDF', label: '', url: '' }] }))}><Plus size={13}/> Add link</button><button className="btn btn-primary" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={13}/> : <Save size={13}/>} Save</button></div>
+      <label>Work Title<input required maxLength="160" value={form.title} onChange={(e) => setField('title', e.target.value)} /></label>
+      <label>Designer<input required maxLength="120" value={form.designerName} onChange={(e) => setField('designerName', e.target.value)} /></label>
+      <label>Supervising Designer<input required maxLength="120" value={form.supervisorName} onChange={(e) => setField('supervisorName', e.target.value)} /></label>
+      <label>Process<select value={form.process} onChange={(e) => setField('process', e.target.value)}>{PROCESSES.map((process) => <option key={process}>{process}</option>)}</select></label>
+      <label>Due Date<input required type="date" value={form.dueDate} onChange={(e) => setField('dueDate', e.target.value)} /></label>
+      <div className="work-form-actions">{editingId && <button type="button" className="btn btn-outline" onClick={resetForm}><X size={14} /> Cancel</button>}<button className="btn btn-primary" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {editingId ? 'Update' : 'Save'}</button></div>
     </form>}
-    {loading ? <div className="loading-state"><Loader2 className="animate-spin"/> Loading reminders…</div> : <div className="important-work-grid">{items.map((item) => <article className={`important-work-card priority-${item.priority.toLowerCase()}`} key={item._id}>
-      <div className="work-card-head"><div><span>{item.priority}</span><h3>{item.title}</h3></div><b>{dueLabel(item.dueDate)}</b></div>
-      <p>{item.description || 'No notes added.'}</p><dl><div><dt>Owner</dt><dd>{item.ownerName || '—'}</dd></div><div><dt>Status</dt><dd>{item.status}</dd></div><div><dt>Due</dt><dd>{item.dueDate}</dd></div><div><dt>Reminder</dt><dd>{item.reminderEmail}</dd></div></dl>
-      <div className="work-links">{item.links?.map((link) => { const Icon = icons[link.type] || FileText; return <a key={link._id || link.url} href={link.url} target="_blank" rel="noopener noreferrer"><Icon size={14}/>{link.label || link.type}<ExternalLink size={11}/></a>; })}</div>
-      {canEdit && <div className="work-card-actions"><button className="btn btn-outline btn-sm" onClick={() => edit(item)}>Edit</button><button className="btn btn-primary btn-sm" onClick={() => remind(item)}><BellRing size={12}/> Send reminder</button></div>}
-      {item.lastReminderSentAt && <small>Last reminder: {new Date(item.lastReminderSentAt).toLocaleString()}</small>}
-    </article>)}</div>}
+    {loading ? <div className="loading-state"><Loader2 className="animate-spin" /> Loading important work…</div> : items.length === 0 ? <div className="empty-state">No important work has been added.</div> : <div className="important-work-list">
+      <div className="important-work-list-head"><span>Work Title</span><span>Supervisor</span><span>Designer</span><span>Process</span><span>Due Date</span><span>Actions</span></div>
+      {items.map((item) => <article className="important-work-row" key={item._id}>
+        <strong data-label="Work Title">{item.title}</strong><span data-label="Supervisor">{item.supervisorName}</span><span data-label="Designer">{item.designerName}</span><span data-label="Process"><b className="process-badge">{item.process}</b></span><time data-label="Due Date" dateTime={item.dueDate}>{item.dueDate}</time>
+        <div className="important-work-actions" data-label="Actions">{canEdit && <><button type="button" aria-label={`Edit ${item.title}`} onClick={() => edit(item)}><Pencil size={15} /></button><button type="button" className="danger" aria-label={`Delete ${item.title}`} onClick={() => remove(item)}><Trash2 size={15} /></button></>}</div>
+      </article>)}
+    </div>}
   </section>;
 }

@@ -12,4 +12,10 @@ describe('Production Workflow Approval Security', () => {
   it('does not turn operational steps into approval actions', () => {
     assert.equal(_workflowSecurity.canApproveWorkflow({ role: 'head_brand', productionApprover: true }, 'bulk_production'), false);
   });
+
+  it('keeps approval steps non-skippable by limiting skip semantics to quotations', () => {
+    assert.equal(_workflowSecurity.APPROVAL_STEPS.has('quotations'), false);
+    assert.equal(_workflowSecurity.APPROVAL_STEPS.has('sample_approval'), true);
+    assert.equal(_workflowSecurity.APPROVAL_STEPS.has('invoice_head_approval'), true);
+  });
 });

@@ -70,7 +70,7 @@ const productionOrderSchema = new mongoose.Schema(
     },
     workflowHistory: [{
       step: { type: String, enum: WORKFLOW_STEPS, required: true },
-      action: { type: String, enum: ['CREATED', 'COMPLETED', 'APPROVED', 'REJECTED'], required: true },
+      action: { type: String, enum: ['CREATED', 'COMPLETED', 'SKIPPED', 'APPROVED', 'REJECTED'], required: true },
       actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       actorName: { type: String, required: true },
       actorRole: { type: String, required: true },

@@ -313,7 +313,11 @@ exports.advanceWorkflow = async (req, res, next) => {
     }
 
     const note = String(req.body.note || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
-    const action = isApproval ? 'APPROVED' : 'COMPLETED';
+    const skip = req.body.skip === true;
+    if (skip && currentStep !== 'quotations') {
+      return res.status(400).json({ error: 'Only the Collect 3 Quotations step can be skipped.' });
+    }
+    const action = skip ? 'SKIPPED' : isApproval ? 'APPROVED' : 'COMPLETED';
     order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note });
     if (isApproval) {
       await ApprovalAudit.create({

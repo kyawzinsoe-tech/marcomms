@@ -34,9 +34,16 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance }) {
       <div className="production-workflow-actions">
         <span>{approvalStep ? <><ShieldCheck size={14} /> Designated Head approval required</> : 'Operational step'}</span>
         {order.workflowStep !== 'closed' && (
-          <button type="button" className="btn btn-primary btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order)}>
+          <>
+          {order.workflowStep === 'quotations' && (
+            <button type="button" className="btn btn-outline btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order, true)}>
+              Skip — quotations unavailable
+            </button>
+          )}
+          <button type="button" className="btn btn-primary btn-sm" disabled={!canAdvance || advancing} onClick={() => onAdvance(order, false)}>
             {advancing ? <><Loader2 size={13} className="animate-spin" /> Saving & auditing…</> : approvalStep ? 'Approve & continue' : 'Complete & continue'}
           </button>
+          </>
         )}
       </div>
     </div>

@@ -245,11 +245,11 @@ export function ProductionOrdersSection({ user, onNotify }) {
     }
   };
 
-  const handleAdvanceWorkflow = async (order) => {
+  const handleAdvanceWorkflow = async (order, skip = false) => {
     setAdvancingWorkflowId(order.id);
     try {
-      await advanceProductionWorkflow(order.id);
-      onNotify?.(`Workflow advanced for ${order.orderNumber}.`, 'success');
+      await advanceProductionWorkflow(order.id, skip ? 'Quotations were unavailable; step skipped by operator.' : '', skip);
+      onNotify?.(`${skip ? 'Quotation step skipped' : 'Workflow advanced'} for ${order.orderNumber}.`, 'success');
       await loadAllData();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to advance production workflow.');

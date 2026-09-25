@@ -82,6 +82,11 @@ const productionOrderSchema = new mongoose.Schema(
       evidenceUrl: { type: String, default: '' },
       at: { type: Date, default: Date.now }
     }],
+    workflowEvidence: {
+      type: Map,
+      of: String,
+      default: {}
+    },
     proofApprovedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

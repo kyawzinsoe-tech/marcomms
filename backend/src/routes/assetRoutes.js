@@ -5,6 +5,7 @@ const {
   createAsset,
   initializeAssetUpload,
   completeAssetUpload,
+  abortAssetUpload,
   getAssetDownloadUrl,
   updateAsset,
   deleteAsset
@@ -21,6 +22,7 @@ router.route('/')
 
 router.post('/uploads', initializeAssetUpload);
 router.post('/:id/complete', completeAssetUpload);
+router.delete('/:id/upload', abortAssetUpload);
 router.get('/:id/download-url', getAssetDownloadUrl);
 
 router.route('/:id')

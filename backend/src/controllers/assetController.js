@@ -78,6 +78,8 @@ exports.getAssets = async (req, res, next) => {
     if (archived !== 'true') {
       query.archived = false;
     }
+    // Incomplete/rejected uploads are operational records, not usable assets.
+    query.$or = [{ uploadStatus: { $in: ['ready', 'external'] } }, { uploadStatus: { $exists: false } }];
 
     // Library filter & RBAC check
     if (library) {
@@ -109,7 +111,7 @@ exports.getAssets = async (req, res, next) => {
     // Search query
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [{ title: regex }, { description: regex }, { tags: regex }];
+      query.$and = [{ $or: [{ title: regex }, { description: regex }, { tags: regex }] }];
     }
 
     const assets = await Asset.find(query).select('+storageKey').sort({ createdAt: -1 });
@@ -257,6 +259,9 @@ exports.initializeAssetUpload = async (req, res, next) => {
 
     const name = safeOriginalName(originalName, mimeType);
     const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
+    // Generate the S3 URL before inserting a pending record so configuration
+    // failures cannot leave blank cards in MongoDB.
+    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
     const asset = await Asset.create({
       title: safeText(title), library: targetLibrary, category: safeText(category || 'General', 100),
       fileType: ALLOWED_IMAGE_TYPES[mimeType], fileSize: size, storageKey: key,
@@ -265,8 +270,21 @@ exports.initializeAssetUpload = async (req, res, next) => {
       tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
       description: safeText(description, 2000), createdBy: req.user._id
     });
-    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
     res.status(201).json({ assetId: String(asset._id), uploadUrl, expiresIn: 300 });
+  } catch (error) { next(error); }
+};
+
+exports.abortAssetUpload = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    if (!asset) return res.status(204).end();
+    if (asset.uploadStatus !== 'pending') return res.status(409).json({ error: 'Only pending uploads can be cancelled.' });
+    const isOwner = String(asset.createdBy) === String(req.user._id);
+    if (!isOwner && !canWriteLibrary(req.user, asset.library, 'delete')) return res.status(403).json({ error: 'Access denied.' });
+    if (asset.storageKey) await deleteAssetObject(asset.storageKey).catch(() => {});
+    await Asset.findByIdAndDelete(asset._id);
+    return res.status(204).end();
   } catch (error) { next(error); }
 };
 

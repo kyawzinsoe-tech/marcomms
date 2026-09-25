@@ -116,6 +116,7 @@ export async function uploadBrandAsset(assetData, file, onProgress = () => {}) {
   if (file.size < 1 || file.size > 10 * 1024 * 1024) throw new Error('Image size must be between 1 byte and 10 MB.');
 
   onProgress(1);
+  let assetId = '';
   const initResponse = await fetch('/api/assets/uploads', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -123,23 +124,32 @@ export async function uploadBrandAsset(assetData, file, onProgress = () => {}) {
   }).then(handleApiResponse);
   const initData = await initResponse.json().catch(() => ({}));
   if (!initResponse.ok) throw new Error(initData.error || 'Unable to initialize upload.');
+  assetId = initData.assetId;
 
-  onProgress(2);
-  const uploadResponse = await fetch(initData.uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256', 'x-amz-meta-upload': 'marcomms-brand-asset' },
-    body: file
-  });
-  if (!uploadResponse.ok) throw new Error('Secure storage upload failed.');
+  try {
+    onProgress(2);
+    const uploadResponse = await fetch(initData.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256', 'x-amz-meta-upload': 'marcomms-brand-asset' },
+      body: file
+    });
+    if (!uploadResponse.ok) {
+      const requestId = uploadResponse.headers.get('x-amz-request-id');
+      throw new Error(`Secure storage upload failed (HTTP ${uploadResponse.status}${requestId ? `, request ${requestId}` : ''}).`);
+    }
 
-  onProgress(3);
-  const completeResponse = await fetch(`/api/assets/${initData.assetId}/complete`, {
-    method: 'POST', headers: { Authorization: `Bearer ${token}` }
-  }).then(handleApiResponse);
-  const completeData = await completeResponse.json().catch(() => ({}));
-  if (!completeResponse.ok) throw new Error(completeData.error || 'Image verification failed.');
-  onProgress(4);
-  return completeData.asset;
+    onProgress(3);
+    const completeResponse = await fetch(`/api/assets/${assetId}/complete`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }
+    }).then(handleApiResponse);
+    const completeData = await completeResponse.json().catch(() => ({}));
+    if (!completeResponse.ok) throw new Error(completeData.error || 'Image verification failed.');
+    onProgress(4);
+    return completeData.asset;
+  } catch (error) {
+    if (assetId) await fetch(`/api/assets/${assetId}/upload`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    throw error;
+  }
 }
 
 /**

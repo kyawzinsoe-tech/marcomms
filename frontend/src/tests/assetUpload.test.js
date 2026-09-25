@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../services/authService', () => ({ getAuthToken: () => 'test-token' }));
 
 import { uploadBrandAsset } from '../services/assetService';
-import { formatErrorMessage } from '../components/common/ErrorDialog';
+import { formatErrorMessage } from '../components/common/formatErrorMessage';
 
 describe('secure brand asset upload', () => {
   beforeEach(() => vi.restoreAllMocks());

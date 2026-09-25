@@ -25,13 +25,10 @@ async function connectDB() {
     });
     cachedConnection = conn;
     isConnecting = false;
-    console.log(`[MongoDB] Connected successfully to Atlas Cluster: ${conn.connection.name}`);
     return conn;
   } catch (error) {
     isConnecting = false;
-    console.warn(`\n⚠️  [MongoDB Notice] Connection attempt pending.`);
-    console.warn(`Reason: ${error.message}`);
-    console.warn(`Tip: If this is an IP whitelist issue, in MongoDB Atlas -> Network Access -> Add IP: "0.0.0.0/0" (or current IP: 54.255.149.19)\n`);
+    console.warn('[MongoDB] Connection attempt failed; retry scheduled.', { name: error.name });
     // Schedule background retry every 10s
     setTimeout(connectDB, 10000);
   }

@@ -18,6 +18,12 @@ const sessionSchema = new mongoose.Schema(
       trim: true,
       default: 'Unknown Device'
     },
+    deviceId: {
+      type: String,
+      trim: true,
+      maxlength: 64,
+      index: true
+    },
     status: {
       type: String,
       enum: ['active', 'revoked', 'expired'],
@@ -47,5 +53,6 @@ const sessionSchema = new mongoose.Schema(
 );
 
 sessionSchema.index({ userId: 1, status: 1 });
+sessionSchema.index({ userId: 1, deviceId: 1, status: 1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

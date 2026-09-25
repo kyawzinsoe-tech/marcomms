@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { ROLES, normalizeRole } from '../config/rbac';
+import { ROLES, normalizeRole, canAssignRole } from '../config/rbac';
 
 const ROLE_DEFINITIONS = [
   {
@@ -99,7 +99,7 @@ const ROLE_DEFINITIONS = [
   }
 ];
 
-export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin = false }) {
+export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRole }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -145,6 +145,10 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
 
   if (!isOpen) return null;
 
+  const assignableRoles = ROLE_DEFINITIONS.filter((definition) =>
+    canAssignRole(currentUserRole, definition.role)
+  );
+
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (validationErrors[field]) {
@@ -189,16 +193,10 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
       return;
     }
 
-    // Role enforcement based on creator privileges
-    let finalRole = formData.role;
-    if (!isSuperAdmin && !editingUser) {
-      finalRole = ROLES.VIEWER;
-    }
-
     const payload = {
       name: cleanName,
       email: cleanEmail,
-      role: finalRole
+      role: formData.role
     };
 
     if (cleanPassword) {
@@ -323,7 +321,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
             </div>
 
             <div style={{ marginTop: '8px' }}>
-              {!isSuperAdmin && (
+              {normalizeRole(currentUserRole) !== ROLES.SUPER_ADMIN && (
                 <div
                   style={{
                     display: 'flex',
@@ -339,13 +337,13 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
                   }}
                 >
                   <Lock size={13} />
-                  <span>Standard Administrators can only provision Viewer accounts. Super Admin required for higher roles.</span>
+                  <span>You can assign Head, specialist, Procurement, and Viewer roles below Administrator level.</span>
                 </div>
               )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {isSuperAdmin ? (
-                  ROLE_DEFINITIONS.map((def) => {
+                {assignableRoles.length > 0 ? (
+                  assignableRoles.map((def) => {
                     const isSelected = formData.role === def.role;
                     const Icon = def.icon;
                     return (
@@ -403,43 +401,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, isSuperAdmin =
                     );
                   })
                 ) : (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px 14px',
-                      border: '2px solid #3b82f6',
-                      borderRadius: 'var(--radius-md)',
-                      background: '#eff6ff'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={ROLES.VIEWER}
-                      checked={true}
-                      readOnly
-                      style={{ margin: 0, width: '16px', height: '16px' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontWeight: 700,
-                          fontSize: '13px',
-                          color: '#1d4ed8'
-                        }}
-                      >
-                        <Eye size={14} color="#3b82f6" /> Viewer (Read-only)
-                      </div>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
-                        Universal read-only access: view executive dashboard, KPI analytics, brand asset libraries, and export reports.
-                      </span>
-                    </div>
-                  </div>
+                  <div className="empty-state"><Lock size={18} /><span>No lower roles are assignable.</span></div>
                 )}
               </div>
             </div>

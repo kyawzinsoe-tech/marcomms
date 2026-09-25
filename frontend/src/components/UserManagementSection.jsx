@@ -27,7 +27,7 @@ import {
   Download
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../utils/formatters';
-import { ROLES, PERMISSIONS, normalizeRole } from '../config/rbac';
+import { ROLES, ROLE_HIERARCHY, PERMISSIONS, normalizeRole, canViewRole } from '../config/rbac';
 import { useAuth } from '../context/useAuth';
 import { fetchSessions, revokeSession, revokeAllUserSessions } from '../services/sessionService';
 import { exportUsersToCsv } from '../utils/exportCsv';
@@ -42,6 +42,10 @@ export function UserManagementSection({
   onSetProductionApprover
 }) {
   const { can, user: currentUser, isSuperAdmin } = useAuth();
+  const visibleRoles = useMemo(
+    () => ROLE_HIERARCHY.filter((role) => canViewRole(currentUser?.role, role)),
+    [currentUser?.role]
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
 
@@ -503,14 +507,20 @@ export function UserManagementSection({
             style={{ minWidth: '190px' }}
           >
             <option value="All">All Roles</option>
-            <option value={ROLES.SUPER_ADMIN}>Super Admin ({superAdminCount})</option>
-            <option value={ROLES.ADMIN}>Admin ({adminCount})</option>
-            <option value={ROLES.HEAD_BRAND}>Head of Brand</option>
-            <option value={ROLES.BANK_DESIGN}>KBZ Bank Design</option>
-            <option value={ROLES.PAY_DESIGN}>KBZPay Design</option>
-            <option value={ROLES.COMMS_DESIGN}>KBZBank Comms Design</option>
-            <option value={ROLES.PROCUREMENT_OFFICER}>Procurement Officer</option>
-            <option value={ROLES.VIEWER}>Viewer ({viewerCount})</option>
+            {visibleRoles.map((role) => (
+              <option key={role} value={role}>
+                {{
+                  [ROLES.SUPER_ADMIN]: `Super Admin (${superAdminCount})`,
+                  [ROLES.ADMIN]: `Admin (${adminCount})`,
+                  [ROLES.HEAD_BRAND]: 'Head of Brand',
+                  [ROLES.BANK_DESIGN]: 'KBZ Bank Design',
+                  [ROLES.PAY_DESIGN]: 'KBZPay Design',
+                  [ROLES.COMMS_DESIGN]: 'KBZBank Comms Design',
+                  [ROLES.PROCUREMENT_OFFICER]: 'Procurement Officer',
+                  [ROLES.VIEWER]: `Viewer (${viewerCount})`
+                }[role]}
+              </option>
+            ))}
           </select>
         </div>
 

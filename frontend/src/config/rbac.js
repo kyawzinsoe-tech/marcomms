@@ -14,6 +14,17 @@ export const ROLES = {
   VIEWER: 'viewer'
 };
 
+export const ROLE_HIERARCHY = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.HEAD_BRAND,
+  ROLES.BANK_DESIGN,
+  ROLES.PAY_DESIGN,
+  ROLES.COMMS_DESIGN,
+  ROLES.PROCUREMENT_OFFICER,
+  ROLES.VIEWER
+];
+
 export const PERMISSIONS = {
   // Navigation & Analytics
   DASHBOARD_VIEW: 'dashboard:view',
@@ -110,6 +121,21 @@ export function normalizeRole(role) {
     return ROLES.ADMIN;
   }
   return ROLES.VIEWER;
+}
+
+export function canViewRole(requesterRole, targetRole) {
+  const requesterIndex = ROLE_HIERARCHY.indexOf(normalizeRole(requesterRole));
+  const targetIndex = ROLE_HIERARCHY.indexOf(normalizeRole(targetRole));
+  return requesterIndex !== -1 && targetIndex !== -1 && targetIndex >= requesterIndex;
+}
+
+export function canAssignRole(requesterRole, targetRole) {
+  const requester = normalizeRole(requesterRole);
+  const target = normalizeRole(targetRole);
+  if (requester === ROLES.SUPER_ADMIN) return true;
+  const requesterIndex = ROLE_HIERARCHY.indexOf(requester);
+  const targetIndex = ROLE_HIERARCHY.indexOf(target);
+  return requesterIndex !== -1 && targetIndex > requesterIndex;
 }
 
 /**

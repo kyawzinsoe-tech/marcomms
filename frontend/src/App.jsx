@@ -696,7 +696,7 @@ function DashboardApp() {
             onClose={() => setIsUserModalOpen(false)}
             onSave={handleSaveUser}
             editingUser={editingUser}
-            isSuperAdmin={isSuperAdmin}
+            currentUserRole={user?.role}
           />
         </>
       )}

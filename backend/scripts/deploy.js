@@ -186,7 +186,7 @@ async function deployLambda(roleArn, zipBuffer) {
     await lambda.send(
       new UpdateFunctionConfigurationCommand({
         FunctionName: FUNCTION_NAME,
-        Runtime: 'nodejs20.x',
+        Runtime: 'nodejs22.x',
         Handler: 'src/lambda.handler',
         Timeout: 30,
         MemorySize: 512,
@@ -202,7 +202,7 @@ async function deployLambda(roleArn, zipBuffer) {
       const createRes = await lambda.send(
         new CreateFunctionCommand({
           FunctionName: FUNCTION_NAME,
-          Runtime: 'nodejs20.x',
+          Runtime: 'nodejs22.x',
           Role: roleArn,
           Handler: 'src/lambda.handler',
           Code: { ZipFile: zipBuffer },

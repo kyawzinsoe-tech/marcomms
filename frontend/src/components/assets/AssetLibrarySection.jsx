@@ -14,8 +14,6 @@ import {
   Filter,
   ArrowUpDown,
   RotateCcw,
-  Sparkles,
-  Tag,
   AlertTriangle
 } from 'lucide-react';
 import {
@@ -24,6 +22,7 @@ import {
   uploadBrandAsset,
   updateAsset,
   deleteAsset,
+  fetchAssetDownloadUrl,
   ASSET_LIBRARY_LABELS
 } from '../../services/assetService';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
@@ -61,6 +60,7 @@ export function AssetLibrarySection({
   const [editingAsset, setEditingAsset] = useState(null);
   const [pendingDeleteAsset, setPendingDeleteAsset] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [brokenPreviews, setBrokenPreviews] = useState(() => new Set());
 
   // RBAC Permission checks for this specific library
   const canWrite = useMemo(() => {
@@ -200,6 +200,15 @@ export function AssetLibrarySection({
       await loadAssets();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to delete asset.');
+    }
+  };
+
+  const handleDownload = async (asset) => {
+    try {
+      const url = asset.downloadUrl || await fetchAssetDownloadUrl(asset.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setErrorMessage(err.message || 'Unable to download asset.');
     }
   };
 
@@ -385,14 +394,15 @@ export function AssetLibrarySection({
                 </div>
 
                 {/* Preview Thumbnail */}
-                {asset.thumbnailUrl && isImagePreviewable(asset.thumbnailUrl, asset.fileType) ? (
+                {asset.thumbnailUrl && !brokenPreviews.has(asset.id) && isImagePreviewable(asset.thumbnailUrl, asset.fileType) ? (
                   <div className="asset-thumbnail-wrap">
                     <img
                       src={asset.thumbnailUrl}
                       alt={asset.title}
                       className="asset-thumbnail-img"
                       onError={(e) => {
-                        e.target.style.display = 'none';
+                        e.currentTarget.style.display = 'none';
+                        setBrokenPreviews((current) => new Set(current).add(asset.id));
                       }}
                     />
                   </div>
@@ -438,17 +448,15 @@ export function AssetLibrarySection({
 
                 <div className="asset-card-actions">
                   {(asset.downloadUrl || asset.fileUrl) && (
-                    <a
-                      href={asset.downloadUrl || asset.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(asset)}
                       className="btn btn-primary btn-sm"
-                      style={{ textDecoration: 'none' }}
-                      title={`${asset.downloadUrl ? 'Open Google Drive download' : 'Download'} ${asset.title}`}
+                      title={`${asset.downloadUrl ? 'Open Google Drive link' : 'Download'} ${asset.title}`}
                       aria-label={`Download ${asset.title}`}
                     >
                       <Download size={13} /> Download
-                    </a>
+                    </button>
                   )}
 
                   {canEdit && (

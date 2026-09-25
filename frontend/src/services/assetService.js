@@ -211,3 +211,14 @@ export async function deleteAsset(id) {
 
   return data;
 }
+
+export async function fetchAssetDownloadUrl(id) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Authentication required.');
+  const response = await fetch(`/api/assets/${id}/download-url`, {
+    headers: { Authorization: `Bearer ${token}` }
+  }).then(handleApiResponse);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.url) throw new Error(data.error || 'Unable to prepare asset download.');
+  return data.url;
+}

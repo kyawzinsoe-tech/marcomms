@@ -16,8 +16,6 @@ const WORKFLOW_STEPS = [
 
 export function ProductionWorkflow({ order, user, advancing, onAdvance, onComplete, onViewOrder }) {
   const [completionReason, setCompletionReason] = useState('');
-  const [skipReason, setSkipReason] = useState('');
-  const [quotationLink, setQuotationLink] = useState('');
   const currentIndex = Math.max(0, WORKFLOW_STEPS.findIndex(([key]) => key === (order.workflowStep || 'quotations')));
   const approvalStep = ['sample_approval', 'invoice_head_approval'].includes(order.workflowStep);
   const canApprove = user?.role === 'head_brand' && user?.productionApprover === true;
@@ -67,12 +65,12 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, onComple
       </div>
       {order.workflowStep === 'quotations' && canAdvance && (
         <div className="quotation-skip-panel">
-          <strong>Fewer than 3 quotations?</strong>
-          <p>Enter the reason and attach a Google Drive evidence link. The skip is recorded in workflow history.</p>
-          <input type="text" maxLength={1000} value={skipReason} onChange={(event) => setSkipReason(event.target.value)} placeholder="Reason quotations are unavailable" aria-label="Quotation skip reason" />
-          <input type="url" maxLength={1000} value={quotationLink} onChange={(event) => setQuotationLink(event.target.value)} placeholder="https://drive.google.com/..." aria-label="Quotation evidence Google Drive link" />
-          <button type="button" className="btn btn-outline btn-sm" disabled={advancing || skipReason.trim().length < 5 || !/^https:\/\/(drive|docs)\.google\.com\//i.test(quotationLink.trim())} onClick={() => onAdvance(order, true, { reason: skipReason.trim(), evidenceUrl: quotationLink.trim() })}>
-            <ExternalLink size={13} /> Record link & skip quotation step
+          <div>
+            <strong>3 Quotations မလိုပါသလား?</strong>
+            <p>Data မဖြည့်ဘဲ ကျော်နိုင်ပြီး လုပ်ဆောင်သူနှင့် အချိန်ကို audit history တွင် မှတ်တမ်းတင်ပါမည်။</p>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm" disabled={advancing} onClick={() => onAdvance(order, true)}>
+            Skip &amp; continue
           </button>
         </div>
       )}

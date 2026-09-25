@@ -339,14 +339,12 @@ exports.advanceWorkflow = async (req, res, next) => {
     if (skip && currentStep !== 'quotations') {
       return res.status(400).json({ error: 'Only the Collect 3 Quotations step can be skipped.' });
     }
-    if (skip && note.length < 5) {
-      return res.status(400).json({ error: 'A reason is required when fewer than 3 quotations are available.' });
+    if (skip && evidenceUrl && !isGoogleDriveUrl(evidenceUrl)) {
+      return res.status(400).json({ error: 'Quotation evidence must be a valid Google Drive link when provided.' });
     }
-    if (skip && !isGoogleDriveUrl(evidenceUrl)) {
-      return res.status(400).json({ error: 'A valid Google Drive evidence link is required to skip the quotation step.' });
-    }
+    const auditNote = skip ? (note || 'Quotation data not required.') : note;
     const action = skip ? 'SKIPPED' : isApproval ? 'APPROVED' : 'COMPLETED';
-    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note, evidenceUrl: skip ? evidenceUrl : '' });
+    order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note: auditNote, evidenceUrl: skip ? evidenceUrl : '' });
     if (isApproval) {
       await ApprovalAudit.create({
         order: order._id, step: currentStep, decision: 'APPROVED', approver: req.user._id,

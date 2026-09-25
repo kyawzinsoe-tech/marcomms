@@ -19,7 +19,7 @@ describe('Production Workflow Approval Security', () => {
     assert.equal(_workflowSecurity.APPROVAL_STEPS.has('invoice_head_approval'), true);
   });
 
-  it('accepts only Google Drive evidence links for quotation skips', () => {
+  it('validates optional quotation evidence links when supplied', () => {
     assert.equal(_workflowSecurity.isGoogleDriveUrl('https://drive.google.com/file/d/quotation/view'), true);
     assert.equal(_workflowSecurity.isGoogleDriveUrl('https://docs.google.com/spreadsheets/d/quotation'), true);
     assert.equal(_workflowSecurity.isGoogleDriveUrl('javascript:alert(1)'), false);

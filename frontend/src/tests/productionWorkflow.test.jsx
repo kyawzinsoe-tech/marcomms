@@ -31,4 +31,27 @@ describe('ProductionWorkflow production order milestone', () => {
     expect(onViewOrder).toHaveBeenCalledOnce();
     expect(screen.getByRole('button', { name: 'Complete production & continue' })).toBeTruthy();
   });
+
+  it('skips quotations without requiring form data and keeps the skip auditable', () => {
+    const onAdvance = vi.fn();
+    const order = {
+      id: 'po-1',
+      orderNumber: 'PO-20260925-4192',
+      workflowStep: 'quotations',
+      workflowHistory: []
+    };
+
+    render(
+      <ProductionWorkflow
+        order={order}
+        user={{ role: 'procurement_officer' }}
+        advancing={false}
+        onAdvance={onAdvance}
+        onComplete={vi.fn()}
+      />
+    );
+
+    screen.getByRole('button', { name: 'Skip & continue' }).click();
+    expect(onAdvance).toHaveBeenCalledWith(order, true);
+  });
 });

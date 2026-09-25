@@ -252,9 +252,9 @@ export function ProductionOrdersSection({ user, onNotify }) {
     try {
       await advanceProductionWorkflow(
         order.id,
-        skip ? skipDetails.reason : '',
+        skip ? (skipDetails.reason || '') : '',
         skip,
-        skip ? skipDetails.evidenceUrl : ''
+        skip ? (skipDetails.evidenceUrl || '') : ''
       );
       onNotify?.(`${skip ? 'Quotation step skipped' : 'Workflow advanced'} for ${order.orderNumber}.`, 'success');
       await loadAllData();

@@ -1,371 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, Layers, Upload, Tag, AlertCircle } from 'lucide-react';
-import { ASSET_LIBRARY_LABELS } from '../../services/assetService';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 
-const CATEGORY_OPTIONS = [
-  'General',
-  'Logos & Lockups',
-  'Brand Guidelines',
-  'Typography & Fonts',
-  'Key Visuals',
-  'Templates & Layouts',
-  'Icons & Graphics',
-  'Digital Banners',
-  'Signage & Print'
-];
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Set(['image/png', 'image/jpeg']);
 
-const FILE_TYPE_OPTIONS = ['PNG', 'JPEG'];
+function validDriveUrl(value) {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && ['drive.google.com', 'docs.google.com'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export function AssetModal({ isOpen, onClose, onSave, asset, library }) {
-  const [formData, setFormData] = useState({
-    title: '',
-    library: library || 'kbz_bank',
-    category: 'Logos & Lockups',
-    fileUrl: '',
-    thumbnailUrl: '',
-    downloadUrl: '',
-    fileType: 'PNG',
-    fileSize: '',
-    version: '1.0',
-    tags: '',
-    description: ''
-  });
-
-  const [validationErrors, setValidationErrors] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [localPreview, setLocalPreview] = useState('');
+  const [title, setTitle] = useState('');
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setValidationErrors({});
-    setIsSaving(false);
-    setSelectedFile(null);
-    setLocalPreview('');
-    if (asset) {
-      setFormData({
-        title: asset.title || '',
-        library: asset.library || library || 'kbz_bank',
-        category: asset.category || 'General',
-        fileUrl: asset.fileUrl || '',
-        thumbnailUrl: asset.thumbnailUrl || '',
-        downloadUrl: asset.downloadUrl || '',
-        fileType: asset.fileType || 'PNG',
-        fileSize: asset.fileSize ? String(asset.fileSize) : '',
-        version: asset.version || '1.0',
-        tags: Array.isArray(asset.tags) ? asset.tags.join(', ') : (asset.tags || ''),
-        description: asset.description || ''
-      });
-    } else {
-      setFormData({
-        title: '',
-        library: library || 'kbz_bank',
-        category: 'Logos & Lockups',
-        fileUrl: '',
-        thumbnailUrl: '',
-        downloadUrl: '',
-        fileType: 'PNG',
-        fileSize: '',
-        version: '1.0',
-        tags: '',
-        description: ''
-      });
-    }
-  }, [asset, library, isOpen]);
+    setTitle(asset?.title || '');
+    setDownloadUrl(asset?.downloadUrl || '');
+    setFile(null);
+    setPreviewUrl('');
+    setErrors({});
+  }, [asset, isOpen]);
 
   useEffect(() => () => {
-    if (localPreview) URL.revokeObjectURL(localPreview);
-  }, [localPreview]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose?.();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   if (!isOpen) return null;
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (validationErrors[field]) {
-      setValidationErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
+  const selectFile = (event) => {
+    const nextFile = event.target.files?.[0] || null;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(nextFile);
+    setPreviewUrl(nextFile ? URL.createObjectURL(nextFile) : '');
+    setErrors((current) => ({ ...current, file: undefined }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errors = {};
+  const submit = async (event) => {
+    event.preventDefault();
+    const nextErrors = {};
+    const cleanTitle = title.trim();
+    const cleanDownloadUrl = downloadUrl.trim();
 
-    const cleanTitle = (formData.title || '').trim();
-    if (!cleanTitle) {
-      errors.title = 'Asset title is required.';
-    }
+    if (!cleanTitle) nextErrors.title = 'Title is required.';
+    if (!asset && !file) nextErrors.file = 'Select a PNG or JPEG image.';
+    if (file && !ALLOWED_FILE_TYPES.has(file.type)) nextErrors.file = 'Only PNG and JPEG images are allowed.';
+    if (file && file.size > MAX_FILE_BYTES) nextErrors.file = 'Image must be 10 MB or smaller.';
+    if (!validDriveUrl(cleanDownloadUrl)) nextErrors.downloadUrl = 'Use a valid Google Drive or Google Docs HTTPS link.';
 
-    if (!asset && !selectedFile) {
-      errors.file = 'Select a PNG or JPEG image.';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
       return;
     }
 
-    setIsSaving(true);
-    const payload = {
-      ...formData,
-      title: cleanTitle,
-      library: formData.library || library || 'kbz_bank',
-      fileUrl: asset?.fileUrl || '',
-      thumbnailUrl: asset?.thumbnailUrl || '',
-      downloadUrl: (formData.downloadUrl || '').trim(),
-      fileSize: formData.fileSize ? Number(formData.fileSize) : 0,
-      tags: formData.tags
-        ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
-        : [],
-      description: (formData.description || '').trim()
-    };
-    if (selectedFile) payload.file = selectedFile;
-
+    setSaving(true);
     try {
-      await onSave(payload);
-    } catch {
-      // Handled by parent
+      await onSave({
+        title: cleanTitle,
+        downloadUrl: cleanDownloadUrl,
+        library,
+        category: 'General',
+        fileType: file?.type === 'image/jpeg' ? 'JPEG' : (asset?.fileType || 'PNG'),
+        fileSize: file ? Math.ceil(file.size / 1024) : (asset?.fileSize || 0),
+        ...(file ? { file } : {})
+      });
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  const libraryName = ASSET_LIBRARY_LABELS[library] || 'Brand';
+  const imageUrl = previewUrl || asset?.thumbnailUrl || asset?.fileUrl;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-card modal-card-lg"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="asset-modal-title"
-      >
+      <div className="modal-card brand-asset-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
         <div className="modal-header">
           <div>
-            <h3 id="asset-modal-title">
-              {asset ? `Edit ${libraryName} Asset` : `Upload to ${libraryName} Library`}
-            </h3>
-            <p>Publish or update official brand assets, specifications, and download packages.</p>
+            <h3>{asset ? 'Edit Brand Asset' : 'Upload Brand Asset'}</h3>
+            <p>Store the image privately and keep its details in the database.</p>
           </div>
-          <button
-            type="button"
-            className="btn-close-modal"
-            onClick={onClose}
-            aria-label="Close dialog"
-            disabled={isSaving}
-          >
+          <button type="button" className="btn-close-modal" onClick={onClose} disabled={saving} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Section 1: Asset Identity & Classification */}
-          <div className="modal-form-section">
-            <div className="modal-section-title">
-              <Layers size={15} />
-              <span>1. Asset Identity & Classification</span>
-            </div>
-            <div className="form-grid">
-              <div className="form-group col-span-2">
-                <label htmlFor="asset-title">Asset Title *</label>
-                <input
-                  id="asset-title"
-                  type="text"
-                  required
-                  placeholder="e.g. KBZ Primary Logo (Vertical Lockup - RGB)"
-                  value={formData.title}
-                  onChange={(e) => handleChange('title', e.target.value)}
-                  disabled={isSaving}
-                  autoFocus
-                  aria-invalid={!!validationErrors.title}
-                />
-                {validationErrors.title && (
-                  <span className="field-error-msg">
-                    <AlertCircle size={12} /> {validationErrors.title}
-                  </span>
-                )}
-              </div>
+        <form onSubmit={submit} className="brand-asset-form">
+          <label htmlFor="brand-asset-title">Title *</label>
+          <input id="brand-asset-title" value={title} onChange={(event) => setTitle(event.target.value)} disabled={saving} autoFocus />
+          {errors.title && <span className="field-error-msg"><AlertCircle size={12} />{errors.title}</span>}
 
-              <div className="form-group">
-                <label htmlFor="asset-category">Asset Category *</label>
-                <select
-                  id="asset-category"
-                  value={formData.category}
-                  onChange={(e) => handleChange('category', e.target.value)}
-                  disabled={isSaving}
-                >
-                  {CATEGORY_OPTIONS.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {!asset && (
+            <>
+              <label htmlFor="brand-asset-file">PNG/JPEG image *</label>
+              <input id="brand-asset-file" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={selectFile} disabled={saving} />
+              <small>Private storage · PNG/JPEG only · Maximum 10 MB</small>
+              {errors.file && <span className="field-error-msg"><AlertCircle size={12} />{errors.file}</span>}
+            </>
+          )}
 
-              <div className="form-group">
-                <label htmlFor="asset-version">Version</label>
-                <input
-                  id="asset-version"
-                  type="text"
-                  placeholder="1.0"
-                  value={formData.version}
-                  onChange={(e) => handleChange('version', e.target.value)}
-                  disabled={isSaving}
-                />
-              </div>
-            </div>
-          </div>
+          {imageUrl && <img className="brand-asset-form-preview" src={imageUrl} alt="Asset preview" />}
 
-          {/* Section 2: Secure upload */}
-          <div className="modal-form-section">
-            <div className="modal-section-title">
-              <Upload size={15} />
-              <span>2. Secure Image Upload & Preview</span>
-            </div>
-            <div className="form-grid">
-              {(!asset || selectedFile) && (
-                <div className="form-group col-span-2">
-                  <label htmlFor="asset-file">PNG/JPEG File *</label>
-                  <input
-                    id="asset-file"
-                    type="file"
-                    accept="image/png,image/jpeg,.png,.jpg,.jpeg"
-                    required={!asset}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setSelectedFile(file);
-                      if (localPreview) URL.revokeObjectURL(localPreview);
-                      setLocalPreview(file ? URL.createObjectURL(file) : '');
-                      if (file) {
-                        handleChange('fileType', file.type === 'image/png' ? 'PNG' : 'JPEG');
-                        handleChange('fileSize', Math.ceil(file.size / 1024));
-                      }
-                    }}
-                    disabled={isSaving}
-                  />
-                  <small>Private storage · PNG/JPEG only · Maximum 10 MB</small>
-                  {validationErrors.file && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.file}</span>}
-                </div>
-              )}
-              {(localPreview || asset?.thumbnailUrl || asset?.fileUrl) && (
-                <div className="form-group col-span-2">
-                  <label>Image Preview</label>
-                  <div className="asset-upload-local-preview">
-                    <img src={localPreview || asset.thumbnailUrl || asset.fileUrl} alt="Selected asset preview" />
-                  </div>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label htmlFor="asset-file-type">File Type *</label>
-                <select
-                  id="asset-file-type"
-                  value={formData.fileType}
-                  onChange={(e) => handleChange('fileType', e.target.value)}
-                  disabled={isSaving}
-                >
-                  {FILE_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="asset-file-size">File Size (KB)</label>
-                <input
-                  id="asset-file-size"
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 2400"
-                  value={formData.fileSize}
-                  onChange={(e) => handleChange('fileSize', e.target.value)}
-                  disabled={isSaving}
-                />
-              </div>
-              <div className="form-group col-span-2">
-                <label htmlFor="asset-download-url">Google Drive Download Link (Optional)</label>
-                <input
-                  id="asset-download-url"
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={formData.downloadUrl}
-                  onChange={(e) => handleChange('downloadUrl', e.target.value)}
-                  disabled={isSaving}
-                />
-                <small>Only Google Drive/Google Docs HTTPS links are accepted. Make sure intended users have Drive access.</small>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Metadata & Tagging */}
-          <div className="modal-form-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-            <div className="modal-section-title">
-              <Tag size={15} />
-              <span>3. Metadata & Brand Guidelines</span>
-            </div>
-            <div className="form-group" style={{ marginBottom: '12px' }}>
-              <label htmlFor="asset-tags">Search Tags (Comma-separated)</label>
-              <input
-                id="asset-tags"
-                type="text"
-                placeholder="e.g. logo, vector, primary, blue, cmyk, print"
-                value={formData.tags}
-                onChange={(e) => handleChange('tags', e.target.value)}
-                disabled={isSaving}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="asset-desc">Usage Guidelines & Context</label>
-              <textarea
-                id="asset-desc"
-                rows={3}
-                placeholder="Optional notes on minimum clear space, acceptable background colors, or campaign restrictions..."
-                value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                disabled={isSaving}
-              />
-            </div>
-          </div>
+          <label htmlFor="brand-asset-drive">Google Drive download link (optional)</label>
+          <input
+            id="brand-asset-drive"
+            type="url"
+            placeholder="https://drive.google.com/..."
+            value={downloadUrl}
+            onChange={(event) => setDownloadUrl(event.target.value)}
+            disabled={saving}
+          />
+          {errors.downloadUrl && <span className="field-error-msg"><AlertCircle size={12} />{errors.downloadUrl}</span>}
 
           <div className="modal-footer">
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={onClose}
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Saving...
-                </>
-              ) : (
-                'Save Asset'
-              )}
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Asset'}
             </button>
           </div>
         </form>

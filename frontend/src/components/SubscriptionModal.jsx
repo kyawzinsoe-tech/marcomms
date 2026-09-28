@@ -384,7 +384,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
               {validationErrors.invoiceFile && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.invoiceFile}</span>}
             </div>
             {isSaving && uploadStage && (
-              <div className="asset-upload-progress" aria-live="polite">
+              <div className="subscription-upload-progress" aria-live="polite">
                 {['authorizing', 'uploading', 'verifying', 'complete'].map((stage) => (
                   <span key={stage} className={['authorizing', 'uploading', 'verifying', 'complete'].indexOf(stage) <= ['authorizing', 'uploading', 'verifying', 'complete'].indexOf(uploadStage) ? 'done' : ''}>{stage}</span>
                 ))}

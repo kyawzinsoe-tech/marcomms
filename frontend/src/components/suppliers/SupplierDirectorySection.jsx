@@ -494,7 +494,7 @@ export function SupplierDirectorySection({ user, onNotify }) {
       {/* Category Quick-Select Pills */}
       {uniqueCategories.length > 2 && (
         <div
-          className="asset-category-pills"
+          className="supplier-category-pills"
           role="tablist"
           aria-label="Category quick filter pills"
           style={{ marginBottom: '16px' }}
@@ -505,7 +505,7 @@ export function SupplierDirectorySection({ user, onNotify }) {
               type="button"
               role="tab"
               aria-selected={categoryFilter === cat}
-              className={`asset-cat-btn ${categoryFilter === cat ? 'active' : ''}`}
+              className={`supplier-category-pill ${categoryFilter === cat ? 'active' : ''}`}
               onClick={() => setCategoryFilter(cat)}
             >
               {cat}

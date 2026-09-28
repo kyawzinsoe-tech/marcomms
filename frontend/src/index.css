@@ -1693,187 +1693,13 @@ tbody tr:hover {
   padding-left: 36px;
 }
 
-/* ==========================================================================
-   Brand Asset Libraries Specific Layout
-   ========================================================================== */
-
-.asset-category-pills {
-  display: flex;
-  gap: 6px;
-  margin-bottom: var(--space-5);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.asset-cat-btn {
-  padding: 5px 12px;
-  border-radius: var(--radius-full);
-  font-size: 11.5px;
-  font-weight: 600;
-  background: var(--bg-surface-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.asset-cat-btn:hover {
-  background: var(--bg-surface-tertiary);
-  color: var(--text-primary);
-  border-color: #cbd5e1;
-}
-
-.asset-cat-btn.active {
-  background: var(--primary-gradient);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: var(--shadow-xs);
-}
-
-.asset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.asset-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: var(--shadow-xs);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
-}
-
-.asset-card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: #cbd5e1;
-  transform: translateY(-2px);
-}
-
-.asset-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.asset-type-badge {
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: var(--radius-xs);
-  background: var(--bg-surface-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.asset-cat-tag {
-  font-size: 11px;
-  color: var(--primary-hover);
-  font-weight: 600;
-  background: var(--primary-50);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--primary-100);
-}
-
-.asset-thumbnail-wrap {
-  width: 100%;
-  height: 130px;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-tertiary);
-  margin-bottom: 12px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-subtle);
-}
-
-.asset-thumbnail-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.asset-upload-local-preview {
-  min-height: 120px;
-  padding: 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.asset-upload-local-preview img {
-  max-width: 100%;
-  max-height: 180px;
-  object-fit: contain;
-}
-
 .subscription-invoice-upload small,
 .form-group small {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.asset-upload-progress {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--bg-surface-secondary);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.asset-upload-progress span {
-  position: relative;
-  padding: 5px 10px 5px 26px;
-  border-radius: var(--radius-full);
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  font-size: 12px;
-}
-
-.asset-upload-progress span::before {
-  content: '';
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  margin-top: -4px;
-  border: 2px solid var(--border-default);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: workflow-spin .8s linear infinite;
-}
-
-.asset-upload-progress span.done {
-  color: var(--success-text);
-  background: var(--success-light);
-}
-
-.asset-upload-progress span.done::before {
-  border: 0;
-  background: var(--success-text);
-  animation: none;
-}
-
 @keyframes workflow-spin { to { transform: rotate(360deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .asset-upload-progress span::before { animation: none; }
-}
 
 .dashboard-data-warning {
   margin: 0 0 16px;
@@ -1889,76 +1715,39 @@ tbody tr:hover {
 .report-data-source.live { color: var(--success-text); background: var(--success-light); }
 .report-data-source.error { color: var(--danger-text); background: var(--danger-light); }
 
-.asset-thumbnail-fallback {
-  width: 100%;
-  height: 90px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--bg-surface-secondary) 0%, var(--bg-surface-tertiary) 100%);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-subtle);
-  border: 1px solid var(--border-subtle);
-}
-
-.asset-card-title {
-  font-family: var(--font-heading);
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 5px;
-  line-height: 1.3;
-}
-
-.asset-card-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.asset-tags-wrap {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.asset-tag-pill {
-  font-size: 10.5px;
-  color: var(--text-secondary);
-  background: var(--bg-surface-secondary);
-  padding: 1px 6px;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--border-subtle);
-}
-
-.asset-card-footer {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 12px;
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.asset-version-text {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.asset-card-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
+/* Brand asset library */
+.brand-assets-header-actions,
+.brand-asset-actions,
+.brand-assets-progress { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand-assets-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--border-default); }
+.brand-assets-toolbar label { display: flex; align-items: center; gap: 8px; width: min(420px, 100%); padding: 0 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
+.brand-assets-toolbar input { width: 100%; border: 0; background: transparent; }
+.brand-assets-progress { padding: 10px 16px; background: var(--bg-surface-secondary); }
+.brand-assets-progress span { padding: 5px 10px; border-radius: var(--radius-full); color: var(--text-muted); background: var(--bg-surface); font-size: 12px; }
+.brand-assets-progress span.done { color: var(--success-text); background: var(--success-light); }
+.brand-assets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 18px; }
+.brand-asset-card { border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 14px; background: var(--bg-surface); }
+.brand-asset-preview { height: 160px; display: grid; place-items: center; overflow: hidden; margin-bottom: 12px; border-radius: var(--radius-md); background: var(--bg-surface-secondary); color: var(--text-subtle); }
+.brand-asset-preview img { width: 100%; height: 100%; object-fit: contain; }
+.brand-asset-card h3 { margin: 0 0 4px; font-size: 15px; }
+.brand-asset-card > p { margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
+.brand-asset-actions { border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+.brand-assets-empty { min-height: 260px; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--text-muted); text-align: center; }
+.brand-asset-modal { max-width: 620px; }
+.brand-asset-form { display: grid; gap: 9px; }
+.brand-asset-form > input { width: 100%; }
+.brand-asset-form > small { color: var(--text-muted); }
+.brand-asset-form-preview { width: 100%; height: 220px; object-fit: contain; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface-secondary); }
+.brand-asset-delete { max-width: 440px; }
+.subscription-upload-progress,
+.supplier-category-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.subscription-upload-progress { padding: 10px 0; }
+.subscription-upload-progress span,
+.supplier-category-pill { padding: 5px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-full); color: var(--text-muted); background: var(--bg-surface); font-size: 12px; }
+.subscription-upload-progress span.done { color: var(--success-text); background: var(--success-light); }
+.supplier-category-pill { cursor: pointer; }
+.supplier-category-pill.active { color: #fff; border-color: transparent; background: var(--primary-gradient); }
+@media (max-width: 640px) { .brand-assets-toolbar { align-items: stretch; flex-direction: column; } }
 
 /* ==========================================================================
    Printable PDF Template

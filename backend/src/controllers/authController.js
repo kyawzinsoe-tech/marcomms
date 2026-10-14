@@ -77,6 +77,8 @@ exports.login = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        department: user.department || '',
+        jobLevel: user.jobLevel || '',
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar,
         createdAt: user.createdAt
@@ -126,6 +128,8 @@ exports.getMe = async (req, res, next) => {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
+        department: req.user.department || '',
+        jobLevel: req.user.jobLevel || '',
         productionApprover: Boolean(req.user.productionApprover),
         avatar: req.user.avatar,
         createdAt: req.user.createdAt

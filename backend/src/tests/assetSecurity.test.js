@@ -30,4 +30,10 @@ describe('Brand Asset Upload Security', () => {
     assert.equal(_assetValidation.safeGoogleDriveUrl('https://evil.example/download'), null);
     assert.equal(_assetValidation.safeGoogleDriveUrl(''), '');
   });
+
+  it('accepts approved linked design files and rejects unsafe providers or types', () => {
+    assert.deepEqual(_assetValidation.safeLinkedFiles([{ label: 'Logo AI', fileType: 'AI', url: 'https://drive.google.com/file/d/abc/view' }]), [{ label: 'Logo AI', fileType: 'AI', url: 'https://drive.google.com/file/d/abc/view' }]);
+    assert.equal(_assetValidation.safeLinkedFiles([{ fileType: 'EXE', url: 'https://drive.google.com/file/d/abc/view' }]), null);
+    assert.equal(_assetValidation.safeLinkedFiles([{ fileType: 'PNG', url: 'https://evil.example/file.png' }]), null);
+  });
 });

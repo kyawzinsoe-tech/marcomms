@@ -148,6 +148,8 @@ export async function fetchUsersApi() {
           name: u.name,
           email: u.email,
           role: normalizeRole(u.role),
+          department: u.department || '',
+          jobLevel: u.jobLevel || '',
           productionApprover: Boolean(u.productionApprover),
           avatar: u.avatar,
           createdAt: u.createdAt

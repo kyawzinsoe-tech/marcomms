@@ -14,6 +14,7 @@ const productionOrderRoutes = require('./routes/productionOrderRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const importantWorkRoutes = require('./routes/importantWorkRoutes');
+const recruitmentRoutes = require('./routes/recruitmentRoutes');
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
@@ -66,6 +67,7 @@ app.use('/api/production-orders', productionOrderRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/important-work', importantWorkRoutes);
+app.use('/api/recruitment', recruitmentRoutes);
 
 // Error Handling
 app.use(errorHandler);

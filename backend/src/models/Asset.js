@@ -33,6 +33,11 @@ const assetSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    linkedFiles: [{
+      label: { type: String, trim: true, maxlength: 160 },
+      fileType: { type: String, enum: ['PSD', 'AI', 'PNG', 'MP4', 'GIF', 'JPEG'], required: true },
+      url: { type: String, required: true, trim: true, maxlength: 1000 }
+    }],
     fileType: {
       type: String,
       trim: true,

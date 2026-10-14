@@ -5,6 +5,7 @@ import { ErrorDialog } from '../common/ErrorDialog';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import {
   ASSET_LIBRARY_LABELS,
+  createLinkedAsset,
   deleteAsset,
   fetchAssetDownloadUrl,
   fetchAssets,
@@ -58,16 +59,20 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
   const save = async (data) => {
     try {
       if (editing) {
-        await updateAsset(editing.id, { title: data.title, downloadUrl: data.downloadUrl });
+        await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles });
         onNotify?.(`Updated “${data.title}”.`, 'success');
-      } else {
+      } else if (data.file) {
         await uploadBrandAsset({
           title: data.title,
-          downloadUrl: data.downloadUrl,
+          downloadUrl: data.linkedFiles[0]?.url || '',
+          linkedFiles: data.linkedFiles,
           library,
           category: 'General'
         }, data.file, setProgress);
         onNotify?.(`Uploaded “${data.title}”.`, 'success');
+      } else {
+        await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileSize: 0, fileUrl: data.linkedFiles[0]?.url, linkedFiles: data.linkedFiles });
+        onNotify?.(`Saved “${data.title}” from Google Drive.`, 'success');
       }
       setModalOpen(false);
       setEditing(null);
@@ -87,6 +92,17 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
     } catch (downloadError) {
       setError(downloadError.message || 'Unable to download asset.');
     }
+  };
+
+  const driveThumbnail = (asset) => {
+    const source = asset.linkedFiles?.find((item) => ['PNG', 'JPEG', 'GIF'].includes(item.fileType))?.url || '';
+    const id = source.match(/\/file\/d\/([^/?#]+)/)?.[1] || source.match(/[?&]id=([^&#]+)/)?.[1];
+    return id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w800` : '';
+  };
+
+  const driveDownload = (url) => {
+    const id = String(url || '').match(/\/file\/d\/([^/?#]+)/)?.[1] || String(url || '').match(/[?&]id=([^&#]+)/)?.[1];
+    return id ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}` : url;
   };
 
   const remove = async () => {
@@ -132,14 +148,15 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
           {visibleAssets.map((asset) => (
             <article className="brand-asset-card" key={asset.id}>
               <div className="brand-asset-preview">
-                {asset.thumbnailUrl && !brokenImages.has(asset.id) ? (
-                  <img src={asset.thumbnailUrl} alt={asset.title} onError={() => setBrokenImages((current) => new Set(current).add(asset.id))} />
+                {(asset.thumbnailUrl || driveThumbnail(asset)) && !brokenImages.has(asset.id) ? (
+                  <img src={asset.thumbnailUrl || driveThumbnail(asset)} alt={asset.title} onError={() => setBrokenImages((current) => new Set(current).add(asset.id))} />
                 ) : <ImageIcon />}
               </div>
               <h3>{asset.title}</h3>
               <p>{asset.fileType || 'IMAGE'}{asset.fileSize ? ` · ${asset.fileSize} KB` : ''}</p>
+              {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer"><Download size={12} /><span>{item.label}</span><b>{item.fileType}</b></a>)}</div>}
               <div className="brand-asset-actions">
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => download(asset)}><Download size={13} /> Download</button>
+                {!asset.linkedFiles?.length && <button type="button" className="btn btn-primary btn-sm" onClick={() => download(asset)}><Download size={13} /> Download</button>}
                 {canEdit && <button type="button" className="action-btn action-edit" onClick={() => { setEditing(asset); setModalOpen(true); }} aria-label={`Edit ${asset.title}`}><Edit size={14} /></button>}
                 {canDelete && <button type="button" className="action-btn action-delete" onClick={() => setDeleting(asset)} aria-label={`Remove ${asset.title}`}><Trash2 size={14} /></button>}
               </div>

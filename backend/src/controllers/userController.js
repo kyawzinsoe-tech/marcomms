@@ -35,6 +35,8 @@ exports.getUsers = async (req, res, next) => {
         name: u.name,
         email: u.email,
         role: normalizeRole(u.role),
+        department: u.department || '',
+        jobLevel: u.jobLevel || '',
         productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
@@ -72,7 +74,7 @@ exports.setProductionApprover = async (req, res, next) => {
 // POST /api/users
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, department = '', jobLevel = '' } = req.body;
     const requester = req.user;
 
     if (!name || !email || !password) {
@@ -112,6 +114,8 @@ exports.createUser = async (req, res, next) => {
       email: cleanEmail,
       password,
       role: requestedRole,
+      department: String(department).trim(),
+      jobLevel,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`
     });
 
@@ -132,6 +136,8 @@ exports.createUser = async (req, res, next) => {
         name: newUser.name,
         email: newUser.email,
         role: normalizeRole(newUser.role),
+        department: newUser.department,
+        jobLevel: newUser.jobLevel,
         productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
@@ -150,7 +156,7 @@ exports.updateUser = async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid user ID format.' });
     }
 
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, department, jobLevel } = req.body;
     const requester = req.user;
 
     const user = await findUserFlexible(req.params.id);
@@ -219,6 +225,8 @@ exports.updateUser = async (req, res, next) => {
       }
       user.password = password.trim();
     }
+    if (department !== undefined) user.department = String(department).trim();
+    if (jobLevel !== undefined) user.jobLevel = jobLevel;
 
     await user.save();
 
@@ -239,6 +247,8 @@ exports.updateUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: normalizeRole(user.role),
+        department: user.department || '',
+        jobLevel: user.jobLevel || '',
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt

@@ -120,6 +120,14 @@ export function Header({
           showMonthPicker: false,
           showPrint: false
         };
+      case 'recruitment':
+        return {
+          eyebrow: 'PEOPLE & RECRUITMENT',
+          title: 'Interview Process',
+          desc: 'Department-controlled candidate interviews, management review, approvals, access notifications, and audit history.',
+          showMonthPicker: false,
+          showPrint: false
+        };
       case 'dashboard':
       default:
         return {

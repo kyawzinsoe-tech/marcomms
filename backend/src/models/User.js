@@ -43,6 +43,17 @@ const userSchema = new mongoose.Schema(
     productionApprover: {
       type: Boolean,
       default: false
+    },
+    department: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: ''
+    },
+    jobLevel: {
+      type: String,
+      enum: ['', 'head', 'deputy_head', 'manager', 'staff'],
+      default: ''
     }
   },
   {

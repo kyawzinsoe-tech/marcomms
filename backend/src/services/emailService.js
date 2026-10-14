@@ -221,4 +221,19 @@ async function sendImportantWorkReminder({ title, description, ownerName, remind
   return { success: true, provider: 'aws-ses', messageId: result.MessageId };
 }
 
-module.exports = { sendReminderEmail, sendImportantWorkReminder, isValidEmail };
+async function sendRecruitmentAccessAlert({ to, department, candidateName, position, viewedBy, viewedAt }) {
+  if (!isValidEmail(to)) throw new Error('A valid recipient email is required.');
+  const fromEmail = (process.env.REMINDER_FROM_EMAIL || '').trim();
+  if (!fromEmail) throw new Error('REMINDER_FROM_EMAIL environment variable is not configured on the server.');
+  const subject = `[Recruitment Access Notice] ${department}`;
+  const text = `A Super Admin viewed a recruitment record outside their department.\n\nCandidate: ${candidateName}\nPosition: ${position}\nDepartment: ${department}\nViewed by: ${viewedBy}\nTime: ${viewedAt}\n\nThis is an audit notification. No action is required.`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto"><h2>Recruitment access notice</h2><p>A Super Admin viewed a recruitment record outside their department.</p><dl><dt><strong>Candidate</strong></dt><dd>${escapeHtml(candidateName)}</dd><dt><strong>Position</strong></dt><dd>${escapeHtml(position)}</dd><dt><strong>Department</strong></dt><dd>${escapeHtml(department)}</dd><dt><strong>Viewed by</strong></dt><dd>${escapeHtml(viewedBy)}</dd><dt><strong>Time</strong></dt><dd>${escapeHtml(viewedAt)}</dd></dl><p style="color:#64748b;font-size:12px">This is an automated security and accountability notice from KBZ Marcomms Creative Hub.</p></div>`;
+  const result = await new SESClient({ region: process.env.AWS_REGION || 'us-east-1' }).send(new SendEmailCommand({
+    Source: fromEmail,
+    Destination: { ToAddresses: [to.trim()] },
+    Message: { Subject: { Data: subject, Charset: 'UTF-8' }, Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } } }
+  }));
+  return { success: true, provider: 'aws-ses', messageId: result.MessageId };
+}
+
+module.exports = { sendReminderEmail, sendImportantWorkReminder, sendRecruitmentAccessAlert, isValidEmail };

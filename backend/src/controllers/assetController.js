@@ -33,7 +33,20 @@ function safeGoogleDriveUrl(value) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(url) ? url.slice(0, 1000) : null;
 }
 
-exports._assetValidation = { hasValidSignature, safeOriginalName, safeGoogleDriveUrl, MAX_ASSET_BYTES };
+const LINKED_FILE_TYPES = new Set(['PSD', 'AI', 'PNG', 'MP4', 'GIF', 'JPEG']);
+function safeLinkedFiles(value) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  for (const item of value.slice(0, 20)) {
+    const url = safeGoogleDriveUrl(item?.url);
+    const fileType = String(item?.fileType || '').toUpperCase().trim();
+    if (!url || !LINKED_FILE_TYPES.has(fileType)) return null;
+    result.push({ label: safeText(item?.label || fileType, 160), fileType, url });
+  }
+  return result;
+}
+
+exports._assetValidation = { hasValidSignature, safeOriginalName, safeGoogleDriveUrl, safeLinkedFiles, MAX_ASSET_BYTES };
 
 // Helper to check read permission for a library
 function canReadLibrary(user, library) {
@@ -121,7 +134,7 @@ exports.getAssets = async (req, res, next) => {
       if (a.uploadStatus === 'ready' && a.storageKey) securedUrl = await createAssetDownloadUrl(a.storageKey);
       return {
         id: String(a._id), title: a.title, library: a.library, category: a.category,
-        fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl, downloadUrl: a.downloadUrl,
+        fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl, downloadUrl: a.downloadUrl, linkedFiles: a.linkedFiles || [],
         fileType: a.fileType, fileSize: a.fileSize, version: a.version, tags: a.tags,
         description: a.description, archived: a.archived, uploadStatus: a.uploadStatus,
         originalName: a.originalName, createdBy: a.createdBy, createdAt: a.createdAt, updatedAt: a.updatedAt
@@ -162,6 +175,7 @@ exports.getAssetById = async (req, res, next) => {
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
         downloadUrl: asset.downloadUrl,
+        linkedFiles: asset.linkedFiles || [],
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -181,7 +195,7 @@ exports.getAssetById = async (req, res, next) => {
 // POST /api/assets
 exports.createAsset = async (req, res, next) => {
   try {
-    const { title, library, category, fileUrl, thumbnailUrl, downloadUrl, fileType, fileSize, version, tags, description } = req.body;
+    const { title, library, category, fileUrl, thumbnailUrl, downloadUrl, linkedFiles, fileType, fileSize, version, tags, description } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Asset title is required.' });
@@ -196,23 +210,25 @@ exports.createAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to create assets in ${targetLibrary}.` });
     }
 
-    if (!fileUrl || !/^https:\/\//i.test(fileUrl.trim())) {
-      return res.status(400).json({ error: 'A secure HTTPS asset URL is required.' });
-    }
+    const safeFiles = safeLinkedFiles(linkedFiles);
+    if (safeFiles === null) return res.status(400).json({ error: 'Each linked file must use Google Drive/Docs and an approved file type.' });
+    const primaryUrl = safeFiles[0]?.url || safeGoogleDriveUrl(fileUrl);
+    if (!primaryUrl) return res.status(400).json({ error: 'Add at least one Google Drive file link.' });
     const safeDownloadUrl = safeGoogleDriveUrl(downloadUrl);
     if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
     const normalizedType = String(fileType || '').toUpperCase().trim();
-    if (!['PNG', 'JPG', 'JPEG'].includes(normalizedType)) {
-      return res.status(400).json({ error: 'Only PNG and JPEG brand assets are allowed.' });
+    if (!LINKED_FILE_TYPES.has(normalizedType === 'JPG' ? 'JPEG' : normalizedType)) {
+      return res.status(400).json({ error: 'File type must be PSD, AI, PNG, MP4, GIF or JPEG.' });
     }
 
     const asset = await Asset.create({
       title: safeText(title),
       library: targetLibrary,
       category: safeText(category || 'General', 100),
-      fileUrl: fileUrl.trim(),
+      fileUrl: primaryUrl,
       thumbnailUrl: (thumbnailUrl || '').trim(),
       downloadUrl: safeDownloadUrl,
+      linkedFiles: safeFiles.length ? safeFiles : [{ label: safeText(title), fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType, url: primaryUrl }],
       fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType,
       fileSize: Number(fileSize || 0),
       version: safeText(version || '1.0', 30),
@@ -230,6 +246,7 @@ exports.createAsset = async (req, res, next) => {
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
         downloadUrl: asset.downloadUrl,
+        linkedFiles: asset.linkedFiles,
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -247,7 +264,7 @@ exports.createAsset = async (req, res, next) => {
 
 exports.initializeAssetUpload = async (req, res, next) => {
   try {
-    const { title, library, category, originalName, mimeType, fileSize, downloadUrl, version, tags, description } = req.body;
+    const { title, library, category, originalName, mimeType, fileSize, downloadUrl, linkedFiles, version, tags, description } = req.body;
     const targetLibrary = library || 'kbz_bank';
     const size = Number(fileSize);
     if (!title || !safeText(title)) return res.status(400).json({ error: 'Asset title is required.' });
@@ -256,6 +273,8 @@ exports.initializeAssetUpload = async (req, res, next) => {
     if (!Number.isInteger(size) || size < 1 || size > MAX_ASSET_BYTES) return res.status(400).json({ error: 'Image size must be between 1 byte and 10 MB.' });
     const safeDownloadUrl = safeGoogleDriveUrl(downloadUrl);
     if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
+    const safeFiles = safeLinkedFiles(linkedFiles);
+    if (safeFiles === null) return res.status(400).json({ error: 'Each linked file must use Google Drive/Docs and an approved file type.' });
 
     const name = safeOriginalName(originalName, mimeType);
     const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
@@ -267,6 +286,7 @@ exports.initializeAssetUpload = async (req, res, next) => {
       fileType: ALLOWED_IMAGE_TYPES[mimeType], fileSize: size, storageKey: key,
       originalName: name, mimeType, uploadStatus: 'pending', version: safeText(version || '1.0', 30),
       downloadUrl: safeDownloadUrl,
+      linkedFiles: safeFiles,
       tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
       description: safeText(description, 2000), createdBy: req.user._id
     });
@@ -337,12 +357,19 @@ exports.updateAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to update ${asset.library} assets.` });
     }
 
-    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'archived'];
+    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'linkedFiles', 'archived'];
     const safeUpdates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
     if (Object.prototype.hasOwnProperty.call(safeUpdates, 'downloadUrl')) {
       const safeDownloadUrl = safeGoogleDriveUrl(safeUpdates.downloadUrl);
       if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
       safeUpdates.downloadUrl = safeDownloadUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'linkedFiles')) {
+      const safeFiles = safeLinkedFiles(safeUpdates.linkedFiles);
+      if (safeFiles === null || safeFiles.length === 0) return res.status(400).json({ error: 'Add at least one valid Google Drive file link.' });
+      safeUpdates.linkedFiles = safeFiles;
+      safeUpdates.fileUrl = safeFiles[0].url;
+      safeUpdates.fileType = safeFiles[0].fileType;
     }
     const updated = await Asset.findByIdAndUpdate(
       req.params.id,
@@ -359,6 +386,7 @@ exports.updateAsset = async (req, res, next) => {
         fileUrl: updated.fileUrl,
         thumbnailUrl: updated.thumbnailUrl,
         downloadUrl: updated.downloadUrl,
+        linkedFiles: updated.linkedFiles || [],
         fileType: updated.fileType,
         fileSize: updated.fileSize,
         version: updated.version,

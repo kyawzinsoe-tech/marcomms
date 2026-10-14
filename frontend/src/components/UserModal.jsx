@@ -104,7 +104,9 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
     name: '',
     email: '',
     password: '',
-    role: ROLES.VIEWER
+    role: ROLES.VIEWER,
+    department: '',
+    jobLevel: ''
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -119,14 +121,18 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         name: editingUser.name || '',
         email: editingUser.email || '',
         password: '',
-        role: normalizeRole(editingUser.role)
+        role: normalizeRole(editingUser.role),
+        department: editingUser.department || '',
+        jobLevel: editingUser.jobLevel || ''
       });
     } else {
       setFormData({
         name: '',
         email: '',
         password: '',
-        role: ROLES.VIEWER
+        role: ROLES.VIEWER,
+        department: '',
+        jobLevel: ''
       });
     }
   }, [editingUser, isOpen]);
@@ -196,7 +202,9 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
     const payload = {
       name: cleanName,
       email: cleanEmail,
-      role: formData.role
+      role: formData.role,
+      department: formData.department.trim(),
+      jobLevel: formData.jobLevel
     };
 
     if (cleanPassword) {
@@ -309,6 +317,36 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
                     <AlertCircle size={12} /> {validationErrors.password}
                   </span>
                 )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="user-department">Department</label>
+                <input
+                  id="user-department"
+                  type="text"
+                  maxLength={120}
+                  placeholder="e.g. Creative Team"
+                  value={formData.department}
+                  onChange={(e) => handleChange('department', e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="user-job-level">Recruitment Notification Level</label>
+                <select
+                  id="user-job-level"
+                  value={formData.jobLevel}
+                  onChange={(e) => handleChange('jobLevel', e.target.value)}
+                  disabled={isSaving}
+                >
+                  <option value="">Not assigned</option>
+                  <option value="head">Head</option>
+                  <option value="deputy_head">Deputy Head</option>
+                  <option value="manager">Manager</option>
+                  <option value="staff">Staff (not notified)</option>
+                </select>
+                <small>Only Head, Deputy Head and Manager accounts receive cross-department access alerts.</small>
               </div>
             </div>
           </div>

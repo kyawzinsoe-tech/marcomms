@@ -61,6 +61,13 @@ export async function uploadBrandAsset(metadata, file, onProgress = () => {}) {
   }
 }
 
+export async function createLinkedAsset(metadata) {
+  const response = await fetch('/api/assets', {
+    method: 'POST', headers: authHeaders(true), body: JSON.stringify(metadata)
+  }).then(handleApiResponse);
+  return (await readJson(response, 'Unable to save linked asset.')).asset;
+}
+
 export async function updateAsset(id, changes) {
   const response = await fetch(`/api/assets/${id}`, {
     method: 'PUT', headers: authHeaders(true), body: JSON.stringify(changes)

@@ -31,6 +31,7 @@ import { ErrorDialog } from './components/common/ErrorDialog';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
 import { ImportantWorkSection } from './components/ImportantWorkSection';
+import { RecruitmentSection } from './components/recruitment/RecruitmentSection';
 
 // Lazy-loaded chunked components for optimized initial bundle loading
 const ReportsDataSection = lazy(() =>
@@ -69,6 +70,8 @@ const HASH_MAP = {
   'supplier-directory': 'suppliers',
   'production-orders': 'production-orders',
   'production': 'production-orders',
+  'recruitment': 'recruitment',
+  'interview-process': 'recruitment',
   'user-management': 'user-management',
   'users': 'user-management'
 };
@@ -242,10 +245,12 @@ function DashboardApp() {
         return can(PERMISSIONS.PRODUCTION_ORDER_READ);
       case 'user-management':
         return isAdmin;
+      case 'recruitment':
+        return isSuperAdmin || isAdmin || ['head', 'deputy_head', 'manager'].includes(user?.jobLevel);
       default:
         return true;
     }
-  }, [can, isAdmin]);
+  }, [can, isAdmin, isSuperAdmin, user?.jobLevel]);
 
   // Synchronize activeSection with window.location.hash and browser Back/Forward navigation
   useEffect(() => {
@@ -655,6 +660,10 @@ function DashboardApp() {
             user={user}
             onNotify={showToast}
           />
+        )}
+
+        {activeSection === 'recruitment' && (
+          <RecruitmentSection user={user} onNotify={showToast} />
         )}
 
         {/* VIEW 11: USER MANAGEMENT & ACTIVE SESSIONS */}

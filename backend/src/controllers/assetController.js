@@ -3,11 +3,10 @@ const crypto = require('crypto');
 const Asset = require('../models/Asset');
 const { PERMISSIONS, hasPermission } = require('../config/rbac');
 const {
-  createAssetUploadUrl,
-  readAssetSignature,
+  uploadAssetObject,
   deleteAssetObject,
   createAssetDownloadUrl
-} = require('../services/s3Service');
+} = require('../services/storageService');
 
 const ALLOWED_IMAGE_TYPES = { 'image/png': 'PNG', 'image/jpeg': 'JPEG' };
 const MAX_ASSET_BYTES = 10 * 1024 * 1024;
@@ -278,9 +277,6 @@ exports.initializeAssetUpload = async (req, res, next) => {
 
     const name = safeOriginalName(originalName, mimeType);
     const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
-    // Generate the S3 URL before inserting a pending record so configuration
-    // failures cannot leave blank cards in MongoDB.
-    const uploadUrl = await createAssetUploadUrl({ key, mimeType });
     const asset = await Asset.create({
       title: safeText(title), library: targetLibrary, category: safeText(category || 'General', 100),
       fileType: ALLOWED_IMAGE_TYPES[mimeType], fileSize: size, storageKey: key,
@@ -290,7 +286,35 @@ exports.initializeAssetUpload = async (req, res, next) => {
       tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
       description: safeText(description, 2000), createdBy: req.user._id
     });
-    res.status(201).json({ assetId: String(asset._id), uploadUrl, expiresIn: 300 });
+    res.status(201).json({ assetId: String(asset._id), uploadUrl: `/api/assets/${asset._id}/content` });
+  } catch (error) { next(error); }
+};
+
+exports.uploadAssetContent = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    if (!asset) return res.status(404).json({ error: 'Asset not found.' });
+    if (!canWriteLibrary(req.user, asset.library, 'create')) return res.status(403).json({ error: 'Access denied.' });
+    if (asset.uploadStatus !== 'pending') return res.status(409).json({ error: 'Upload is not pending.' });
+    if (!Buffer.isBuffer(req.body) || req.body.length < 1) return res.status(400).json({ error: 'Image content is required.' });
+    if (req.body.length !== asset.fileSize) return res.status(400).json({ error: 'Uploaded image size does not match the request.' });
+    if (req.body.length > MAX_ASSET_BYTES) return res.status(413).json({ error: 'Image must be 10 MB or smaller.' });
+    if (req.get('content-type') !== asset.mimeType || !hasValidSignature(req.body, asset.mimeType)) {
+      asset.uploadStatus = 'rejected';
+      await asset.save();
+      return res.status(400).json({ error: 'Uploaded file signature does not match PNG/JPEG.' });
+    }
+
+    await uploadAssetObject(asset.storageKey, req.body, asset.mimeType);
+    asset.uploadStatus = 'ready';
+    await asset.save();
+    const url = await createAssetDownloadUrl(asset.storageKey);
+    return res.status(200).json({ asset: {
+      id: String(asset._id), title: asset.title, library: asset.library,
+      fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url,
+      thumbnailUrl: url, downloadUrl: asset.downloadUrl, uploadStatus: asset.uploadStatus
+    } });
   } catch (error) { next(error); }
 };
 
@@ -314,17 +338,7 @@ exports.completeAssetUpload = async (req, res, next) => {
     const asset = await Asset.findById(req.params.id).select('+storageKey');
     if (!asset) return res.status(404).json({ error: 'Asset not found.' });
     if (!canWriteLibrary(req.user, asset.library, 'create')) return res.status(403).json({ error: 'Access denied.' });
-    if (asset.uploadStatus !== 'pending') return res.status(409).json({ error: 'Upload is not pending.' });
-    const object = await readAssetSignature(asset.storageKey);
-    const valid = object.contentType === asset.mimeType && hasValidSignature(object.bytes, asset.mimeType);
-    if (!valid) {
-      await deleteAssetObject(asset.storageKey).catch(() => {});
-      asset.uploadStatus = 'rejected';
-      await asset.save();
-      return res.status(400).json({ error: 'Uploaded file signature does not match PNG/JPEG.' });
-    }
-    asset.uploadStatus = 'ready';
-    await asset.save();
+    if (asset.uploadStatus !== 'ready') return res.status(409).json({ error: 'Upload content has not been received.' });
     const url = await createAssetDownloadUrl(asset.storageKey);
     res.status(200).json({ asset: { id: String(asset._id), title: asset.title, library: asset.library, fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url, thumbnailUrl: url, downloadUrl: asset.downloadUrl, uploadStatus: asset.uploadStatus } });
   } catch (error) { next(error); }

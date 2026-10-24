@@ -41,18 +41,17 @@ export async function uploadBrandAsset(metadata, file, onProgress = () => {}) {
     onProgress(2);
     const storageResponse = await fetch(init.uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type, 'x-amz-server-side-encryption': 'AES256' },
+      headers: authHeaders(),
       body: file
     });
     if (!storageResponse.ok) {
       const body = await storageResponse.text().catch(() => '');
-      const code = body.match(/<Code>([^<]+)<\/Code>/i)?.[1];
-      throw new Error(`Secure image upload failed${code ? `: ${code}` : ''} (HTTP ${storageResponse.status}).`);
+      const payload = (() => { try { return JSON.parse(body); } catch { return {}; } })();
+      throw new Error(payload.error || `Secure image upload failed (HTTP ${storageResponse.status}).`);
     }
 
     onProgress(3);
-    const completeResponse = await fetch(`/api/assets/${init.assetId}/complete`, { method: 'POST', headers: authHeaders() }).then(handleApiResponse);
-    const complete = await readJson(completeResponse, 'Image verification failed.');
+    const complete = await readJson(storageResponse, 'Image verification failed.');
     onProgress(4);
     return complete.asset;
   } catch (error) {

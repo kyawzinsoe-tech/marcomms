@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
@@ -17,19 +19,22 @@ const importantWorkRoutes = require('./routes/importantWorkRoutes');
 const recruitmentRoutes = require('./routes/recruitmentRoutes');
 
 const app = express();
+app.set('trust proxy', 1);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
   .split(',').map((value) => value.trim()).filter(Boolean);
 
 // Middlewares
-app.use(cors({
+app.use((req, res, next) => cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    const sameOrigin = `${req.protocol}://${req.get('host')}`;
+    if (!origin || origin === sameOrigin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS policy.'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+})(req, res, next));
 app.use((req, res, next) => {
+  if (!req.path.startsWith('/api') && req.path !== '/health') return next();
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -41,7 +46,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health Check
-app.get('/', (req, res) => {
+if (process.env.NODE_ENV !== 'production') app.get('/', (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'KBZ Marcomms Creative Hub Backend API',
@@ -68,6 +73,26 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/important-work', importantWorkRoutes);
 app.use('/api/recruitment', recruitmentRoutes);
+
+if (process.env.NODE_ENV === 'production') {
+  const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+  const indexFile = path.join(frontendDist, 'index.html');
+  const setFrontendHeaders = (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src https://drive.google.com; upgrade-insecure-requests");
+  };
+  if (fs.existsSync(indexFile)) {
+    app.use(express.static(frontendDist, { setHeaders: setFrontendHeaders }));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
+      setFrontendHeaders(res);
+      return res.sendFile(indexFile);
+    });
+  }
+}
 
 // Error Handling
 app.use(errorHandler);

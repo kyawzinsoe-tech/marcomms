@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: marcomms-portal
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend
+    startCommand: npm start --prefix backend
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SUBSCRIPTION_CREDENTIAL_KEY
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: marcomms-assets
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REMINDER_FROM_EMAIL
+        value: kyawzin.soe@kbzbank.com

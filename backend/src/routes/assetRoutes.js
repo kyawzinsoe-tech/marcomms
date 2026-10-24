@@ -4,6 +4,7 @@ const {
   getAssetById,
   createAsset,
   initializeAssetUpload,
+  uploadAssetContent,
   completeAssetUpload,
   abortAssetUpload,
   getAssetDownloadUrl,
@@ -21,6 +22,7 @@ router.route('/')
   .post(createAsset);
 
 router.post('/uploads', initializeAssetUpload);
+router.put('/:id/content', express.raw({ type: ['image/png', 'image/jpeg'], limit: '10mb' }), uploadAssetContent);
 router.post('/:id/complete', completeAssetUpload);
 router.delete('/:id/upload', abortAssetUpload);
 router.get('/:id/download-url', getAssetDownloadUrl);

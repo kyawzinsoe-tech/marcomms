@@ -2,7 +2,7 @@ services:
   - type: web
     name: marcomms-portal
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend
     startCommand: npm start --prefix backend
     healthCheckPath: /api/health

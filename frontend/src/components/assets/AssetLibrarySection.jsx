@@ -110,10 +110,11 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
     return id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w800` : '';
   };
 
-  const driveDownload = (url) => {
-    const id = String(url || '').match(/\/file\/d\/([^/?#]+)/)?.[1] || String(url || '').match(/[?&]id=([^&#]+)/)?.[1];
-    return id ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}` : url;
-  };
+  // Keep the original Drive share URL. Restricted files must go through the
+  // Google Drive viewer so Google can authenticate the signed-in user and
+  // enforce the file's access list. Converting these links to /uc download
+  // URLs can incorrectly return 404 for otherwise valid restricted files.
+  const driveDownload = (url) => String(url || '').trim();
 
   const remove = async () => {
     if (!deleting) return;
@@ -164,7 +165,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
               </div>
               <h3>{asset.title}</h3>
               <p>{asset.fileType || 'IMAGE'}{asset.fileSize ? ` · ${asset.fileSize} KB` : ''}</p>
-              {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer" download><Download size={12} /><span>Download Here!</span><b>{item.fileType}</b></a>)}</div>}
+              {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer"><Download size={12} /><span>Download Here!</span><b>{item.fileType}</b></a>)}</div>}
               <div className="brand-asset-actions">
                 {!asset.linkedFiles?.length && <button type="button" className="btn btn-primary btn-sm" onClick={() => download(asset)}><Download size={13} /> Download</button>}
                 {canEdit && <button type="button" className="action-btn action-edit" onClick={() => { setEditing(asset); setModalOpen(true); }} aria-label={`Edit ${asset.title}`}><Edit size={14} /></button>}

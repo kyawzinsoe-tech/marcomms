@@ -1,4 +1,5 @@
 const RecruitmentCase = require('../models/RecruitmentCase');
+const RecruitmentBusinessUnit = require('../models/RecruitmentBusinessUnit');
 const RecruitmentAccessLog = require('../models/RecruitmentAccessLog');
 const User = require('../models/User');
 const { sendRecruitmentAccessAlert } = require('../services/emailService');
@@ -6,6 +7,28 @@ const { logAuditEvent } = require('../utils/auditLogger');
 const { LEADERSHIP_LEVELS, canAccessRecruitment, isCrossDepartmentSuperAdmin } = require('../utils/recruitmentAccess');
 
 const NOTIFICATION_COOLDOWN_MS = 30 * 60 * 1000;
+const DEFAULT_UNITS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Research'];
+const unitCode = (value) => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+
+exports.listBusinessUnits = async (req, res, next) => { try {
+  if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (await RecruitmentBusinessUnit.countDocuments() === 0) await RecruitmentBusinessUnit.insertMany(DEFAULT_UNITS.map((name) => ({ name, code: unitCode(name), createdBy: req.user._id })), { ordered: false }).catch(() => {});
+  res.json({ businessUnits: await RecruitmentBusinessUnit.find({ status: { $ne: 'archived' } }).sort({ name: 1 }).lean() });
+} catch (error) { next(error); } };
+
+exports.createBusinessUnit = async (req, res, next) => { try {
+  if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Only administrators can manage Business Units.' });
+  const name = String(req.body.name || '').trim(); if (!name) return res.status(400).json({ error: 'Business Unit name is required.' });
+  const unit = await RecruitmentBusinessUnit.create({ name, code: unitCode(req.body.code || name), hrOwner: String(req.body.hrOwner || '').trim(), createdBy: req.user._id });
+  res.status(201).json({ businessUnit: unit });
+} catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'Business Unit name or code already exists.' }); next(error); } };
+
+exports.updateBusinessUnit = async (req, res, next) => { try {
+  if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Only administrators can manage Business Units.' });
+  const updates = {}; ['name','hrOwner','status'].forEach((key) => { if (req.body[key] !== undefined) updates[key] = String(req.body[key]).trim(); }); if (req.body.code !== undefined) updates.code = unitCode(req.body.code);
+  const unit = await RecruitmentBusinessUnit.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+  if (!unit) return res.status(404).json({ error: 'Business Unit not found.' }); res.json({ businessUnit: unit });
+} catch (error) { next(error); } };
 
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();

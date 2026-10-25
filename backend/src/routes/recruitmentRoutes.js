@@ -4,6 +4,9 @@ const controller = require('../controllers/recruitmentController');
 
 router.use(protect);
 router.get('/audit', controller.audit);
+router.get('/business-units', controller.listBusinessUnits);
+router.post('/business-units', controller.createBusinessUnit);
+router.patch('/business-units/:id', controller.updateBusinessUnit);
 router.get('/', controller.list);
 router.post('/', controller.create);
 router.get('/:id', controller.getOne);

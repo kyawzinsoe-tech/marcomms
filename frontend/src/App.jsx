@@ -32,6 +32,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
 import { ImportantWorkSection } from './components/ImportantWorkSection';
 import { RecruitmentSection } from './components/recruitment/RecruitmentSection';
+import { ProductionInventorySection } from './components/production-inventory/ProductionInventorySection';
 
 // Lazy-loaded chunked components for optimized initial bundle loading
 const ReportsDataSection = lazy(() =>
@@ -70,6 +71,8 @@ const HASH_MAP = {
   'supplier-directory': 'suppliers',
   'production-orders': 'production-orders',
   'production': 'production-orders',
+  'production-inventory': 'production-inventory',
+  'production-store': 'production-inventory',
   'recruitment': 'recruitment',
   'interview-process': 'recruitment',
   'user-management': 'user-management',
@@ -243,6 +246,7 @@ function DashboardApp() {
       case 'suppliers':
         return can(PERMISSIONS.SUPPLIER_READ);
       case 'production-orders':
+      case 'production-inventory':
         return can(PERMISSIONS.PRODUCTION_ORDER_READ);
       case 'user-management':
         return isAdmin;
@@ -666,6 +670,10 @@ function DashboardApp() {
             user={user}
             onNotify={showToast}
           />
+        )}
+
+        {activeSection === 'production-inventory' && can(PERMISSIONS.PRODUCTION_ORDER_READ) && (
+          <ProductionInventorySection onNotify={showToast} />
         )}
 
         {activeSection === 'recruitment' && (

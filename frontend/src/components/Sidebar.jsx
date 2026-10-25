@@ -16,6 +16,7 @@ import {
   User as UserIcon,
   BellRing,
   BriefcaseBusiness
+  ,Boxes
 } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
 
@@ -57,6 +58,7 @@ export function Sidebar({
   const procurementItems = [
     { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers },
     { id: 'production-orders', label: 'Production Orders', icon: Printer, visible: canReadProduction }
+    ,{ id: 'production-inventory', label: 'Production Item Store', icon: Boxes, visible: canReadProduction }
   ].filter((item) => item.visible);
 
   const adminNavItems = [

@@ -17,6 +17,7 @@ const sessionRoutes = require('./routes/sessionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const importantWorkRoutes = require('./routes/importantWorkRoutes');
 const recruitmentRoutes = require('./routes/recruitmentRoutes');
+const productionInventoryRoutes = require('./routes/productionInventoryRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -73,6 +74,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/important-work', importantWorkRoutes);
 app.use('/api/recruitment', recruitmentRoutes);
+app.use('/api/production-inventory', productionInventoryRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.resolve(__dirname, '../../frontend/dist');

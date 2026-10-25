@@ -1,0 +1,72 @@
+const crypto = require('crypto');
+const mongoose = require('mongoose');
+const ProductionItem = require('../models/ProductionItem');
+const { PERMISSIONS, hasPermission } = require('../config/rbac');
+const { uploadAssetObject, createAssetDownloadUrl } = require('../services/storageService');
+
+const ALLOWED = new Set(['image/png', 'image/jpeg']);
+const MAX_BYTES = 8 * 1024 * 1024;
+const clean = (value, max = 200) => String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+const canRead = (user) => hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_READ);
+const canWrite = (user) => hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_UPDATE);
+
+function validSignature(buffer, type) {
+  if (type === 'image/png') return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  return type === 'image/jpeg' && buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+}
+
+async function serialize(item) {
+  let imageUrl = '';
+  if (item.imageStorageKey) imageUrl = await createAssetDownloadUrl(item.imageStorageKey);
+  const received = item.movements.filter((m) => m.direction === 'IN').reduce((sum, m) => sum + m.quantity, 0);
+  const issued = item.movements.filter((m) => m.direction === 'OUT').reduce((sum, m) => sum + m.quantity, 0);
+  return { id: String(item._id), sku: item.sku, name: item.name, category: item.category, itemType: item.itemType, unit: item.unit, quantityOnHand: item.quantityOnHand, reorderLevel: item.reorderLevel, imageUrl, received, issued, archived: item.archived,
+    movements: [...item.movements].sort((a, b) => new Date(b.at) - new Date(a.at)).map((m) => ({ id: String(m._id), direction: m.direction, quantity: m.quantity, date: m.date, businessUnit: m.businessUnit, functionName: m.functionName, eventName: m.eventName, reference: m.reference, note: m.note, actorName: m.actorName, at: m.at })), createdAt: item.createdAt, updatedAt: item.updatedAt };
+}
+
+exports.getItems = async (req, res, next) => { try {
+  if (!canRead(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  const query = req.query.archived === 'true' ? {} : { archived: false };
+  const items = await ProductionItem.find(query).select('+imageStorageKey').sort({ name: 1 });
+  res.json({ items: await Promise.all(items.map(serialize)) });
+} catch (error) { next(error); } };
+
+exports.createItem = async (req, res, next) => { try {
+  if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_CREATE)) return res.status(403).json({ error: 'Access denied.' });
+  const { sku, name, category, itemType, unit, openingQuantity, reorderLevel } = req.body;
+  if (!clean(sku, 60) || !clean(name, 180)) return res.status(400).json({ error: 'SKU and item name are required.' });
+  const opening = Number(openingQuantity || 0);
+  if (!Number.isInteger(opening) || opening < 0) return res.status(400).json({ error: 'Opening quantity must be a whole number.' });
+  const item = await ProductionItem.create({ sku: clean(sku, 60).toUpperCase(), name: clean(name, 180), category: clean(category || 'General', 120), itemType: clean(itemType, 120), unit: clean(unit || 'pcs', 40), quantityOnHand: opening, reorderLevel: Math.max(0, Number(reorderLevel || 0)), createdBy: req.user._id,
+    movements: opening ? [{ direction: 'IN', quantity: opening, date: new Date().toISOString().slice(0, 10), reference: 'Opening Balance', actor: req.user._id, actorName: req.user.name }] : [] });
+  res.status(201).json({ item: await serialize(await ProductionItem.findById(item._id).select('+imageStorageKey')) });
+} catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'SKU already exists.' }); next(error); } };
+
+exports.uploadImage = async (req, res, next) => { try {
+  if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });
+  const type = req.get('content-type');
+  if (!ALLOWED.has(type) || !Buffer.isBuffer(req.body) || req.body.length < 1 || req.body.length > MAX_BYTES || !validSignature(req.body, type)) return res.status(400).json({ error: 'Upload a valid PNG or JPEG image up to 8 MB.' });
+  const item = await ProductionItem.findById(req.params.id).select('+imageStorageKey');
+  if (!item) return res.status(404).json({ error: 'Production item not found.' });
+  const ext = type === 'image/png' ? '.png' : '.jpg';
+  const key = `production-items/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${ext}`;
+  await uploadAssetObject(key, req.body, type);
+  item.imageStorageKey = key; item.imageMimeType = type; item.imageOriginalName = clean(req.get('x-file-name') || `item${ext}`, 140);
+  await item.save(); res.json({ item: await serialize(item) });
+} catch (error) { next(error); } };
+
+exports.addMovement = async (req, res, next) => { try {
+  if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });
+  const item = await ProductionItem.findById(req.params.id).select('+imageStorageKey');
+  if (!item) return res.status(404).json({ error: 'Production item not found.' });
+  const direction = String(req.body.direction || '').toUpperCase(); const quantity = Number(req.body.quantity);
+  if (!['IN', 'OUT'].includes(direction) || !Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Movement type and whole-number quantity are required.' });
+  if (direction === 'OUT' && quantity > item.quantityOnHand) return res.status(409).json({ error: `Only ${item.quantityOnHand} ${item.unit} remain in stock.` });
+  item.quantityOnHand += direction === 'IN' ? quantity : -quantity;
+  item.movements.push({ direction, quantity, date: clean(req.body.date || new Date().toISOString().slice(0, 10), 10), businessUnit: clean(req.body.businessUnit, 120), functionName: clean(req.body.functionName, 160), eventName: clean(req.body.eventName, 200), reference: clean(req.body.reference, 120), note: clean(req.body.note, 1000), actor: req.user._id, actorName: req.user.name });
+  await item.save(); res.json({ item: await serialize(item) });
+} catch (error) { next(error); } };
+
+exports._inventoryValidation = { validSignature, MAX_BYTES };

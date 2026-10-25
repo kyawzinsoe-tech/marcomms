@@ -83,6 +83,9 @@ export function normalizeData(data) {
     purchaseNote: x.purchaseNote || '',
     hasPassword: !!x.hasPassword,
     invoice: x.invoice || null,
+    invoiceDriveUrl: x.invoiceDriveUrl || '',
+    invoicePeriod: x.invoicePeriod || '',
+    invoiceMonth: x.invoiceMonth || '',
     archived: !!x.archived
   }));
 
@@ -238,4 +241,9 @@ export async function uploadSubscriptionInvoice(subscriptionId, file, onProgress
   const completed = await authenticatedJson(`/api/subscriptions/${subscriptionId}/invoice/complete`, { method: 'POST', body: '{}' });
   onProgress('complete');
   return completed.subscription;
+}
+
+export async function revealSubscriptionCredential(subscriptionId) {
+  const data = await authenticatedJson(`/api/subscriptions/${subscriptionId}/credential/reveal`, { method: 'POST', body: '{}' });
+  return data.password;
 }

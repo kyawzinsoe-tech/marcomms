@@ -10,6 +10,8 @@ const recruitmentCaseSchema = new mongoose.Schema({
     default: 'application_screening'
   },
   selectedStages: [{ type: String, trim: true, maxlength: 80 }],
+  firstInterviewPanel: [{ type: String, enum: ['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other'] }],
+  interviewNotes: { type: String, trim: true, maxlength: 1000, default: '' },
   status: { type: String, enum: ['active', 'hired', 'rejected', 'withdrawn', 'closed'], default: 'active' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

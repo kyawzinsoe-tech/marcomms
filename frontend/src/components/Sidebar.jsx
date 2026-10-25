@@ -28,6 +28,7 @@ export function Sidebar({
   isSuperAdmin,
   isAdmin,
   onLogout
+  , mobileOpen = false, onMobileClose
 }) {
   // Navigation groups with role-based visibility
   const canReadBank = user && hasPermission(user, PERMISSIONS.ASSET_READ_BANK);
@@ -69,6 +70,7 @@ export function Sidebar({
   const handleNav = (id, e) => {
     e.preventDefault();
     onNavigate(id);
+    onMobileClose?.();
   };
 
   const renderNavGroup = (items) => (
@@ -109,7 +111,7 @@ export function Sidebar({
   );
 
   return (
-    <aside className="sidebar">
+    <><button type="button" className="mobile-menu-backdrop" aria-label="Close menu" onClick={onMobileClose} /><aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
       {/* Brand Header */}
       <div className="brand-section">
         <div className="brand-logo-card">
@@ -226,6 +228,6 @@ export function Sidebar({
           </div>
         )}
       </div>
-    </aside>
+    </aside></>
   );
 }

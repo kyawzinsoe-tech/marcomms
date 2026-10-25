@@ -12,13 +12,16 @@ import {
   RotateCcw,
   Download,
   AlertTriangle
+  , Eye, ExternalLink
 } from 'lucide-react';
 import { formatDate, formatMoney, formatNumber } from '../utils/formatters';
 import { exportSubscriptionsToCsv } from '../utils/exportCsv';
+import { revealSubscriptionCredential } from '../services/api';
 
 export function SubscriptionsTable({
   subscriptions = [],
   isAdmin = true,
+  isSuperAdmin = false,
   onAddSubscription,
   onEditSubscription,
   onArchiveSubscription,
@@ -27,6 +30,7 @@ export function SubscriptionsTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [planFilter, setPlanFilter] = useState('All');
+  const [revealed, setRevealed] = useState({});
 
   // Confirmation modal states
   const [pendingArchiveSub, setPendingArchiveSub] = useState(null);
@@ -257,7 +261,7 @@ export function SubscriptionsTable({
                     {sub.cost !== '' && !isNaN(Number(sub.cost)) ? formatMoney(sub.cost) : '—'}
                   </td>
                   <td style={{ color: 'var(--text-secondary)', fontSize: '12.5px' }}>
-                    {sub.email || '—'}
+                    <div>{sub.email || '—'}</div>{isSuperAdmin && sub.hasPassword && <button type="button" className="btn btn-soft btn-sm" onClick={async () => { try { const password = await revealSubscriptionCredential(sub.id); setRevealed((current) => ({ ...current, [sub.id]: password })); setTimeout(() => setRevealed((current) => ({ ...current, [sub.id]: undefined })), 30000); } catch (error) { window.alert(error.message); } }}><Eye size={12}/> {revealed[sub.id] || 'Reveal password'}</button>}{sub.invoiceDriveUrl && <a className="btn btn-soft btn-sm" href={sub.invoiceDriveUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={12}/> {sub.invoicePeriod || 'Invoice'} {sub.invoiceMonth}</a>}
                   </td>
                   {isAdmin && (
                     <td style={{ textAlign: 'center' }}>

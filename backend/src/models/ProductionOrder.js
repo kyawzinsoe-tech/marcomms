@@ -36,6 +36,8 @@ const productionOrderSchema = new mongoose.Schema(
       trim: true,
       maxlength: [300, 'Item description cannot exceed 300 characters']
     },
+    itemCategory: { type: String, trim: true, maxlength: 120, default: '' },
+    itemType: { type: String, trim: true, maxlength: 120, default: '' },
     specification: {
       type: String,
       default: '',
@@ -46,6 +48,7 @@ const productionOrderSchema = new mongoose.Schema(
       required: [true, 'Quantity is required'],
       min: [1, 'Quantity must be at least 1']
     },
+    remainingQuantity: { type: Number, min: 0, default: 0 },
     unitCost: {
       type: Number,
       default: 0

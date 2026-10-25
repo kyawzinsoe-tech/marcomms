@@ -114,8 +114,11 @@ exports.getProductionOrders = async (req, res, next) => {
             }
           : null,
         itemDescription: o.itemDescription,
+        itemCategory: o.itemCategory,
+        itemType: o.itemType,
         specification: o.specification,
         quantity: o.quantity,
+        remainingQuantity: o.remainingQuantity,
         unitCost: o.unitCost,
         totalCost: o.totalCost,
         orderDate: o.orderDate,
@@ -182,8 +185,11 @@ exports.getProductionOrderById = async (req, res, next) => {
         supplier: order.supplier,
         assetRef: order.assetRef,
         itemDescription: order.itemDescription,
+        itemCategory: order.itemCategory,
+        itemType: order.itemType,
         specification: order.specification,
         quantity: order.quantity,
+        remainingQuantity: order.remainingQuantity,
         unitCost: order.unitCost,
         totalCost: order.totalCost,
         orderDate: order.orderDate,
@@ -222,8 +228,11 @@ exports.createProductionOrder = async (req, res, next) => {
       supplier,
       assetRef,
       itemDescription,
+      itemCategory,
+      itemType,
       specification,
       quantity,
+      remainingQuantity,
       unitCost,
       totalCost,
       orderDate,
@@ -270,8 +279,11 @@ exports.createProductionOrder = async (req, res, next) => {
       supplier,
       assetRef: assetRef && mongoose.Types.ObjectId.isValid(assetRef) ? assetRef : undefined,
       itemDescription: itemDescription.trim(),
+      itemCategory: String(itemCategory || '').trim().slice(0, 120),
+      itemType: String(itemType || '').trim().slice(0, 120),
       specification: (specification || '').trim(),
       quantity: qty,
+      remainingQuantity: Math.max(0, Number(remainingQuantity || 0)),
       unitCost: uCost,
       totalCost: calculatedTotal,
       orderDate: orderDate || new Date().toISOString().slice(0, 10),
@@ -296,8 +308,11 @@ exports.createProductionOrder = async (req, res, next) => {
         supplier: populated.supplier,
         assetRef: populated.assetRef,
         itemDescription: populated.itemDescription,
+        itemCategory: populated.itemCategory,
+        itemType: populated.itemType,
         specification: populated.specification,
         quantity: populated.quantity,
+        remainingQuantity: populated.remainingQuantity,
         unitCost: populated.unitCost,
         totalCost: populated.totalCost,
         orderDate: populated.orderDate,
@@ -459,8 +474,8 @@ exports.updateProductionOrder = async (req, res, next) => {
     }
 
     const allowedFields = [
-      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'specification',
-      'quantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
+      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'specification',
+      'quantity', 'remainingQuantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
     ];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
 
@@ -490,8 +505,11 @@ exports.updateProductionOrder = async (req, res, next) => {
         supplier: updated.supplier,
         assetRef: updated.assetRef,
         itemDescription: updated.itemDescription,
+        itemCategory: updated.itemCategory,
+        itemType: updated.itemType,
         specification: updated.specification,
         quantity: updated.quantity,
+        remainingQuantity: updated.remainingQuantity,
         unitCost: updated.unitCost,
         totalCost: updated.totalCost,
         orderDate: updated.orderDate,

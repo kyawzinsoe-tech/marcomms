@@ -15,6 +15,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
     alertDays: 7,
     initialTokens: '',
     purchaseNote: ''
+    , invoiceDriveUrl: '', invoicePeriod: '', invoiceMonth: ''
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -37,7 +38,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
         reminderEmail: subscription.reminderEmail || '',
         alertDays: subscription.alertDays ?? 7,
         initialTokens: subscription.initialTokens !== undefined ? String(subscription.initialTokens) : '',
-        purchaseNote: subscription.purchaseNote || ''
+        purchaseNote: subscription.purchaseNote || '', invoiceDriveUrl: subscription.invoiceDriveUrl || '', invoicePeriod: subscription.invoicePeriod || '', invoiceMonth: subscription.invoiceMonth || ''
       });
     } else {
       setFormData({
@@ -52,7 +53,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
         reminderEmail: '',
         alertDays: 7,
         initialTokens: '',
-        purchaseNote: ''
+        purchaseNote: '', invoiceDriveUrl: '', invoicePeriod: '', invoiceMonth: ''
       });
     }
     setValidationErrors({});
@@ -383,6 +384,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
               <small>Private storage · PDF/PNG/JPEG only · Maximum 10 MB{subscription?.invoice?.originalName ? ` · Current: ${subscription.invoice.originalName}` : ''}</small>
               {validationErrors.invoiceFile && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.invoiceFile}</span>}
             </div>
+            <div className="form-grid"><label className="form-group">Invoice Period<select value={formData.invoicePeriod} onChange={(e) => handleChange('invoicePeriod', e.target.value)}><option value="">Select</option><option>Monthly</option><option>Yearly</option></select></label><label className="form-group">Invoice Month<input type="month" value={formData.invoiceMonth} onChange={(e) => handleChange('invoiceMonth', e.target.value)} /></label><label className="form-group col-span-2">Google Drive Invoice Link<input type="url" placeholder="https://drive.google.com/file/d/..." value={formData.invoiceDriveUrl} onChange={(e) => handleChange('invoiceDriveUrl', e.target.value)} /><small>Share permission ကို “Anyone with the link” ထားပါ။</small></label></div>
             {isSaving && uploadStage && (
               <div className="subscription-upload-progress" aria-live="polite">
                 {['authorizing', 'uploading', 'verifying', 'complete'].map((stage) => (

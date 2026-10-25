@@ -7,7 +7,7 @@ const EMPTY_FORM = { title: '', designerName: '', supervisorName: '', process: '
 const PROCESSES = ['Planned', 'Designing', 'Review', 'Revision', 'Approved', 'Completed'];
 const EDIT_ROLES = new Set(['super_admin', 'admin', 'head_brand']);
 
-export function ImportantWorkSection({ user, onNotify }) {
+export function ImportantWorkSection({ user, users = [], onNotify }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
@@ -60,8 +60,9 @@ export function ImportantWorkSection({ user, onNotify }) {
     {canEdit && <form className="important-work-form" onSubmit={save}>
       <h3>{editingId ? 'Edit important work' : 'Add important work'}</h3>
       <label>Work Title<input required maxLength="160" value={form.title} onChange={(e) => setField('title', e.target.value)} /></label>
-      <label>Designer<input required maxLength="120" value={form.designerName} onChange={(e) => setField('designerName', e.target.value)} /></label>
-      <label>Supervising Designer<input required maxLength="120" value={form.supervisorName} onChange={(e) => setField('supervisorName', e.target.value)} /></label>
+      <label>Designer<input required list="designer-users" maxLength="120" value={form.designerName} onChange={(e) => setField('designerName', e.target.value)} placeholder="Select or type a designer" /></label>
+      <label>Supervising Designer<input required list="supervisor-users" maxLength="120" value={form.supervisorName} onChange={(e) => setField('supervisorName', e.target.value)} placeholder="Select or type a supervisor" /></label>
+      <datalist id="designer-users">{users.map((item) => <option key={item.id || item._id} value={item.name}>{item.email}</option>)}</datalist><datalist id="supervisor-users">{users.map((item) => <option key={item.id || item._id} value={item.name}>{item.jobTitle || item.role}</option>)}</datalist>
       <label>Process<select value={form.process} onChange={(e) => setField('process', e.target.value)}>{PROCESSES.map((process) => <option key={process}>{process}</option>)}</select></label>
       <label>Due Date<input required type="date" value={form.dueDate} onChange={(e) => setField('dueDate', e.target.value)} /></label>
       <div className="work-form-actions">{editingId && <button type="button" className="btn btn-outline" onClick={resetForm}><X size={14} /> Cancel</button>}<button className="btn btn-primary" disabled={saving}>{saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {editingId ? 'Update' : 'Save'}</button></div>

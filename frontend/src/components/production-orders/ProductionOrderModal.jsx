@@ -25,8 +25,11 @@ export function ProductionOrderModal({
     supplier: '',
     assetRef: '',
     itemDescription: '',
+    itemCategory: '',
+    itemType: '',
     specification: '',
     quantity: 1000,
+    remainingQuantity: 0,
     unitCost: 0,
     totalCost: 0,
     orderDate: new Date().toISOString().slice(0, 10),
@@ -61,8 +64,11 @@ export function ProductionOrderModal({
         supplier: supId,
         assetRef: assetId,
         itemDescription: order.itemDescription || '',
+        itemCategory: order.itemCategory || '',
+        itemType: order.itemType || '',
         specification: order.specification || '',
         quantity: qty,
+        remainingQuantity: Number(order.remainingQuantity || 0),
         unitCost: uCost,
         totalCost: tCost,
         orderDate: order.orderDate || new Date().toISOString().slice(0, 10),
@@ -78,8 +84,11 @@ export function ProductionOrderModal({
         supplier: suppliers[0]?.id || '',
         assetRef: '',
         itemDescription: '',
+        itemCategory: '',
+        itemType: '',
         specification: '',
         quantity: 1000,
+        remainingQuantity: 0,
         unitCost: 0,
         totalCost: 0,
         orderDate: new Date().toISOString().slice(0, 10),
@@ -308,6 +317,8 @@ export function ProductionOrderModal({
                   </span>
                 )}
               </div>
+              <div className="form-group"><label htmlFor="order-category">Item Category</label><input id="order-category" list="production-categories" placeholder="Select or type manually" value={formData.itemCategory} onChange={(e) => handleChange('itemCategory', e.target.value)} disabled={isSaving} /><datalist id="production-categories"><option value="Printing"/><option value="Signage"/><option value="Merchandise"/><option value="Event Material"/><option value="Digital Asset"/><option value="Office Supply"/></datalist></div>
+              <div className="form-group"><label htmlFor="order-type">Item Type</label><input id="order-type" list="production-types" placeholder="Select or type manually" value={formData.itemType} onChange={(e) => handleChange('itemType', e.target.value)} disabled={isSaving} /><datalist id="production-types"><option value="Poster"/><option value="Standee"/><option value="Banner"/><option value="Sticker"/><option value="Gift Item"/><option value="Uniform"/></datalist></div>
             </div>
           </div>
 
@@ -365,6 +376,7 @@ export function ProductionOrderModal({
                   disabled={isSaving}
                 />
               </div>
+              <div className="form-group"><label htmlFor="order-remaining">Remaining Quantity</label><input id="order-remaining" type="number" min="0" value={formData.remainingQuantity} onChange={(e) => handleChange('remainingQuantity', e.target.value)} disabled={isSaving} /></div>
 
               <div className="form-group col-span-2">
                 <label htmlFor="order-total-cost">Total Estimated Cost (Auto-calculated: Qty × Unit Cost)</label>

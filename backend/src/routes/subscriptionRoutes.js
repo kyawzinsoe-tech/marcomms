@@ -7,7 +7,8 @@ const {
   deleteSubscription,
   beginInvoiceUpload,
   completeInvoiceUpload,
-  downloadInvoice
+  downloadInvoice,
+  revealCredential
 } = require('../controllers/subscriptionController');
 const { protect } = require('../middleware/authMiddleware');
 const { requireAdmin } = require('../middleware/adminMiddleware');
@@ -28,5 +29,6 @@ router.patch('/:id/archive', requireAdmin, archiveSubscription);
 router.post('/:id/invoice/upload', requireAdmin, beginInvoiceUpload);
 router.post('/:id/invoice/complete', requireAdmin, completeInvoiceUpload);
 router.get('/:id/invoice/download', requireAdmin, downloadInvoice);
+router.post('/:id/credential/reveal', requireAdmin, revealCredential);
 
 module.exports = router;

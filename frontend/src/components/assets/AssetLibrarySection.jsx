@@ -154,7 +154,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
               </div>
               <h3>{asset.title}</h3>
               <p>{asset.fileType || 'IMAGE'}{asset.fileSize ? ` · ${asset.fileSize} KB` : ''}</p>
-              {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer"><Download size={12} /><span>{item.label}</span><b>{item.fileType}</b></a>)}</div>}
+              {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer" download><Download size={12} /><span>Download Here!</span><b>{item.fileType}</b></a>)}</div>}
               <div className="brand-asset-actions">
                 {!asset.linkedFiles?.length && <button type="button" className="btn btn-primary btn-sm" onClick={() => download(asset)}><Download size={13} /> Download</button>}
                 {canEdit && <button type="button" className="action-btn action-edit" onClick={() => { setEditing(asset); setModalOpen(true); }} aria-label={`Edit ${asset.title}`}><Edit size={14} /></button>}

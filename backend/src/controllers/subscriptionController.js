@@ -25,6 +25,14 @@ function encryptCredential(password) {
   const encrypted = Buffer.concat([cipher.update(String(password), 'utf8'), cipher.final()]);
   return `${iv.toString('base64')}.${cipher.getAuthTag().toString('base64')}.${encrypted.toString('base64')}`;
 }
+function decryptCredential(payload) {
+  const [ivText, tagText, dataText] = String(payload || '').split('.');
+  const key = Buffer.from(process.env.SUBSCRIPTION_CREDENTIAL_KEY || '', 'base64');
+  if (key.length !== 32 || !ivText || !tagText || !dataText) throw new Error('Stored credential cannot be decrypted.');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivText, 'base64'));
+  decipher.setAuthTag(Buffer.from(tagText, 'base64'));
+  return Buffer.concat([decipher.update(Buffer.from(dataText, 'base64')), decipher.final()]).toString('utf8');
+}
 
 function publicSubscription(s) {
   return {
@@ -32,6 +40,7 @@ function publicSubscription(s) {
     start: s.start, expiry: s.expiry, cost: s.cost, email: s.email,
     reminderEmail: s.reminderEmail, alertDays: s.alertDays, initialTokens: s.initialTokens,
     purchaseNote: s.purchaseNote, archived: s.archived,
+    invoiceDriveUrl: s.invoiceDriveUrl, invoicePeriod: s.invoicePeriod, invoiceMonth: s.invoiceMonth,
     hasPassword: Boolean(s.credentialCiphertext),
     invoice: s.invoice?.uploadStatus === 'ready' ? {
       originalName: s.invoice.originalName, mimeType: s.invoice.mimeType,
@@ -49,7 +58,10 @@ function editableFields(body) {
     start: safeText(body.start, 20), expiry: safeText(body.expiry, 20), cost: safeText(body.cost, 30),
     email: safeText(body.email, 254).toLowerCase(), reminderEmail: safeText(body.reminderEmail, 254).toLowerCase(),
     alertDays: Math.max(0, Math.min(365, Number(body.alertDays ?? 7))),
-    initialTokens: safeText(body.initialTokens, 30), purchaseNote: safeText(body.purchaseNote, 500)
+    initialTokens: safeText(body.initialTokens, 30), purchaseNote: safeText(body.purchaseNote, 500),
+    invoiceDriveUrl: /^https:\/\/(drive|docs)\.google\.com\//i.test(String(body.invoiceDriveUrl || '').trim()) ? String(body.invoiceDriveUrl).trim().slice(0, 1000) : '',
+    invoicePeriod: ['Monthly', 'Yearly'].includes(body.invoicePeriod) ? body.invoicePeriod : '',
+    invoiceMonth: /^\d{4}-\d{2}$/.test(String(body.invoiceMonth || '')) ? body.invoiceMonth : ''
   };
 }
 
@@ -163,6 +175,17 @@ exports.downloadInvoice = async (req, res, next) => {
     const url = await createPrivateDownloadUrl(subscription.invoice.storageKey, subscription.invoice.originalName);
     logAuditEvent({ actorId: req.user?._id, actorRole: req.user?.role, action: 'SUBSCRIPTION_INVOICE_DOWNLOADED', targetEntity: 'Subscription', targetId: subscription._id, ip: req.ip });
     res.json({ url, expiresIn: 300 });
+  } catch (error) { next(error); }
+};
+
+exports.revealCredential = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Super Admin access required.' });
+    const subscription = await Subscription.findById(req.params.id).select('+credentialCiphertext');
+    if (!subscription?.credentialCiphertext) return res.status(404).json({ error: 'Stored password not found.' });
+    const password = decryptCredential(subscription.credentialCiphertext);
+    logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'SUBSCRIPTION_CREDENTIAL_REVEALED', targetEntity: 'Subscription', targetId: subscription._id, ip: req.ip, metadata: { product: subscription.product } });
+    res.json({ password });
   } catch (error) { next(error); }
 };
 

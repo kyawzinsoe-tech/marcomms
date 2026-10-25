@@ -131,6 +131,7 @@ function DashboardApp() {
   const [printData, setPrintData] = useState({ suppliers: [], productionOrders: [], assets: [] });
   const [toast, setToast] = useState(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // User Management State (Authoritative from Backend MongoDB)
   const [usersList, setUsersList] = useState([]);
@@ -453,9 +454,12 @@ function DashboardApp() {
         isSuperAdmin={isSuperAdmin}
         isAdmin={isAdmin}
         onLogout={logout}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       <main className="main-content">
+        <button type="button" className="mobile-menu-button" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu">☰ <span>Menu</span></button>
         <Header
           activeSection={activeSection}
           reportMonth={reportMonth}
@@ -499,6 +503,7 @@ function DashboardApp() {
             <SubscriptionsTable
               subscriptions={subscriptions}
               isAdmin={isAdmin}
+              isSuperAdmin={isSuperAdmin}
               onAddSubscription={handleOpenAddSubscription}
               onEditSubscription={handleOpenEditSubscription}
               onArchiveSubscription={(id) => {
@@ -520,6 +525,7 @@ function DashboardApp() {
           <AlertsSection
             alerts={alerts}
             isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
             onEditSubscription={handleOpenEditSubscription}
             onNotify={showToast}
           />
@@ -608,7 +614,7 @@ function DashboardApp() {
 
         {/* VIEW 6: KBZ BANK ASSET LIBRARY */}
         {activeSection === 'important-work' && (
-          <ImportantWorkSection user={user} onNotify={showToast} />
+          <ImportantWorkSection user={user} users={usersList} onNotify={showToast} />
         )}
 
         {activeSection === 'kbz-bank' && can(PERMISSIONS.ASSET_READ_BANK) && (

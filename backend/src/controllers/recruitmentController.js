@@ -82,12 +82,14 @@ exports.getOne = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
-    const { candidateName, position, department, selectedStages = [] } = req.body;
+    const { candidateName, position, department, selectedStages = [], firstInterviewPanel = [], interviewNotes = '' } = req.body;
     if (!candidateName || !position || !department) return res.status(400).json({ error: 'Candidate, position and department are required.' });
     if (req.user.role !== 'super_admin' && String(req.user.department || '').trim().toLowerCase() !== String(department).trim().toLowerCase()) {
       return res.status(403).json({ error: 'You may only create recruitment records for your own department.' });
     }
-    const record = await RecruitmentCase.create({ candidateName, position, department, selectedStages, createdBy: req.user._id });
+    const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
+    const panel = Array.isArray(firstInterviewPanel) ? firstInterviewPanel.filter((role) => allowedInterviewers.has(role)) : [];
+    const record = await RecruitmentCase.create({ candidateName, position, department, selectedStages, firstInterviewPanel: panel, interviewNotes: String(interviewNotes).trim().slice(0, 1000), createdBy: req.user._id });
     res.status(201).json({ record });
   } catch (error) { next(error); }
 };

@@ -55,6 +55,9 @@ const subscriptionSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    invoiceDriveUrl: { type: String, trim: true, default: '', maxlength: 1000 },
+    invoicePeriod: { type: String, enum: ['', 'Monthly', 'Yearly'], default: '' },
+    invoiceMonth: { type: String, trim: true, default: '', maxlength: 7 },
     credentialCiphertext: { type: String, select: false, default: '' },
     invoice: {
       storageKey: { type: String, select: false, default: '' },

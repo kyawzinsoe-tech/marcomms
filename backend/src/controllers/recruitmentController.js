@@ -84,7 +84,9 @@ async function recordView(req, record) {
 exports.list = async (req, res, next) => {
   try {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
-    const filter = req.user.role === 'super_admin' ? {} : { department: req.user.department };
+    const department = String(req.user.department || '').trim();
+    if (!department) return res.status(403).json({ error: 'Assign your Team / Department in User Management before opening Interview Process.' });
+    const filter = { department: new RegExp(`^${department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     const records = await RecruitmentCase.find(filter).sort({ updatedAt: -1 }).lean();
     res.json({ records });
   } catch (error) { next(error); }
@@ -96,7 +98,7 @@ exports.getOne = async (req, res, next) => {
     const record = await RecruitmentCase.findById(req.params.id);
     if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
     const sameDepartment = (req.user.department || '').toLowerCase() === record.department.toLowerCase();
-    if (req.user.role !== 'super_admin' && !sameDepartment) return res.status(403).json({ error: 'You do not have access to this department.' });
+    if (!sameDepartment) return res.status(403).json({ error: 'You may only view Interview Process records for your own Team / Department.' });
     await recordView(req, record);
     res.json({ record });
   } catch (error) { next(error); }
@@ -107,7 +109,7 @@ exports.create = async (req, res, next) => {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
     const { candidateName, businessUnit = 'Creative', position, department, selectedStages = [], firstInterviewPanel = [], interviewNotes = '', hrOwner = '', assessmentType = '', cvUrl = '', portfolioUrl = '', interviewAt } = req.body;
     if (!candidateName || !position || !department) return res.status(400).json({ error: 'Candidate, position and department are required.' });
-    if (req.user.role !== 'super_admin' && String(req.user.department || '').trim().toLowerCase() !== String(department).trim().toLowerCase()) {
+    if (String(req.user.department || '').trim().toLowerCase() !== String(department).trim().toLowerCase()) {
       return res.status(403).json({ error: 'You may only create recruitment records for your own department.' });
     }
     const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
@@ -124,8 +126,8 @@ exports.update = async (req, res, next) => {
     const record = await RecruitmentCase.findById(req.params.id);
     if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
     const sameDepartment = String(req.user.department || '').toLowerCase() === String(record.department || '').toLowerCase();
-    if (req.user.role !== 'super_admin' && !sameDepartment) return res.status(403).json({ error: 'You do not have access to this department.' });
-    const allowed = ['currentStage', 'interviewAt', 'interviewNotes', 'firstInterviewPanel', 'hrOwner', 'assessmentType', 'hodRecommendation', 'evaluationScore', 'status'];
+    if (!sameDepartment) return res.status(403).json({ error: 'You may only update Interview Process records for your own Team / Department.' });
+    const allowed = ['currentStage', 'selectedStages', 'interviewAt', 'interviewNotes', 'firstInterviewPanel', 'hrOwner', 'assessmentType', 'hodRecommendation', 'evaluationScore', 'status'];
     for (const field of allowed) if (req.body[field] !== undefined) record[field] = req.body[field];
     if (req.body.finalDecision !== undefined) {
       if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'HR / Management final approval is required.' });

@@ -33,11 +33,11 @@ exports.getItems = async (req, res, next) => { try {
 
 exports.createItem = async (req, res, next) => { try {
   if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_CREATE)) return res.status(403).json({ error: 'Access denied.' });
-  const { sku, name, category, itemType, unit, openingQuantity, reorderLevel } = req.body;
+  const { sku, name, unit, openingQuantity, reorderLevel } = req.body;
   if (!clean(sku, 60) || !clean(name, 180)) return res.status(400).json({ error: 'SKU and item name are required.' });
   const opening = Number(openingQuantity || 0);
   if (!Number.isInteger(opening) || opening < 0) return res.status(400).json({ error: 'Opening quantity must be a whole number.' });
-  const item = await ProductionItem.create({ sku: clean(sku, 60).toUpperCase(), name: clean(name, 180), category: clean(category || 'General', 120), itemType: clean(itemType, 120), unit: clean(unit || 'pcs', 40), quantityOnHand: opening, reorderLevel: Math.max(0, Number(reorderLevel || 0)), createdBy: req.user._id,
+  const item = await ProductionItem.create({ sku: clean(sku, 60).toUpperCase(), name: clean(name, 180), category: 'General', itemType: '', unit: clean(unit || 'pcs', 40), quantityOnHand: opening, reorderLevel: Math.max(0, Number(reorderLevel || 0)), createdBy: req.user._id,
     movements: opening ? [{ direction: 'IN', quantity: opening, date: new Date().toISOString().slice(0, 10), reference: 'Opening Balance', actor: req.user._id, actorName: req.user.name }] : [] });
   res.status(201).json({ item: await serialize(await ProductionItem.findById(item._id).select('+imageStorageKey')) });
 } catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'SKU already exists.' }); next(error); } };

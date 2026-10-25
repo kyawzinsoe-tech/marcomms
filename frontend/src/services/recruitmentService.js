@@ -10,3 +10,4 @@ const parse = async (response) => {
 export const fetchRecruitmentCases = () => fetch('/api/recruitment', { headers: headers() }).then(parse).then((data) => data.records || []);
 export const fetchRecruitmentCase = (id) => fetch(`/api/recruitment/${id}`, { headers: headers() }).then(parse).then((data) => data.record);
 export const createRecruitmentCase = (payload) => fetch('/api/recruitment', { method: 'POST', headers: headers(), body: JSON.stringify(payload) }).then(parse).then((data) => data.record);
+export const updateRecruitmentCase = (id, payload) => fetch(`/api/recruitment/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(payload) }).then(parse).then((data) => data.record);

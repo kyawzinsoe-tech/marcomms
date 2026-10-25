@@ -82,15 +82,38 @@ exports.getOne = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
-    const { candidateName, position, department, selectedStages = [], firstInterviewPanel = [], interviewNotes = '' } = req.body;
+    const { candidateName, businessUnit = 'Creative', position, department, selectedStages = [], firstInterviewPanel = [], interviewNotes = '', hrOwner = '', assessmentType = '', cvUrl = '', portfolioUrl = '', interviewAt } = req.body;
     if (!candidateName || !position || !department) return res.status(400).json({ error: 'Candidate, position and department are required.' });
     if (req.user.role !== 'super_admin' && String(req.user.department || '').trim().toLowerCase() !== String(department).trim().toLowerCase()) {
       return res.status(403).json({ error: 'You may only create recruitment records for your own department.' });
     }
     const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
     const panel = Array.isArray(firstInterviewPanel) ? firstInterviewPanel.filter((role) => allowedInterviewers.has(role)) : [];
-    const record = await RecruitmentCase.create({ candidateName, position, department, selectedStages, firstInterviewPanel: panel, interviewNotes: String(interviewNotes).trim().slice(0, 1000), createdBy: req.user._id });
+    const safeLink = (value) => !value || /^https:\/\//i.test(String(value).trim()) ? String(value || '').trim().slice(0, 1000) : '';
+    const record = await RecruitmentCase.create({ candidateName, businessUnit, position, department, selectedStages, firstInterviewPanel: panel, interviewNotes: String(interviewNotes).trim().slice(0, 1000), hrOwner: String(hrOwner).trim().slice(0, 160), assessmentType, cvUrl: safeLink(cvUrl), portfolioUrl: safeLink(portfolioUrl), interviewAt: interviewAt || undefined, createdBy: req.user._id });
     res.status(201).json({ record });
+  } catch (error) { next(error); }
+};
+
+exports.update = async (req, res, next) => {
+  try {
+    if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
+    const record = await RecruitmentCase.findById(req.params.id);
+    if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
+    const sameDepartment = String(req.user.department || '').toLowerCase() === String(record.department || '').toLowerCase();
+    if (req.user.role !== 'super_admin' && !sameDepartment) return res.status(403).json({ error: 'You do not have access to this department.' });
+    const allowed = ['currentStage', 'interviewAt', 'interviewNotes', 'firstInterviewPanel', 'hrOwner', 'assessmentType', 'hodRecommendation', 'evaluationScore', 'status'];
+    for (const field of allowed) if (req.body[field] !== undefined) record[field] = req.body[field];
+    if (req.body.finalDecision !== undefined) {
+      if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'HR / Management final approval is required.' });
+      record.finalDecision = req.body.finalDecision;
+      if (req.body.finalDecision === 'Approved') record.currentStage = 'approved';
+      if (req.body.finalDecision === 'On Hold') record.currentStage = 'on_hold';
+      if (req.body.finalDecision === 'Not Approved') record.currentStage = 'not_approved';
+    }
+    await record.save();
+    logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_RECORD_UPDATED', targetEntity: 'RecruitmentCase', targetId: record._id, ip: clientIp(req), metadata: { currentStage: record.currentStage, finalDecision: record.finalDecision } });
+    res.json({ record });
   } catch (error) { next(error); }
 };
 

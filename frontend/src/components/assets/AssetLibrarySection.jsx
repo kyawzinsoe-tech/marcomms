@@ -58,7 +58,11 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
 
   const save = async (data) => {
     try {
-      if (editing) {
+      if (editing && data.file) {
+        await uploadBrandAsset({ title: data.title, library, category: 'General' }, data.file, setProgress);
+        await deleteAsset(editing.id);
+        onNotify?.(`Replaced “${data.title}” with a secure uploaded image.`, 'success');
+      } else if (editing) {
         await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles });
         onNotify?.(`Updated “${data.title}”.`, 'success');
       } else if (data.file) {
@@ -149,7 +153,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
             <article className="brand-asset-card" key={asset.id}>
               <div className="brand-asset-preview">
                 {(asset.thumbnailUrl || driveThumbnail(asset)) && !brokenImages.has(asset.id) ? (
-                  <img src={asset.thumbnailUrl || driveThumbnail(asset)} alt={asset.title} onError={() => setBrokenImages((current) => new Set(current).add(asset.id))} />
+                  <img referrerPolicy="no-referrer" src={asset.thumbnailUrl || driveThumbnail(asset)} alt={asset.title} onError={() => setBrokenImages((current) => new Set(current).add(asset.id))} />
                 ) : <ImageIcon />}
               </div>
               <h3>{asset.title}</h3>

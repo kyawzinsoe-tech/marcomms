@@ -15,6 +15,12 @@ export async function uploadProductionItemImage(id, file) {
   const response = await fetch(`/api/production-inventory/${id}/image`, { method: 'PUT', headers: { ...headers(), 'Content-Type': file.type, 'X-File-Name': file.name }, body: file }).then(handleApiResponse);
   return result(response, 'item');
 }
+export async function updateProductionItem(id, payload) {
+  return result(await fetch(`/api/production-inventory/${id}`, { method: 'PUT', headers: headers(true), body: JSON.stringify(payload) }).then(handleApiResponse), 'item');
+}
+export async function deleteProductionItem(id) {
+  return result(await fetch(`/api/production-inventory/${id}`, { method: 'DELETE', headers: headers() }).then(handleApiResponse));
+}
 export async function addStockMovement(id, payload) {
   return result(await fetch(`/api/production-inventory/${id}/movements`, { method: 'POST', headers: headers(true), body: JSON.stringify(payload) }).then(handleApiResponse), 'item');
 }

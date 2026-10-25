@@ -56,6 +56,30 @@ exports.uploadImage = async (req, res, next) => { try {
   await item.save(); res.json({ item: await serialize(item) });
 } catch (error) { next(error); } };
 
+exports.updateItem = async (req, res, next) => { try {
+  if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });
+  const item = await ProductionItem.findById(req.params.id).select('+imageStorageKey');
+  if (!item) return res.status(404).json({ error: 'Production item not found.' });
+  if (req.body.sku !== undefined) item.sku = clean(req.body.sku, 60).toUpperCase();
+  if (req.body.name !== undefined) item.name = clean(req.body.name, 180);
+  if (req.body.unit !== undefined) item.unit = clean(req.body.unit || 'pcs', 40);
+  if (req.body.reorderLevel !== undefined) item.reorderLevel = Math.max(0, Number(req.body.reorderLevel || 0));
+  if (!item.sku || !item.name) return res.status(400).json({ error: 'SKU and item name are required.' });
+  await item.save();
+  res.json({ item: await serialize(item) });
+} catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'SKU already exists.' }); next(error); } };
+
+exports.deleteItem = async (req, res, next) => { try {
+  if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });
+  const item = await ProductionItem.findById(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Production item not found.' });
+  item.archived = true;
+  await item.save();
+  res.json({ success: true });
+} catch (error) { next(error); } };
+
 exports.addMovement = async (req, res, next) => { try {
   if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });

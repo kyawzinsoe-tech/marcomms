@@ -17,7 +17,7 @@ const MODULES = [
   ['overview', 'Overview'], ['center', 'Recruitment Center'], ['business-units', 'Business Unit Management'],
   ['positions', 'Positions & Job Openings'], ['registry', 'Candidate Registry'], ['calendar', 'Interview Calendar'],
   ['assessments', 'Assessment Center'], ['recommendations', 'HOD Recommendations'], ['approvals', 'HR / Management Approvals'],
-  ['reports', 'Reports & Analytics'], ['settings', 'Settings & Permissions']
+  ['reports', 'Reports & Analytics']
 ];
 const GUIDE = {
   overview: 'ကိုယ့် Team ရဲ့ candidate အရေအတွက်နဲ့ လက်ရှိ process အခြေအနေကို အကျဉ်းချုပ်ကြည့်ရန်။',
@@ -29,8 +29,7 @@ const GUIDE = {
   assessments: 'Assessment လိုအပ်သော candidate များနှင့် စစ်ဆေးမှုအခြေအနေကို ကြည့်ရန်။',
   recommendations: 'HOD recommendation နှင့် evaluation score ကို ပြန်လည်စစ်ဆေးရန်။',
   approvals: 'HR / Management က နောက်ဆုံးဆုံးဖြတ်ချက် ချမှတ်ရန်။',
-  reports: 'ကိုယ့် Team recruitment အခြေအနေကို ကိန်းဂဏန်းဖြင့်ကြည့်ရန်။',
-  settings: 'Interview panel၊ permission နှင့် approval rule များကို စစ်ဆေးရန်။'
+  reports: 'ကိုယ့် Team recruitment အခြေအနေကို ကိန်းဂဏန်းဖြင့်ကြည့်ရန်။'
 };
 
 export function RecruitmentSection({ user, onNotify }) {
@@ -40,13 +39,14 @@ export function RecruitmentSection({ user, onNotify }) {
   const [newUnit, setNewUnit] = useState('');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ ...EMPTY, department: user?.department || '' });
+  const teamDepartment = user?.department || (user?.role === 'super_admin' ? 'Creative' : '');
+  const [form, setForm] = useState({ ...EMPTY, department: teamDepartment });
   const load = useCallback(async () => { try { const [caseRows, units] = await Promise.all([fetchRecruitmentCases(), fetchRecruitmentBusinessUnits()]); setRecords(caseRows); setBusinessUnits(units); } catch (error) { onNotify?.(error.message, 'error'); } finally { setLoading(false); } }, [onNotify]);
   useEffect(() => { load(); }, [load]);
   const stats = useMemo(() => ({ total: records.length, interviews: records.filter((r) => ['interview_scheduled', 'interview_completed', 'hod_interview'].includes(r.currentStage)).length, approvals: records.filter((r) => r.currentStage === 'pending_final_approval').length, hired: records.filter((r) => ['approved', 'offer'].includes(r.currentStage)).length }), [records]);
   const setField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
   const togglePanel = (role) => setForm((current) => ({ ...current, firstInterviewPanel: current.firstInterviewPanel.includes(role) ? current.firstInterviewPanel.filter((item) => item !== role) : [...current.firstInterviewPanel, role] }));
-  const submit = async (event) => { event.preventDefault(); try { await createRecruitmentCase(form); setForm({ ...EMPTY, department: user?.department || '' }); await load(); onNotify?.('Candidate added to Recruitment Center.', 'success'); } catch (error) { onNotify?.(error.message, 'error'); } };
+  const submit = async (event) => { event.preventDefault(); if (!form.candidateName.trim() || !form.position.trim()) return onNotify?.('Candidate Name နဲ့ Position ကို ဖြည့်ပါ။', 'error'); if (!form.department) return onNotify?.('User Management မှာ Team / Department ကို အရင်သတ်မှတ်ပါ။', 'error'); try { await createRecruitmentCase(form); setForm({ ...EMPTY, department: teamDepartment }); await load(); onNotify?.('Candidate added to Recruitment Center.', 'success'); } catch (error) { onNotify?.(error.message, 'error'); } };
   const openRecord = async (id) => { try { setSelected(await fetchRecruitmentCase(id)); } catch (error) { onNotify?.(error.message, 'error'); } };
   const saveSelected = async (changes) => { try { const updated = await updateRecruitmentCase(selected._id, changes); setSelected(updated); await load(); onNotify?.('Recruitment workflow updated.', 'success'); } catch (error) { onNotify?.(error.message, 'error'); } };
   const moveWorkflow = async (skip = false) => {
@@ -66,12 +66,12 @@ export function RecruitmentSection({ user, onNotify }) {
     {module === 'overview' && <><div className="sub-summary-bar"><span><Users size={15}/><b>{stats.total}</b> Candidates</span><span><CalendarDays size={15}/><b>{stats.interviews}</b> Interviews</span><span><BriefcaseBusiness size={15}/><b>{stats.approvals}</b> Pending Approval</span><span><CheckCircle2 size={15}/><b>{stats.hired}</b> Approved / Offer</span></div><div className="recruitment-overview-grid"><div><h3>Recruitment Workflow</h3>{PIPELINE.map(([id,label])=><span className="status-badge" key={id}>{label} · {records.filter((r)=>r.currentStage===id).length}</span>)}</div><div><h3>Business Unit Summary</h3>{BUSINESS_UNITS.filter((x)=>x!=='Other').map((bu)=><p key={bu}><b>{bu}</b><span>{records.filter((r)=>r.businessUnit===bu).length} candidate(s)</span></p>)}</div></div></>}
     {module === 'center' && <>
     <div className="sub-summary-bar"><span><Users size={15}/><b>{stats.total}</b> Candidates</span><span><CalendarDays size={15}/><b>{stats.interviews}</b> Interviews</span><span><BriefcaseBusiness size={15}/><b>{stats.approvals}</b> Pending Approval</span><span><CheckCircle2 size={15}/><b>{stats.hired}</b> Approved / Offer</span></div>
-    <form onSubmit={submit} className="modal-form-section">
+    <form onSubmit={submit} noValidate className="modal-form-section">
       <h3>Add Candidate</h3><div className="form-grid">
-        <label className="form-group">Candidate Name *<input required maxLength={160} value={form.candidateName} onChange={(e) => setField('candidateName', e.target.value)}/></label>
+        <label className="form-group">Candidate Name *<input maxLength={160} value={form.candidateName} onChange={(e) => setField('candidateName', e.target.value)}/></label>
         <label className="form-group">Business Unit *<select value={form.businessUnit} onChange={(e) => setField('businessUnit', e.target.value)}>{BUSINESS_UNITS.map((unit) => <option key={unit}>{unit}</option>)}</select></label>
-        <label className="form-group">Position *<input required maxLength={160} value={form.position} onChange={(e) => setField('position', e.target.value)}/></label>
-        <label className="form-group">Department *<input required maxLength={120} value={form.department} onChange={(e) => setField('department', e.target.value)}/></label>
+        <label className="form-group">Position *<input maxLength={160} value={form.position} onChange={(e) => setField('position', e.target.value)}/></label>
+        <label className="form-group">Team / Department *<input readOnly value={form.department} placeholder="Set in User Management"/><small>ကိုယ့် Team records ပဲမြင်ရပါမယ်။</small></label>
         <label className="form-group">Business Unit HR Owner<input value={form.hrOwner} onChange={(e) => setField('hrOwner', e.target.value)} placeholder="Assigned HR name / team"/></label>
         <label className="form-group">Position-Based Assessment<select value={form.assessmentType} onChange={(e) => setField('assessmentType', e.target.value)}>{ASSESSMENTS.map((item) => <option key={item} value={item}>{item || 'No assessment'}</option>)}</select></label>
         <label className="form-group">CV Link<input type="url" value={form.cvUrl} onChange={(e) => setField('cvUrl', e.target.value)} placeholder="https://..."/></label>
@@ -80,7 +80,7 @@ export function RecruitmentSection({ user, onNotify }) {
         <label className="form-group">Interview Notes<textarea maxLength={1000} value={form.interviewNotes} onChange={(e) => setField('interviewNotes', e.target.value)}/></label>
       </div>
       <strong>First Interview Panel</strong><div className="recruitment-panel-options">{INTERVIEWERS.map((role) => <label key={role} className="status-badge"><input type="checkbox" checked={form.firstInterviewPanel.includes(role)} onChange={() => togglePanel(role)}/> {role}</label>)}</div>
-      <div className="modal-footer"><button className="btn btn-primary"><Plus size={15}/> Add Candidate</button></div>
+      <div className="modal-footer"><button type="submit" className="btn btn-primary"><Plus size={15}/> Add Candidate</button></div>
     </form>
     {loading ? <div className="empty-state"><Loader2 className="animate-spin"/> Loading…</div> : <div className="table-container"><table><thead><tr><th>Candidate</th><th>Business Unit</th><th>Position</th><th>HR Owner</th><th>Current Stage</th><th>Action</th></tr></thead><tbody>{records.map((record) => <tr key={record._id}><td><b>{record.candidateName}</b><small>{record.department}</small></td><td>{record.businessUnit || 'Creative'}</td><td>{record.position}</td><td>{record.hrOwner || '—'}</td><td><span className="status-badge">{labelFor(record.currentStage)}</span></td><td><button type="button" className="btn btn-outline btn-sm" onClick={() => openRecord(record._id)}><Eye size={14}/> Open</button></td></tr>)}</tbody></table></div>}
     {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}><div className="modal-header"><div><h3>{selected.candidateName}</h3><p>{selected.businessUnit} · {selected.position} · {selected.department}</p></div><button className="btn btn-outline" onClick={() => setSelected(null)}>Close</button></div><div className="modal-form-section"><div className="form-grid"><label className="form-group">Current Process<select value={selected.currentStage} onChange={(e) => setSelected({ ...selected, currentStage: e.target.value })}>{PIPELINE.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="form-group">Evaluation Score (0–100)<input type="number" min="0" max="100" value={selected.evaluationScore ?? ''} onChange={(e) => setSelected({ ...selected, evaluationScore: e.target.value })}/></label><label className="form-group">HOD Recommendation<select value={selected.hodRecommendation || ''} onChange={(e) => setSelected({ ...selected, hodRecommendation: e.target.value })}><option value="">Pending</option><option>Proceed</option><option>Hold</option><option>Not Recommended</option></select></label><label className="form-group">HR / Management Final Approval<select value={selected.finalDecision || 'Pending'} onChange={(e) => setSelected({ ...selected, finalDecision: e.target.value })}><option>Pending</option><option>Approved</option><option>On Hold</option><option>Not Approved</option></select></label></div><p><b>First Interview Panel:</b> {selected.firstInterviewPanel?.join(', ') || 'Not assigned'}</p><p><b>Assessment:</b> {selected.assessmentType || 'Not assigned'}</p>{selected.selectedStages?.length > 0 && <p><b>Skipped Process:</b> {selected.selectedStages.map(labelFor).join(', ')}</p>}{selected.cvUrl && <a href={selected.cvUrl} target="_blank" rel="noreferrer">Open CV</a>} {selected.portfolioUrl && <a href={selected.portfolioUrl} target="_blank" rel="noreferrer">Open Portfolio</a>}<div className="modal-footer"><button className="btn btn-outline" disabled={PIPELINE.findIndex(([id]) => id === selected.currentStage) >= PIPELINE.length - 2} onClick={() => moveWorkflow(true)}>Skip Next Step</button><button className="btn btn-outline" disabled={PIPELINE.findIndex(([id]) => id === selected.currentStage) >= PIPELINE.length - 1} onClick={() => moveWorkflow(false)}>Move to Next Step</button><button className="btn btn-primary" onClick={() => saveSelected({ currentStage: selected.currentStage, evaluationScore: selected.evaluationScore === '' ? undefined : Number(selected.evaluationScore), hodRecommendation: selected.hodRecommendation, finalDecision: selected.finalDecision })}>Save Workflow</button></div></div></div></div>}
@@ -93,7 +93,6 @@ export function RecruitmentSection({ user, onNotify }) {
     {module === 'recommendations' && <ModuleTable title="HOD Recommendations" records={records.filter((r)=>['assessment_review','hod_recommendation','pending_final_approval'].includes(r.currentStage)||r.hodRecommendation)} columns={['Candidate','Business Unit','Score','Recommendation']} row={(r)=>[r.candidateName,r.businessUnit,r.evaluationScore??'—',r.hodRecommendation||'Pending']}/>} 
     {module === 'approvals' && <ModuleTable title="HR / Management Approvals" records={records.filter((r)=>['pending_final_approval','approved','on_hold','not_approved','offer','closed'].includes(r.currentStage))} columns={['Candidate','Position','Pipeline','Decision']} row={(r)=>[r.candidateName,r.position,labelFor(r.currentStage),r.finalDecision||'Pending']}/>} 
     {module === 'reports' && <div className="recruitment-overview-grid"><div><h3>Pipeline Analytics</h3><p><b>{records.length}</b><span>Total candidates</span></p><p><b>{stats.interviews}</b><span>Interview stages</span></p></div><div><h3>Decision Analytics</h3><p><b>{stats.approvals}</b><span>Awaiting approval</span></p><p><b>{stats.hired}</b><span>Approved / Offer</span></p></div></div>}
-    {module === 'settings' && <div className="recruitment-settings"><h3>Settings & Permissions</h3>{['Business Unit Name, Code and Status','Assigned HR Team','Departments and Positions','Interview Panel and HOD','Position-Based Assessment Templates','Final Approval Hierarchy','Candidate Data Permissions','Notification Recipients','Audit and Archive Settings'].map((x)=><div key={x}><CheckCircle2 size={16}/>{x}</div>)}</div>}
   </section>;
 }
 

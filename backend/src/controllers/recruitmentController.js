@@ -33,6 +33,7 @@ exports.updateBusinessUnit = async (req, res, next) => { try {
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
 }
+const teamFor = (user) => String(user?.department || (user?.role === 'super_admin' ? 'Creative' : '')).trim();
 
 async function recordView(req, record) {
   const actorDepartment = (req.user.department || '').trim();
@@ -84,7 +85,7 @@ async function recordView(req, record) {
 exports.list = async (req, res, next) => {
   try {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
-    const department = String(req.user.department || '').trim();
+    const department = teamFor(req.user);
     if (!department) return res.status(403).json({ error: 'Assign your Team / Department in User Management before opening Interview Process.' });
     const filter = { department: new RegExp(`^${department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     const records = await RecruitmentCase.find(filter).sort({ updatedAt: -1 }).lean();
@@ -97,7 +98,7 @@ exports.getOne = async (req, res, next) => {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
     const record = await RecruitmentCase.findById(req.params.id);
     if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
-    const sameDepartment = (req.user.department || '').toLowerCase() === record.department.toLowerCase();
+    const sameDepartment = teamFor(req.user).toLowerCase() === record.department.toLowerCase();
     if (!sameDepartment) return res.status(403).json({ error: 'You may only view Interview Process records for your own Team / Department.' });
     await recordView(req, record);
     res.json({ record });
@@ -109,7 +110,7 @@ exports.create = async (req, res, next) => {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
     const { candidateName, businessUnit = 'Creative', position, department, selectedStages = [], firstInterviewPanel = [], interviewNotes = '', hrOwner = '', assessmentType = '', cvUrl = '', portfolioUrl = '', interviewAt } = req.body;
     if (!candidateName || !position || !department) return res.status(400).json({ error: 'Candidate, position and department are required.' });
-    if (String(req.user.department || '').trim().toLowerCase() !== String(department).trim().toLowerCase()) {
+    if (teamFor(req.user).toLowerCase() !== String(department).trim().toLowerCase()) {
       return res.status(403).json({ error: 'You may only create recruitment records for your own department.' });
     }
     const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
@@ -125,7 +126,7 @@ exports.update = async (req, res, next) => {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
     const record = await RecruitmentCase.findById(req.params.id);
     if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
-    const sameDepartment = String(req.user.department || '').toLowerCase() === String(record.department || '').toLowerCase();
+    const sameDepartment = teamFor(req.user).toLowerCase() === String(record.department || '').toLowerCase();
     if (!sameDepartment) return res.status(403).json({ error: 'You may only update Interview Process records for your own Team / Department.' });
     const allowed = ['currentStage', 'selectedStages', 'interviewAt', 'interviewNotes', 'firstInterviewPanel', 'hrOwner', 'assessmentType', 'hodRecommendation', 'evaluationScore', 'status'];
     for (const field of allowed) if (req.body[field] !== undefined) record[field] = req.body[field];

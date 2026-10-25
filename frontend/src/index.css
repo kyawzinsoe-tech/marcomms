@@ -2168,6 +2168,10 @@ tbody tr:hover {
 .recruitment-module-nav button{white-space:nowrap;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-secondary);border-radius:999px;padding:9px 13px;font-weight:700;cursor:pointer}
 .recruitment-module-nav button.active{background:var(--primary);border-color:var(--primary);color:white}
 .recruitment-guide{margin:0 0 18px;padding:12px 14px;border:1px solid var(--border-default);border-radius:12px;background:var(--bg-secondary);color:var(--text-secondary)}
+.inventory-card-highlight{outline:3px solid var(--primary);box-shadow:0 0 0 6px color-mix(in srgb,var(--primary) 14%,transparent)}
+.inventory-card-actions{display:flex;gap:8px;margin-top:10px}
+.inventory-upload-preview{grid-column:1/-1;max-width:260px;border:1px solid var(--border-default);border-radius:12px;overflow:hidden;background:var(--bg-secondary)}
+.inventory-upload-preview img{display:block;width:100%;max-height:200px;object-fit:contain}
 .recruitment-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.recruitment-overview-grid>div,.recruitment-config-list article,.recruitment-settings,.recruitment-module-table{border:1px solid var(--border-default);border-radius:16px;padding:18px;background:var(--bg-surface)}
 .recruitment-overview-grid .status-badge{display:inline-flex;margin:5px}.recruitment-overview-grid p{display:flex;justify-content:space-between;border-bottom:1px solid var(--border-default);padding:10px 0}
 .recruitment-config-list{display:grid;gap:12px}.recruitment-config-list article{display:grid;grid-template-columns:1fr auto;align-items:center}.recruitment-config-list article p{grid-column:1/-1;color:var(--text-muted);margin:8px 0 0}

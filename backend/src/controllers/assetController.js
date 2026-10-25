@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const Asset = require('../models/Asset');
 const { PERMISSIONS, hasPermission } = require('../config/rbac');
 const {
-  uploadAssetObject,
   deleteAssetObject,
   createAssetDownloadUrl
 } = require('../services/storageService');
@@ -126,11 +125,12 @@ exports.getAssets = async (req, res, next) => {
       query.$and = [{ $or: [{ title: regex }, { description: regex }, { tags: regex }] }];
     }
 
-    const assets = await Asset.find(query).select('+storageKey').sort({ createdAt: -1 });
+    const assets = await Asset.find(query).select('+storageKey +imageData').sort({ createdAt: -1 });
 
     const serializedAssets = await Promise.all(assets.map(async (a) => {
       let securedUrl = '';
-      if (a.uploadStatus === 'ready' && a.storageKey) securedUrl = await createAssetDownloadUrl(a.storageKey);
+      if (a.uploadStatus === 'ready' && a.imageData?.length) securedUrl = `/api/assets/${a._id}/content`;
+      else if (a.uploadStatus === 'ready' && a.storageKey) securedUrl = await createAssetDownloadUrl(a.storageKey).catch(() => '');
       return {
         id: String(a._id), title: a.title, library: a.library, category: a.category,
         fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl, downloadUrl: a.downloadUrl, linkedFiles: a.linkedFiles || [],
@@ -156,7 +156,7 @@ exports.getAssetById = async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid asset ID format.' });
     }
 
-    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    const asset = await Asset.findById(req.params.id).select('+storageKey +imageData');
     if (!asset) {
       return res.status(404).json({ error: 'Asset not found.' });
     }
@@ -211,8 +211,10 @@ exports.createAsset = async (req, res, next) => {
 
     const safeFiles = safeLinkedFiles(linkedFiles);
     if (safeFiles === null) return res.status(400).json({ error: 'Each linked file must use Google Drive/Docs and an approved file type.' });
-    const primaryUrl = safeFiles[0]?.url || safeGoogleDriveUrl(fileUrl);
-    if (!primaryUrl) return res.status(400).json({ error: 'Add at least one Google Drive file link.' });
+    const safePreviewUrl = safeGoogleDriveUrl(fileUrl);
+    if (safePreviewUrl === null) return res.status(400).json({ error: 'Preview must be a Google Drive individual-file URL.' });
+    const primaryUrl = safePreviewUrl || safeFiles[0]?.url;
+    if (!primaryUrl) return res.status(400).json({ error: 'Add a preview image or at least one Google Drive file link.' });
     const safeDownloadUrl = safeGoogleDriveUrl(downloadUrl);
     if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
     const normalizedType = String(fileType || '').toUpperCase().trim();
@@ -225,9 +227,9 @@ exports.createAsset = async (req, res, next) => {
       library: targetLibrary,
       category: safeText(category || 'General', 100),
       fileUrl: primaryUrl,
-      thumbnailUrl: (thumbnailUrl || '').trim(),
+      thumbnailUrl: primaryUrl,
       downloadUrl: safeDownloadUrl,
-      linkedFiles: safeFiles.length ? safeFiles : [{ label: safeText(title), fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType, url: primaryUrl }],
+      linkedFiles: safeFiles,
       fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType,
       fileSize: Number(fileSize || 0),
       version: safeText(version || '1.0', 30),
@@ -306,15 +308,28 @@ exports.uploadAssetContent = async (req, res, next) => {
       return res.status(400).json({ error: 'Uploaded file signature does not match PNG/JPEG.' });
     }
 
-    await uploadAssetObject(asset.storageKey, req.body, asset.mimeType);
+    asset.imageData = req.body;
     asset.uploadStatus = 'ready';
     await asset.save();
-    const url = await createAssetDownloadUrl(asset.storageKey);
+    const url = `/api/assets/${asset._id}/content`;
     return res.status(200).json({ asset: {
       id: String(asset._id), title: asset.title, library: asset.library,
       fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url,
       thumbnailUrl: url, downloadUrl: asset.downloadUrl, uploadStatus: asset.uploadStatus
     } });
+  } catch (error) { next(error); }
+};
+
+exports.getAssetContent = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
+    const asset = await Asset.findById(req.params.id).select('+imageData');
+    if (!asset) return res.status(404).json({ error: 'Asset not found.' });
+    if (!canReadLibrary(req.user, asset.library)) return res.status(403).json({ error: 'Access denied.' });
+    if (!asset.imageData?.length) return res.status(404).json({ error: 'Preview image not found.' });
+    res.set('Content-Type', asset.mimeType || 'application/octet-stream');
+    res.set('Cache-Control', 'private, max-age=300');
+    res.send(asset.imageData);
   } catch (error) { next(error); }
 };
 
@@ -335,11 +350,11 @@ exports.abortAssetUpload = async (req, res, next) => {
 exports.completeAssetUpload = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
-    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    const asset = await Asset.findById(req.params.id).select('+storageKey +imageData');
     if (!asset) return res.status(404).json({ error: 'Asset not found.' });
     if (!canWriteLibrary(req.user, asset.library, 'create')) return res.status(403).json({ error: 'Access denied.' });
     if (asset.uploadStatus !== 'ready') return res.status(409).json({ error: 'Upload content has not been received.' });
-    const url = await createAssetDownloadUrl(asset.storageKey);
+    const url = asset.imageData?.length ? `/api/assets/${asset._id}/content` : await createAssetDownloadUrl(asset.storageKey);
     res.status(200).json({ asset: { id: String(asset._id), title: asset.title, library: asset.library, fileType: asset.fileType, fileSize: asset.fileSize, fileUrl: url, thumbnailUrl: url, downloadUrl: asset.downloadUrl, uploadStatus: asset.uploadStatus } });
   } catch (error) { next(error); }
 };
@@ -347,10 +362,11 @@ exports.completeAssetUpload = async (req, res, next) => {
 exports.getAssetDownloadUrl = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid asset ID.' });
-    const asset = await Asset.findById(req.params.id).select('+storageKey');
+    const asset = await Asset.findById(req.params.id).select('+storageKey +imageData');
     if (!asset) return res.status(404).json({ error: 'Asset not found.' });
     if (!canReadLibrary(req.user, asset.library)) return res.status(403).json({ error: 'Access denied.' });
-    if (asset.uploadStatus !== 'ready' || !asset.storageKey) return res.status(409).json({ error: 'Asset is not ready.' });
+    if (asset.uploadStatus !== 'ready' || (!asset.storageKey && !asset.imageData?.length)) return res.status(409).json({ error: 'Asset is not ready.' });
+    if (asset.imageData?.length) return res.status(200).json({ url: `/api/assets/${asset._id}/content`, authenticated: true });
     res.status(200).json({ url: await createAssetDownloadUrl(asset.storageKey), expiresIn: 300 });
   } catch (error) { next(error); }
 };
@@ -371,16 +387,22 @@ exports.updateAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to update ${asset.library} assets.` });
     }
 
-    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'linkedFiles', 'archived'];
+    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'linkedFiles', 'fileUrl', 'thumbnailUrl', 'archived'];
     const safeUpdates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
     if (Object.prototype.hasOwnProperty.call(safeUpdates, 'downloadUrl')) {
       const safeDownloadUrl = safeGoogleDriveUrl(safeUpdates.downloadUrl);
       if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
       safeUpdates.downloadUrl = safeDownloadUrl;
     }
+    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'fileUrl')) {
+      const previewUrl = safeGoogleDriveUrl(safeUpdates.fileUrl);
+      if (!previewUrl) return res.status(400).json({ error: 'Preview must be a Google Drive individual-file URL.' });
+      safeUpdates.fileUrl = previewUrl;
+      safeUpdates.thumbnailUrl = previewUrl;
+    }
     if (Object.prototype.hasOwnProperty.call(safeUpdates, 'linkedFiles')) {
       const safeFiles = safeLinkedFiles(safeUpdates.linkedFiles);
-      if (safeFiles === null || safeFiles.length === 0) return res.status(400).json({ error: 'Add at least one valid Google Drive file link.' });
+      if (safeFiles === null) return res.status(400).json({ error: 'Every download must use a valid Google Drive individual-file link.' });
       safeUpdates.linkedFiles = safeFiles;
       safeUpdates.fileUrl = safeFiles[0].url;
       safeUpdates.fileType = safeFiles[0].fileType;

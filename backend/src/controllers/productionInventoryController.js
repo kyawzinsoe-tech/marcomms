@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const ProductionItem = require('../models/ProductionItem');
 const { PERMISSIONS, hasPermission } = require('../config/rbac');
-const { uploadAssetObject, createAssetDownloadUrl } = require('../services/storageService');
+const { createAssetDownloadUrl } = require('../services/storageService');
 
 const ALLOWED = new Set(['image/png', 'image/jpeg']);
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -17,7 +17,8 @@ function validSignature(buffer, type) {
 
 async function serialize(item) {
   let imageUrl = '';
-  if (item.imageStorageKey) imageUrl = await createAssetDownloadUrl(item.imageStorageKey);
+  if (item.imageData?.length) imageUrl = `/api/production-inventory/${item._id}/image`;
+  else if (item.imageStorageKey) imageUrl = await createAssetDownloadUrl(item.imageStorageKey).catch(() => '');
   const received = item.movements.filter((m) => m.direction === 'IN').reduce((sum, m) => sum + m.quantity, 0);
   const issued = item.movements.filter((m) => m.direction === 'OUT').reduce((sum, m) => sum + m.quantity, 0);
   return { id: String(item._id), sku: item.sku, name: item.name, category: item.category, itemType: item.itemType, unit: item.unit, quantityOnHand: item.quantityOnHand, reorderLevel: item.reorderLevel, imageUrl, received, issued, archived: item.archived,
@@ -27,7 +28,7 @@ async function serialize(item) {
 exports.getItems = async (req, res, next) => { try {
   if (!canRead(req.user)) return res.status(403).json({ error: 'Access denied.' });
   const query = req.query.archived === 'true' ? {} : { archived: false };
-  const items = await ProductionItem.find(query).select('+imageStorageKey').sort({ name: 1 });
+  const items = await ProductionItem.find(query).select('+imageStorageKey +imageData').sort({ name: 1 });
   res.json({ items: await Promise.all(items.map(serialize)) });
 } catch (error) { next(error); } };
 
@@ -51,9 +52,20 @@ exports.uploadImage = async (req, res, next) => { try {
   if (!item) return res.status(404).json({ error: 'Production item not found.' });
   const ext = type === 'image/png' ? '.png' : '.jpg';
   const key = `production-items/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${ext}`;
-  await uploadAssetObject(key, req.body, type);
+  item.imageData = req.body;
   item.imageStorageKey = key; item.imageMimeType = type; item.imageOriginalName = clean(req.get('x-file-name') || `item${ext}`, 140);
   await item.save(); res.json({ item: await serialize(item) });
+} catch (error) { next(error); } };
+
+exports.getImage = async (req, res, next) => { try {
+  if (!canRead(req.user)) return res.status(403).json({ error: 'Access denied.' });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid item ID.' });
+  const item = await ProductionItem.findById(req.params.id).select('+imageData');
+  if (!item) return res.status(404).json({ error: 'Production item not found.' });
+  if (!item.imageData?.length) return res.status(404).json({ error: 'Item photo not found.' });
+  res.set('Content-Type', item.imageMimeType || 'application/octet-stream');
+  res.set('Cache-Control', 'private, max-age=300');
+  res.send(item.imageData);
 } catch (error) { next(error); } };
 
 exports.updateItem = async (req, res, next) => { try {

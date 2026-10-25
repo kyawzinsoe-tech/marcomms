@@ -1,10 +1,11 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
-const { getItems, createItem, updateItem, deleteItem, uploadImage, addMovement } = require('../controllers/productionInventoryController');
+const { getItems, createItem, updateItem, deleteItem, uploadImage, getImage, addMovement } = require('../controllers/productionInventoryController');
 const router = express.Router();
 router.use(protect);
 router.route('/').get(getItems).post(createItem);
 router.route('/:id').put(updateItem).delete(deleteItem);
 router.put('/:id/image', express.raw({ type: ['image/png', 'image/jpeg'], limit: '8mb' }), uploadImage);
+router.get('/:id/image', getImage);
 router.post('/:id/movements', addMovement);
 module.exports = router;

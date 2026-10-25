@@ -23,6 +23,7 @@ const productionItemSchema = new mongoose.Schema({
   quantityOnHand: { type: Number, min: 0, default: 0 },
   reorderLevel: { type: Number, min: 0, default: 0 },
   imageStorageKey: { type: String, select: false, default: '' },
+  imageData: { type: Buffer, select: false },
   imageMimeType: { type: String, enum: ['', 'image/png', 'image/jpeg'], default: '' },
   imageOriginalName: { type: String, trim: true, maxlength: 140, default: '' },
   movements: { type: [movementSchema], default: [] },

@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Edit, FolderOpen, Image as ImageIcon, Layers, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { AssetModal } from './AssetModal';
 import { ErrorDialog } from '../common/ErrorDialog';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import {
   ASSET_LIBRARY_LABELS,
   createLinkedAsset,
   deleteAsset,
-  fetchAssetDownloadUrl,
   fetchAssets,
+  openAssetDownload,
   updateAsset,
   uploadBrandAsset
 } from '../../services/assetService';
@@ -59,11 +60,16 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
   const save = async (data) => {
     try {
       if (editing && data.file) {
-        await uploadBrandAsset({ title: data.title, library, category: 'General' }, data.file, setProgress);
+        await uploadBrandAsset({ title: data.title, library, category: 'General', linkedFiles: data.linkedFiles }, data.file, setProgress);
         await deleteAsset(editing.id);
         onNotify?.(`Replaced “${data.title}” with a secure uploaded image.`, 'success');
       } else if (editing) {
-        await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles });
+        if (data.previewDriveUrl && editing.uploadStatus !== 'external') {
+          await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles });
+          await deleteAsset(editing.id);
+        } else {
+          await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles, ...(data.previewDriveUrl ? { fileUrl: data.previewDriveUrl, thumbnailUrl: data.previewDriveUrl } : {}) });
+        }
         onNotify?.(`Updated “${data.title}”.`, 'success');
       } else if (data.file) {
         await uploadBrandAsset({
@@ -75,7 +81,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
         }, data.file, setProgress);
         onNotify?.(`Uploaded “${data.title}”.`, 'success');
       } else {
-        await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileSize: 0, fileUrl: data.linkedFiles[0]?.url, linkedFiles: data.linkedFiles });
+        await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileSize: 0, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles });
         onNotify?.(`Saved “${data.title}” from Google Drive.`, 'success');
       }
       setModalOpen(false);
@@ -91,8 +97,8 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
 
   const download = async (asset) => {
     try {
-      const url = asset.downloadUrl || await fetchAssetDownloadUrl(asset.id);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      if (asset.downloadUrl) window.open(asset.downloadUrl, '_blank', 'noopener,noreferrer');
+      else await openAssetDownload(asset.id);
     } catch (downloadError) {
       setError(downloadError.message || 'Unable to download asset.');
     }
@@ -153,7 +159,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
             <article className="brand-asset-card" key={asset.id}>
               <div className="brand-asset-preview">
                 {(asset.thumbnailUrl || driveThumbnail(asset)) && !brokenImages.has(asset.id) ? (
-                  <img referrerPolicy="no-referrer" src={asset.thumbnailUrl || driveThumbnail(asset)} alt={asset.title} onError={() => setBrokenImages((current) => new Set(current).add(asset.id))} />
+                  <AuthenticatedImage src={asset.thumbnailUrl || driveThumbnail(asset)} alt={asset.title} fallback={<ImageIcon />} />
                 ) : <ImageIcon />}
               </div>
               <h3>{asset.title}</h3>

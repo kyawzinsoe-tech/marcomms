@@ -85,3 +85,16 @@ export async function fetchAssetDownloadUrl(id) {
   if (!data.url) throw new Error('Download link is unavailable.');
   return data.url;
 }
+
+export async function openAssetDownload(id) {
+  const url = await fetchAssetDownloadUrl(id);
+  if (!url.startsWith('/api/')) return window.open(url, '_blank', 'noopener,noreferrer');
+  const response = await fetch(url, { headers: authHeaders() });
+  if (!response.ok) throw new Error('Unable to download image.');
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = 'brand-asset';
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}

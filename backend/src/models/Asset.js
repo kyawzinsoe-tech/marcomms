@@ -48,6 +48,7 @@ const assetSchema = new mongoose.Schema(
       default: 0
     },
     storageKey: { type: String, default: '', select: false },
+    imageData: { type: Buffer, select: false },
     originalName: { type: String, default: '' },
     mimeType: { type: String, enum: ['', 'image/png', 'image/jpeg'], default: '' },
     uploadStatus: { type: String, enum: ['external', 'pending', 'ready', 'rejected'], default: 'external' },

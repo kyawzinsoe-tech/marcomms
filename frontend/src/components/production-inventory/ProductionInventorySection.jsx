@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Boxes, Edit, ImagePlus, Loader2, PackageMinus, PackagePlus, Search, Trash2, X } from 'lucide-react';
 import { addStockMovement, createProductionItem, deleteProductionItem, fetchProductionItems, updateProductionItem, uploadProductionItemImage } from '../../services/productionInventoryService';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 
 const BUS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Research', 'Other'];
 const EMPTY_ITEM = { sku: '', name: '', unit: 'pcs', openingQuantity: 0, reorderLevel: 0 };
@@ -25,7 +26,7 @@ export function ProductionInventorySection({ onNotify }) {
     <div className="sub-summary-bar"><span><b>{items.length}</b> Item Types</span><span><b>{totalUnits}</b> Total Units In Stock</span><span><b>{lowStock}</b> Low / Out of Stock</span></div>
     <label className="inventory-search"><Search size={16}/><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search SKU or item name..."/></label>
     {loading ? <div className="empty-state"><Loader2 className="animate-spin"/> Loading store…</div> : <div className="inventory-grid">{visible.map((item) => <article id={`production-item-${item.id}`} className={`inventory-card ${highlightId === item.id ? 'inventory-card-highlight' : ''}`} key={item.id}>
-      <div className="inventory-image">{item.imageUrl ? <img src={item.imageUrl} alt={item.name}/> : <Boxes size={42}/>}<span className={item.quantityOnHand <= item.reorderLevel ? 'stock-pill low' : 'stock-pill'}>{item.quantityOnHand} {item.unit}</span></div>
+      <div className="inventory-image">{item.imageUrl ? <AuthenticatedImage src={item.imageUrl} alt={item.name} fallback={<Boxes size={42}/>} /> : <Boxes size={42}/>}<span className={item.quantityOnHand <= item.reorderLevel ? 'stock-pill low' : 'stock-pill'}>{item.quantityOnHand} {item.unit}</span></div>
       <div className="inventory-card-body"><small>{item.sku}</small><h3>{item.name}</h3><div className="inventory-stats"><span><b>{item.received}</b> Received</span><span><b>{item.issued}</b> Issued</span><span><b>{item.quantityOnHand}</b> Remaining</span></div>
       <button className="btn btn-outline btn-sm" onClick={() => { setActiveItem(item); setMovement(EMPTY_MOVE); }}>Stock In / Issue & History</button><div className="inventory-card-actions"><button type="button" className="action-btn action-edit" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}><Edit size={14}/></button><button type="button" className="action-btn action-delete" onClick={() => removeItem(item)} aria-label={`Delete ${item.name}`}><Trash2 size={14}/></button></div></div>
     </article>)}</div>}

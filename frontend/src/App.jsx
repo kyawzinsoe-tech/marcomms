@@ -20,7 +20,7 @@ import { TokenSection } from './components/TokenSection';
 import { TokenHistoryTable } from './components/TokenHistoryTable';
 import { UserModal } from './components/UserModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
-import { saveSubscriptionRecord, uploadSubscriptionInvoice } from './services/api';
+import { archiveSubscriptionRecord, deleteSubscriptionRecord, saveSubscriptionRecord } from './services/api';
 import { TokenModal } from './components/TokenModal';
 import { Building2, CreditCard, Megaphone, Loader2 } from 'lucide-react';
 import { Toast } from './components/Toast';
@@ -302,17 +302,38 @@ function DashboardApp() {
     setIsSubModalOpen(true);
   };
 
-  const handleSaveSubscription = async (formData, invoiceFile, onProgress) => {
+  const handleSaveSubscription = async (formData) => {
     if (!isAdmin) return;
     try {
-      let saved = await saveSubscriptionRecord(formData, editingSubscription?.id);
-      if (invoiceFile) saved = await uploadSubscriptionInvoice(saved.id, invoiceFile, onProgress);
+      const saved = await saveSubscriptionRecord(formData, editingSubscription?.id);
       if (editingSubscription) updateSubscription(saved.id, saved, false);
       else addSubscription(saved, false);
       showToast(`${editingSubscription ? 'Updated' : 'Added'} "${formData.product}" subscription.`, 'success');
     } catch (error) {
       showToast(error.message || 'Unable to save subscription.', 'error');
       throw error;
+    }
+  };
+
+  const handleArchiveSubscription = async (id) => {
+    if (!isAdmin) return;
+    try {
+      await archiveSubscriptionRecord(id);
+      archiveSubscription(id);
+      showToast('Subscription archived from active view.', 'info');
+    } catch (error) {
+      showToast(error.message || 'Unable to archive subscription.', 'error');
+    }
+  };
+
+  const handleDeleteSubscription = async (id) => {
+    if (!isSuperAdmin) return;
+    try {
+      await deleteSubscriptionRecord(id);
+      deleteSubscription(id);
+      showToast('Subscription permanently deleted.', 'info');
+    } catch (error) {
+      showToast(error.message || 'Unable to delete subscription.', 'error');
     }
   };
 
@@ -510,16 +531,8 @@ function DashboardApp() {
               isSuperAdmin={isSuperAdmin}
               onAddSubscription={handleOpenAddSubscription}
               onEditSubscription={handleOpenEditSubscription}
-              onArchiveSubscription={(id) => {
-                if (!isAdmin) return;
-                archiveSubscription(id);
-                showToast('Subscription archived from active view.', 'info');
-              }}
-              onDeleteSubscription={(id) => {
-                if (!isAdmin) return;
-                deleteSubscription(id);
-                showToast('Subscription deleted.', 'info');
-              }}
+              onArchiveSubscription={handleArchiveSubscription}
+              onDeleteSubscription={handleDeleteSubscription}
             />
           </>
         )}
@@ -540,18 +553,11 @@ function DashboardApp() {
           <SubscriptionsTable
             subscriptions={subscriptions}
             isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
             onAddSubscription={handleOpenAddSubscription}
             onEditSubscription={handleOpenEditSubscription}
-            onArchiveSubscription={(id) => {
-              if (!isAdmin) return;
-              archiveSubscription(id);
-              showToast('Subscription archived from active view.', 'info');
-            }}
-            onDeleteSubscription={(id) => {
-              if (!isAdmin) return;
-              deleteSubscription(id);
-              showToast('Subscription deleted.', 'info');
-            }}
+            onArchiveSubscription={handleArchiveSubscription}
+            onDeleteSubscription={handleDeleteSubscription}
           />
         )}
 
@@ -673,7 +679,7 @@ function DashboardApp() {
         )}
 
         {activeSection === 'production-inventory' && can(PERMISSIONS.PRODUCTION_ORDER_READ) && (
-          <ProductionInventorySection onNotify={showToast} />
+          <ProductionInventorySection onNotify={showToast} isSuperAdmin={isSuperAdmin} />
         )}
 
         {activeSection === 'recruitment' && (

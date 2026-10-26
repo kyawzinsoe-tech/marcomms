@@ -11,7 +11,7 @@ const {
   revealCredential
 } = require('../controllers/subscriptionController');
 const { protect } = require('../middleware/authMiddleware');
-const { requireAdmin } = require('../middleware/adminMiddleware');
+const { requireAdmin, requireSuperAdmin } = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ router.route('/')
 
 router.route('/:id')
   .put(requireAdmin, updateSubscription)
-  .delete(requireAdmin, deleteSubscription);
+  .delete(requireSuperAdmin, deleteSubscription);
 
 router.patch('/:id/archive', requireAdmin, archiveSubscription);
 router.post('/:id/invoice/upload', requireAdmin, beginInvoiceUpload);

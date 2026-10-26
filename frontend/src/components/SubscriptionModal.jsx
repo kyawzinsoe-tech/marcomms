@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Layers, Calendar, Mail, FileText, AlertCircle, Lock, Upload } from 'lucide-react';
+import { X, Loader2, Layers, Calendar, Mail, FileText, AlertCircle, Lock } from 'lucide-react';
 
 export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
   const [formData, setFormData] = useState({
@@ -21,8 +21,6 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [accountPassword, setAccountPassword] = useState('');
-  const [invoiceFile, setInvoiceFile] = useState(null);
-  const [uploadStage, setUploadStage] = useState('');
 
   useEffect(() => {
     if (subscription) {
@@ -59,8 +57,6 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
     setValidationErrors({});
     setIsSaving(false);
     setAccountPassword('');
-    setInvoiceFile(null);
-    setUploadStage('');
   }, [subscription, isOpen]);
 
   // Escape key handler
@@ -111,8 +107,6 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
       }
     }
     if (accountPassword && accountPassword.length < 8) errors.accountPassword = 'Password must contain at least 8 characters.';
-    if (invoiceFile && !['application/pdf', 'image/png', 'image/jpeg'].includes(invoiceFile.type)) errors.invoiceFile = 'Invoice must be PDF, PNG, or JPEG.';
-    if (invoiceFile && invoiceFile.size > 10 * 1024 * 1024) errors.invoiceFile = 'Invoice must be 10 MB or smaller.';
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -121,7 +115,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
 
     setIsSaving(true);
     try {
-      await onSave({ ...formData, accountPassword: accountPassword || undefined }, invoiceFile, setUploadStage);
+      await onSave({ ...formData, accountPassword: accountPassword || undefined });
       onClose();
     } catch {
       // Error handled by parent handler
@@ -172,7 +166,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
               </div>
 
               <div className="form-group col-span-2">
-                <label htmlFor="sub-password"><Lock size={13} /> Account Password</label>
+                <label htmlFor="sub-password"><Lock size={13} /> Service Account Login Password</label>
                 <input
                   id="sub-password"
                   type="password"
@@ -184,7 +178,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                   disabled={isSaving}
                   aria-invalid={!!validationErrors.accountPassword}
                 />
-                <small>Encrypted storage only. Passwords are never shown in reports, exports, or this form.</small>
+                <small>ဝယ်ထားသော Magnific၊ ChatGPT စသည့် service account Gmail/Login ရဲ့ password ကိုထည့်ပါ။ Encrypted storage only.</small>
                 {validationErrors.accountPassword && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.accountPassword}</span>}
               </div>
 
@@ -372,26 +366,7 @@ export function SubscriptionModal({ isOpen, onClose, onSave, subscription }) {
                 disabled={isSaving}
               />
             </div>
-            <div className="form-group subscription-invoice-upload">
-              <label htmlFor="sub-invoice"><Upload size={13} /> Monthly / Yearly Invoice or Payslip</label>
-              <input
-                id="sub-invoice"
-                type="file"
-                accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
-                onChange={(e) => { setInvoiceFile(e.target.files?.[0] || null); setValidationErrors((prev) => ({ ...prev, invoiceFile: '' })); }}
-                disabled={isSaving || !!subscription?.invoice}
-              />
-              <small>Private storage · PDF/PNG/JPEG only · Maximum 10 MB{subscription?.invoice?.originalName ? ` · Current: ${subscription.invoice.originalName}` : ''}</small>
-              {validationErrors.invoiceFile && <span className="field-error-msg"><AlertCircle size={12} /> {validationErrors.invoiceFile}</span>}
-            </div>
-            <div className="form-grid"><label className="form-group">Invoice Period<select value={formData.invoicePeriod} onChange={(e) => handleChange('invoicePeriod', e.target.value)}><option value="">Select</option><option>Monthly</option><option>Yearly</option></select></label><label className="form-group">Invoice Month<input type="month" value={formData.invoiceMonth} onChange={(e) => handleChange('invoiceMonth', e.target.value)} /></label><label className="form-group col-span-2">Google Drive Invoice Link<input type="url" placeholder="https://drive.google.com/file/d/..." value={formData.invoiceDriveUrl} onChange={(e) => handleChange('invoiceDriveUrl', e.target.value)} /><small>Share permission ကို “Anyone with the link” ထားပါ။</small></label></div>
-            {isSaving && uploadStage && (
-              <div className="subscription-upload-progress" aria-live="polite">
-                {['authorizing', 'uploading', 'verifying', 'complete'].map((stage) => (
-                  <span key={stage} className={['authorizing', 'uploading', 'verifying', 'complete'].indexOf(stage) <= ['authorizing', 'uploading', 'verifying', 'complete'].indexOf(uploadStage) ? 'done' : ''}>{stage}</span>
-                ))}
-              </div>
-            )}
+            <div className="form-grid"><label className="form-group">Invoice Period<select value={formData.invoicePeriod} onChange={(e) => handleChange('invoicePeriod', e.target.value)}><option value="">Select</option><option>Monthly</option><option>Yearly</option></select></label><label className="form-group">Invoice Month<input type="month" value={formData.invoiceMonth} onChange={(e) => handleChange('invoiceMonth', e.target.value)} /></label><label className="form-group col-span-2">Google Drive Invoice / Payslip Link<input type="url" placeholder="https://drive.google.com/file/d/... or /drive/folders/..." value={formData.invoiceDriveUrl} onChange={(e) => handleChange('invoiceDriveUrl', e.target.value)} /><small>Invoice/Payslip ကို Google Drive ထဲသိမ်းပြီး Share link ထည့်ပါ။ Restricted link လည်း အသုံးပြုနိုင်ပြီး access ရှိသူသာ ဖွင့်နိုင်ပါမယ်။</small></label></div>
           </div>
 
           <div className="modal-footer">

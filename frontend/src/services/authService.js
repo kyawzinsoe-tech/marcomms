@@ -33,6 +33,22 @@ export function getCurrentUser() {
   }
 }
 
+export async function touchActiveSession() {
+  const token = getAuthToken();
+  if (!token) return false;
+
+  const response = await fetch('/api/auth/me', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent('marcomms:session-expired'));
+    return false;
+  }
+
+  return response.ok;
+}
+
 export async function logoutUser() {
   const token = getAuthToken();
   if (token) {

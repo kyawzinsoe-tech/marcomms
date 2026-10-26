@@ -31,6 +31,19 @@ function safeGoogleDriveUrl(value) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(url) ? url.slice(0, 1000) : null;
 }
 
+function safeGoogleDriveFolderUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' && url.hostname === 'drive.google.com' && /\/drive\/folders\/[^/?#]+/.test(url.pathname)
+      ? raw.slice(0, 1000)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 const LINKED_FILE_TYPES = new Set(['PSD', 'AI', 'PNG', 'MP4', 'GIF', 'JPEG']);
 function safeLinkedFiles(value) {
   if (!Array.isArray(value)) return [];
@@ -44,7 +57,7 @@ function safeLinkedFiles(value) {
   return result;
 }
 
-exports._assetValidation = { hasValidSignature, safeOriginalName, safeGoogleDriveUrl, safeLinkedFiles, MAX_ASSET_BYTES };
+exports._assetValidation = { hasValidSignature, safeOriginalName, safeGoogleDriveUrl, safeGoogleDriveFolderUrl, safeLinkedFiles, MAX_ASSET_BYTES };
 
 // Helper to check read permission for a library
 function canReadLibrary(user, library) {
@@ -134,6 +147,7 @@ exports.getAssets = async (req, res, next) => {
       return {
         id: String(a._id), title: a.title, library: a.library, category: a.category,
         fileUrl: securedUrl || a.fileUrl, thumbnailUrl: securedUrl || a.thumbnailUrl, downloadUrl: a.downloadUrl, linkedFiles: a.linkedFiles || [],
+        folderLabel: a.folderLabel || '', folderUrl: a.folderUrl || '',
         fileType: a.fileType, fileSize: a.fileSize, version: a.version, tags: a.tags,
         description: a.description, archived: a.archived, uploadStatus: a.uploadStatus,
         originalName: a.originalName, createdBy: a.createdBy, createdAt: a.createdAt, updatedAt: a.updatedAt
@@ -174,7 +188,7 @@ exports.getAssetById = async (req, res, next) => {
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
         downloadUrl: asset.downloadUrl,
-        linkedFiles: asset.linkedFiles || [],
+        linkedFiles: asset.linkedFiles || [], folderLabel: asset.folderLabel || '', folderUrl: asset.folderUrl || '',
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -194,7 +208,7 @@ exports.getAssetById = async (req, res, next) => {
 // POST /api/assets
 exports.createAsset = async (req, res, next) => {
   try {
-    const { title, library, category, fileUrl, thumbnailUrl, downloadUrl, linkedFiles, fileType, fileSize, version, tags, description } = req.body;
+    const { title, library, category, fileUrl, thumbnailUrl, downloadUrl, linkedFiles, folderLabel, folderUrl, fileType, fileSize, version, tags, description } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Asset title is required.' });
@@ -211,6 +225,9 @@ exports.createAsset = async (req, res, next) => {
 
     const safeFiles = safeLinkedFiles(linkedFiles);
     if (safeFiles === null) return res.status(400).json({ error: 'Each linked file must use Google Drive/Docs and an approved file type.' });
+    const safeFolderUrl = safeGoogleDriveFolderUrl(folderUrl);
+    if (safeFolderUrl === null) return res.status(400).json({ error: 'Folder link must be an individual Google Drive folder Share link.' });
+    if (Boolean(safeFolderUrl) !== Boolean(safeText(folderLabel))) return res.status(400).json({ error: 'Folder button name and folder link must both be completed.' });
     const safePreviewUrl = safeGoogleDriveUrl(fileUrl);
     if (safePreviewUrl === null) return res.status(400).json({ error: 'Preview must be a Google Drive individual-file URL.' });
     const primaryUrl = safePreviewUrl || safeFiles[0]?.url;
@@ -230,6 +247,8 @@ exports.createAsset = async (req, res, next) => {
       thumbnailUrl: primaryUrl,
       downloadUrl: safeDownloadUrl,
       linkedFiles: safeFiles,
+      folderLabel: safeText(folderLabel, 160),
+      folderUrl: safeFolderUrl,
       fileType: normalizedType === 'JPG' ? 'JPEG' : normalizedType,
       fileSize: Number(fileSize || 0),
       version: safeText(version || '1.0', 30),
@@ -247,7 +266,7 @@ exports.createAsset = async (req, res, next) => {
         fileUrl: asset.fileUrl,
         thumbnailUrl: asset.thumbnailUrl,
         downloadUrl: asset.downloadUrl,
-        linkedFiles: asset.linkedFiles,
+        linkedFiles: asset.linkedFiles, folderLabel: asset.folderLabel, folderUrl: asset.folderUrl,
         fileType: asset.fileType,
         fileSize: asset.fileSize,
         version: asset.version,
@@ -265,7 +284,7 @@ exports.createAsset = async (req, res, next) => {
 
 exports.initializeAssetUpload = async (req, res, next) => {
   try {
-    const { title, library, category, originalName, mimeType, fileSize, downloadUrl, linkedFiles, version, tags, description } = req.body;
+    const { title, library, category, originalName, mimeType, fileSize, downloadUrl, linkedFiles, folderLabel, folderUrl, version, tags, description } = req.body;
     const targetLibrary = library || 'kbz_bank';
     const size = Number(fileSize);
     if (!title || !safeText(title)) return res.status(400).json({ error: 'Asset title is required.' });
@@ -276,6 +295,9 @@ exports.initializeAssetUpload = async (req, res, next) => {
     if (safeDownloadUrl === null) return res.status(400).json({ error: 'Download link must be a Google Drive or Google Docs HTTPS URL.' });
     const safeFiles = safeLinkedFiles(linkedFiles);
     if (safeFiles === null) return res.status(400).json({ error: 'Each linked file must use Google Drive/Docs and an approved file type.' });
+    const safeFolderUrl = safeGoogleDriveFolderUrl(folderUrl);
+    if (safeFolderUrl === null) return res.status(400).json({ error: 'Folder link must be an individual Google Drive folder Share link.' });
+    if (Boolean(safeFolderUrl) !== Boolean(safeText(folderLabel))) return res.status(400).json({ error: 'Folder button name and folder link must both be completed.' });
 
     const name = safeOriginalName(originalName, mimeType);
     const key = `brand-assets/${targetLibrary}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${mimeType === 'image/png' ? '.png' : '.jpg'}`;
@@ -285,6 +307,7 @@ exports.initializeAssetUpload = async (req, res, next) => {
       originalName: name, mimeType, uploadStatus: 'pending', version: safeText(version || '1.0', 30),
       downloadUrl: safeDownloadUrl,
       linkedFiles: safeFiles,
+      folderLabel: safeText(folderLabel, 160), folderUrl: safeFolderUrl,
       tags: (Array.isArray(tags) ? tags : []).map((t) => safeText(t, 40)).filter(Boolean).slice(0, 20),
       description: safeText(description, 2000), createdBy: req.user._id
     });
@@ -387,7 +410,7 @@ exports.updateAsset = async (req, res, next) => {
       return res.status(403).json({ error: `Access denied. Insufficient permissions to update ${asset.library} assets.` });
     }
 
-    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'linkedFiles', 'fileUrl', 'thumbnailUrl', 'archived'];
+    const allowed = ['title', 'category', 'version', 'tags', 'description', 'downloadUrl', 'linkedFiles', 'folderLabel', 'folderUrl', 'fileUrl', 'thumbnailUrl', 'archived'];
     const safeUpdates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
     if (Object.prototype.hasOwnProperty.call(safeUpdates, 'downloadUrl')) {
       const safeDownloadUrl = safeGoogleDriveUrl(safeUpdates.downloadUrl);
@@ -404,8 +427,18 @@ exports.updateAsset = async (req, res, next) => {
       const safeFiles = safeLinkedFiles(safeUpdates.linkedFiles);
       if (safeFiles === null) return res.status(400).json({ error: 'Every download must use a valid Google Drive individual-file link.' });
       safeUpdates.linkedFiles = safeFiles;
-      safeUpdates.fileUrl = safeFiles[0].url;
-      safeUpdates.fileType = safeFiles[0].fileType;
+      if (safeFiles.length && asset.uploadStatus === 'external') {
+        safeUpdates.fileUrl = safeFiles[0].url;
+        safeUpdates.fileType = safeFiles[0].fileType;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'folderUrl') || Object.prototype.hasOwnProperty.call(safeUpdates, 'folderLabel')) {
+      const safeFolderUrl = safeGoogleDriveFolderUrl(safeUpdates.folderUrl ?? asset.folderUrl);
+      const safeFolderLabel = safeText(safeUpdates.folderLabel ?? asset.folderLabel, 160);
+      if (safeFolderUrl === null) return res.status(400).json({ error: 'Folder link must be an individual Google Drive folder Share link.' });
+      if (Boolean(safeFolderUrl) !== Boolean(safeFolderLabel)) return res.status(400).json({ error: 'Folder button name and folder link must both be completed.' });
+      safeUpdates.folderUrl = safeFolderUrl;
+      safeUpdates.folderLabel = safeFolderLabel;
     }
     const updated = await Asset.findByIdAndUpdate(
       req.params.id,
@@ -422,7 +455,7 @@ exports.updateAsset = async (req, res, next) => {
         fileUrl: updated.fileUrl,
         thumbnailUrl: updated.thumbnailUrl,
         downloadUrl: updated.downloadUrl,
-        linkedFiles: updated.linkedFiles || [],
+        linkedFiles: updated.linkedFiles || [], folderLabel: updated.folderLabel || '', folderUrl: updated.folderUrl || '',
         fileType: updated.fileType,
         fileSize: updated.fileSize,
         version: updated.version,

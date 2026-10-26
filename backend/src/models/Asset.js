@@ -38,6 +38,8 @@ const assetSchema = new mongoose.Schema(
       fileType: { type: String, enum: ['PSD', 'AI', 'PNG', 'MP4', 'GIF', 'JPEG'], required: true },
       url: { type: String, required: true, trim: true, maxlength: 1000 }
     }],
+    folderLabel: { type: String, trim: true, maxlength: 160, default: '' },
+    folderUrl: { type: String, trim: true, maxlength: 1000, default: '' },
     fileType: {
       type: String,
       trim: true,

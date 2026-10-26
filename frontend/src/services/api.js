@@ -224,6 +224,18 @@ export async function saveSubscriptionRecord(formData, id) {
   return data.subscription;
 }
 
+export async function archiveSubscriptionRecord(id) {
+  const data = await authenticatedJson(`/api/subscriptions/${id}/archive`, {
+    method: 'PATCH',
+    body: '{}'
+  });
+  return data.subscription;
+}
+
+export async function deleteSubscriptionRecord(id) {
+  return authenticatedJson(`/api/subscriptions/${id}`, { method: 'DELETE' });
+}
+
 export async function uploadSubscriptionInvoice(subscriptionId, file, onProgress = () => {}) {
   onProgress('authorizing');
   const setup = await authenticatedJson(`/api/subscriptions/${subscriptionId}/invoice/upload`, {

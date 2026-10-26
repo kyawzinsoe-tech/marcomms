@@ -32,7 +32,7 @@ app.use((req, res, next) => cors({
     return callback(new Error('Origin is not allowed by CORS policy.'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-File-Name']
 })(req, res, next));
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api') && req.path !== '/health') return next();

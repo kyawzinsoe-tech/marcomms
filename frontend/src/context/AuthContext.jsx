@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCurrentUser, loginUser, logoutUser } from '../services/authService';
+import { getCurrentUser, loginUser, logoutUser, touchActiveSession } from '../services/authService';
 import { ROLES, normalizeRole, hasPermission } from '../config/rbac';
 import { AuthContext } from './authContextValue';
 
@@ -14,6 +14,30 @@ export function AuthProvider({ children }) {
     }
     setLoading(false);
   }, []);
+
+  // Keep an authenticated session alive only while the person is actively using the portal.
+  useEffect(() => {
+    if (!user) return undefined;
+
+    let lastActivityAt = Date.now();
+    const noteActivity = () => {
+      lastActivityAt = Date.now();
+    };
+    const activityEvents = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, noteActivity, { passive: true }));
+
+    const heartbeat = window.setInterval(() => {
+      const activeWithinFiveMinutes = Date.now() - lastActivityAt < 5 * 60 * 1000;
+      if (activeWithinFiveMinutes && document.visibilityState === 'visible') {
+        touchActiveSession().catch(() => {});
+      }
+    }, 2 * 60 * 1000);
+
+    return () => {
+      window.clearInterval(heartbeat);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, noteActivity));
+    };
+  }, [user]);
 
   // Listen for decoupled session expiration events (e.g. 401 Unauthorized from API calls)
   useEffect(() => {

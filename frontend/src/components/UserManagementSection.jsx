@@ -189,7 +189,7 @@ export function UserManagementSection({
     if (!deletingUser) return;
     setIsDeleting(true);
     try {
-      await onDeleteUser?.(deletingUser);
+      await onDeleteUser?.(deletingUser.id);
       setDeletingUser(null);
       await loadSessions();
     } catch (err) {

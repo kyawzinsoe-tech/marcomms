@@ -60,15 +60,15 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
   const save = async (data) => {
     try {
       if (editing && data.file) {
-        await uploadBrandAsset({ title: data.title, library, category: 'General', linkedFiles: data.linkedFiles }, data.file, setProgress);
+        await uploadBrandAsset({ title: data.title, library, category: 'General', linkedFiles: data.linkedFiles, folderLabel: data.folderLabel, folderUrl: data.folderUrl }, data.file, setProgress);
         await deleteAsset(editing.id);
         onNotify?.(`Replaced “${data.title}” with a secure uploaded image.`, 'success');
       } else if (editing) {
         if (data.previewDriveUrl && editing.uploadStatus !== 'external') {
-          await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles });
+          await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles, folderLabel: data.folderLabel, folderUrl: data.folderUrl });
           await deleteAsset(editing.id);
         } else {
-          await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles, ...(data.previewDriveUrl ? { fileUrl: data.previewDriveUrl, thumbnailUrl: data.previewDriveUrl } : {}) });
+          await updateAsset(editing.id, { title: data.title, linkedFiles: data.linkedFiles, folderLabel: data.folderLabel, folderUrl: data.folderUrl, ...(data.previewDriveUrl ? { fileUrl: data.previewDriveUrl, thumbnailUrl: data.previewDriveUrl } : {}) });
         }
         onNotify?.(`Updated “${data.title}”.`, 'success');
       } else if (data.file) {
@@ -76,12 +76,14 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
           title: data.title,
           downloadUrl: data.linkedFiles[0]?.url || '',
           linkedFiles: data.linkedFiles,
+          folderLabel: data.folderLabel,
+          folderUrl: data.folderUrl,
           library,
           category: 'General'
         }, data.file, setProgress);
         onNotify?.(`Uploaded “${data.title}”.`, 'success');
       } else {
-        await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileSize: 0, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles });
+        await createLinkedAsset({ title: data.title, library, category: 'General', fileType: data.fileType, fileSize: 0, fileUrl: data.previewDriveUrl, linkedFiles: data.linkedFiles, folderLabel: data.folderLabel, folderUrl: data.folderUrl });
         onNotify?.(`Saved “${data.title}” from Google Drive.`, 'success');
       }
       setModalOpen(false);
@@ -166,6 +168,7 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
               <h3>{asset.title}</h3>
               <p>{asset.fileType || 'IMAGE'}{asset.fileSize ? ` · ${asset.fileSize} KB` : ''}</p>
               {asset.linkedFiles?.length > 0 && <div className="brand-asset-file-list">{asset.linkedFiles.map((item, index) => <a key={`${item.url}-${index}`} href={driveDownload(item.url)} target="_blank" rel="noopener noreferrer"><Download size={12} /><span>Download Here!</span><b>{item.fileType}</b></a>)}</div>}
+              {asset.folderUrl && <a className="brand-asset-folder-link" href={asset.folderUrl} target="_blank" rel="noopener noreferrer"><FolderOpen size={13} /><span>{asset.folderLabel || 'Open Drive Folder'}</span></a>}
               <div className="brand-asset-actions">
                 {!asset.linkedFiles?.length && <button type="button" className="btn btn-primary btn-sm" onClick={() => download(asset)}><Download size={13} /> Download</button>}
                 {canEdit && <button type="button" className="action-btn action-edit" onClick={() => { setEditing(asset); setModalOpen(true); }} aria-label={`Edit ${asset.title}`}><Edit size={14} /></button>}

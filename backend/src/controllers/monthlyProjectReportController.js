@@ -1,6 +1,7 @@
 const readXlsxFile = require('read-excel-file/node');
 const { readSheetNames } = require('read-excel-file/node');
 const MonthlyProjectReport = require('../models/MonthlyProjectReport');
+const { logAuditEvent } = require('../utils/auditLogger');
 
 const MAX_WORKBOOK_BYTES = 20 * 1024 * 1024;
 const allowed = [
@@ -55,14 +56,16 @@ async function saveReport({ month, originalName, sourceType, sourceUrl = '', buf
     error.statusCode = 400;
     throw error;
   }
+  const existing = await MonthlyProjectReport.findOne({ month }).select('_id').lean();
   const report = await MonthlyProjectReport.findOneAndUpdate(
     { month }, { month, originalName, sourceType, sourceUrl, sheets, uploadedBy: userId }, { upsert: true, new: true, runValidators: true }
   ).lean();
-  return { report, importedSheets: sheets.map((sheet) => sheet.name), ignoredSheets: sheetNames.filter((name) => !identify(name)) };
+  return { report, operation: existing ? 'update' : 'create', importedSheets: sheets.map((sheet) => sheet.name), ignoredSheets: sheetNames.filter((name) => !identify(name)) };
 }
 
-exports.listReports = async (_req, res, next) => { try {
+exports.listReports = async (req, res, next) => { try {
   const reports = await MonthlyProjectReport.find().select('month originalName sourceType sourceUrl sheets.key sheets.name sheets.title sheets.columns sheets.rows createdAt updatedAt').sort({ month: -1 }).lean();
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'MONTHLY_REPORT_VIEW', targetEntity: 'monthly_project_report', ip: req.ip, metadata: { count: reports.length } });
   res.json({ reports });
 } catch (error) { next(error); } };
 
@@ -71,7 +74,9 @@ exports.importReport = async (req, res, next) => { try {
   const filename = String(req.query.filename || 'monthly-report.xlsx').slice(0, 180);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'A valid report month is required.' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Excel .xlsx file is required.' });
-  res.json(await saveReport({ month, originalName: filename, sourceType: 'upload', buffer: req.body, userId: req.user._id }));
+  const result = await saveReport({ month, originalName: filename, sourceType: 'upload', buffer: req.body, userId: req.user._id });
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: `MONTHLY_REPORT_${result.operation.toUpperCase()}`, targetEntity: 'monthly_project_report', targetId: result.report._id, ip: req.ip, metadata: { month, sourceType: 'upload', originalName: filename } });
+  res.json(result);
 } catch (error) { next(error); } };
 
 exports.importGoogleSheet = async (req, res, next) => { try {
@@ -89,7 +94,9 @@ exports.importGoogleSheet = async (req, res, next) => { try {
   const buffer = Buffer.from(await response.arrayBuffer());
   if (!buffer.length || buffer.length > MAX_WORKBOOK_BYTES) return res.status(400).json({ error: 'Google Sheet export is empty or larger than 20 MB.' });
   if ((response.headers.get('content-type') || '').includes('text/html')) return res.status(400).json({ error: 'Google returned a sign-in page. Set General access to “Anyone with the link – Viewer”.' });
-  res.json(await saveReport({ month, originalName: `Google Sheet ${match[1]}`, sourceType: 'google-sheet', sourceUrl, buffer, userId: req.user._id }));
+  const result = await saveReport({ month, originalName: `Google Sheet ${match[1]}`, sourceType: 'google-sheet', sourceUrl, buffer, userId: req.user._id });
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: `MONTHLY_REPORT_${result.operation.toUpperCase()}`, targetEntity: 'monthly_project_report', targetId: result.report._id, ip: req.ip, metadata: { month, sourceType: 'google-sheet' } });
+  res.json(result);
 } catch (error) {
   if (error.name === 'AbortError') error.message = 'Google Sheet download timed out. Please try again.';
   next(error);
@@ -98,6 +105,7 @@ exports.importGoogleSheet = async (req, res, next) => { try {
 exports.deleteReport = async (req, res, next) => { try {
   const report = await MonthlyProjectReport.findOneAndDelete({ month: req.params.month });
   if (!report) return res.status(404).json({ error: 'Monthly report not found.' });
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'MONTHLY_REPORT_DELETE', targetEntity: 'monthly_project_report', targetId: report._id, ip: req.ip, metadata: { month: req.params.month } });
   res.json({ success: true });
 } catch (error) { next(error); } };
 

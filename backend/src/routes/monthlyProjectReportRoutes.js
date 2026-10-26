@@ -1,0 +1,11 @@
+const express = require('express');
+const { protect } = require('../middleware/authMiddleware');
+const { requireAdmin } = require('../middleware/adminMiddleware');
+const { listReports, importReport, importGoogleSheet, deleteReport } = require('../controllers/monthlyProjectReportController');
+const router = express.Router();
+router.use(protect);
+router.get('/', listReports);
+router.post('/import', requireAdmin, express.raw({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'application/octet-stream'], limit: '20mb' }), importReport);
+router.post('/import-google-sheet', requireAdmin, importGoogleSheet);
+router.delete('/:month', requireAdmin, deleteReport);
+module.exports = router;

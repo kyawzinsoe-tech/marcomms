@@ -22,6 +22,21 @@ import { fetchProductionOrders } from '../services/productionOrderService';
 import { fetchAssets } from '../services/assetService';
 import { getAuthToken } from '../services/authService';
 import { ErrorDialog } from './common/ErrorDialog';
+import { fetchMonthlyProjectReports, importMonthlyProjectReport, importMonthlyGoogleSheet, deleteMonthlyProjectReport } from '../services/monthlyProjectReportService';
+
+const CHARTS = ['Grid', 'Pie', 'Bar', 'Line', 'Pyramid'];
+const colorAt = (index) => ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 6];
+function ProjectChart({ type, data }) {
+  const max = Math.max(...data.map((item) => item.value), 1);
+  if (type === 'Grid') return <div className="project-report-grid">{data.map((item) => <div key={item.label}><b>{item.value}</b><span>{item.label}</span></div>)}</div>;
+  if (type === 'Pie') {
+    let progress = 0; const total = data.reduce((sum, item) => sum + item.value, 0) || 1;
+    const stops = data.map((item, index) => { const start = progress; progress += item.value / total * 100; return `${colorAt(index)} ${start}% ${progress}%`; }).join(',');
+    return <div className="project-pie-wrap"><div className="project-pie" style={{ background: `conic-gradient(${stops})` }} /> <div className="project-chart-legend">{data.map((item, index) => <span key={item.label}><i style={{ background: colorAt(index) }} />{item.label} ({item.value})</span>)}</div></div>;
+  }
+  if (type === 'Line') return <svg className="project-svg-chart" viewBox="0 0 720 260" role="img" aria-label="Line chart"><polyline fill="none" stroke="#4f46e5" strokeWidth="5" points={data.map((item, index) => `${45 + index * (630 / Math.max(data.length - 1, 1))},${220 - item.value / max * 180}`).join(' ')} />{data.map((item, index) => <g key={item.label}><circle cx={45 + index * (630 / Math.max(data.length - 1, 1))} cy={220 - item.value / max * 180} r="7" fill={colorAt(index)} /><text x={45 + index * (630 / Math.max(data.length - 1, 1))} y="248" textAnchor="middle" fontSize="12">{item.label.slice(0, 12)}</text></g>)}</svg>;
+  return <div className={type === 'Pyramid' ? 'project-pyramid' : 'project-bars'}>{data.map((item, index) => <div key={item.label} className="project-bar-row"><span>{item.label}</span><div style={{ width: `${Math.max(item.value / max * 100, 5)}%`, background: colorAt(index) }}>{item.value}</div></div>)}</div>;
+}
 
 export function ReportsDataSection({
   reportMonth,
@@ -36,6 +51,7 @@ export function ReportsDataSection({
   onNotify
 }) {
   const fileInputRef = useRef(null);
+  const excelInputRef = useRef(null);
 
   // Live operational data
   const [suppliers, setSuppliers] = useState([]);
@@ -52,6 +68,13 @@ export function ReportsDataSection({
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [operationalDataStatus, setOperationalDataStatus] = useState('loading');
+  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [selectedReportMonth, setSelectedReportMonth] = useState(reportMonth);
+  const [selectedSheetKey, setSelectedSheetKey] = useState('kbz-bank');
+  const [chartType, setChartType] = useState('Grid');
+  const [groupField, setGroupField] = useState('Status');
+  const [isExcelImporting, setIsExcelImporting] = useState(false);
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('');
 
   useEffect(() => {
     async function loadOperationalMetrics() {
@@ -75,6 +98,44 @@ export function ReportsDataSection({
 
     loadOperationalMetrics();
   }, []);
+
+  const loadMonthlyReports = async () => {
+    try {
+      const data = await fetchMonthlyProjectReports();
+      setMonthlyReports(data.reports || []);
+      if (data.reports?.length && !data.reports.some((item) => item.month === selectedReportMonth)) setSelectedReportMonth(data.reports[0].month);
+    } catch (error) { setErrorMessage(error.message); }
+  };
+  useEffect(() => { loadMonthlyReports(); }, []);
+
+  const handleExcelImport = async (event) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    setIsExcelImporting(true);
+    try {
+      const result = await importMonthlyProjectReport({ file, month: selectedReportMonth });
+      onNotify?.(`${result.importedSheets.join(', ')} imported for ${selectedReportMonth}.`, 'success');
+      await loadMonthlyReports();
+    } catch (error) { setErrorMessage(error.message); }
+    finally { setIsExcelImporting(false); event.target.value = ''; }
+  };
+
+  const handleGoogleSheetImport = async () => {
+    if (!googleSheetUrl.trim()) return setErrorMessage('Google Sheets share link ထည့်ပါ။');
+    setIsExcelImporting(true);
+    try {
+      const result = await importMonthlyGoogleSheet({ url: googleSheetUrl.trim(), month: selectedReportMonth });
+      const ignored = result.ignoredSheets?.length ? ` Ignored: ${result.ignoredSheets.join(', ')}.` : '';
+      onNotify?.(`${result.importedSheets.join(', ')} imported for ${selectedReportMonth}.${ignored}`, 'success');
+      await loadMonthlyReports();
+    } catch (error) { setErrorMessage(error.message); }
+    finally { setIsExcelImporting(false); }
+  };
+
+  const activeProjectReport = monthlyReports.find((item) => item.month === selectedReportMonth);
+  const activeProjectSheet = activeProjectReport?.sheets?.find((item) => item.key === selectedSheetKey) || activeProjectReport?.sheets?.[0];
+  const availableFields = activeProjectSheet?.columns?.filter((column) => !/^no\.?$/i.test(column)) || [];
+  const effectiveGroupField = availableFields.includes(groupField) ? groupField : (availableFields.find((field) => /status/i.test(field)) || availableFields[0]);
+  const chartData = Object.entries((activeProjectSheet?.rows || []).reduce((acc, row) => { const key = row[effectiveGroupField] || 'Unspecified'; acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 12);
 
   const activeSubs = subscriptions.filter((s) => !s.archived);
   const activeTokens = tokenEntries.filter((t) => !t.archived);
@@ -237,6 +298,21 @@ export function ReportsDataSection({
 
       <div className={operationalDataStatus === 'live' ? 'report-data-source live' : 'report-data-source error'} role="status">
         {operationalDataStatus === 'loading' ? 'Loading live report data…' : operationalDataStatus === 'live' ? 'Live database data verified' : 'Some live report data could not be loaded; totals are not authoritative.'}
+      </div>
+
+      <div className="monthly-project-dashboard">
+        <div className="monthly-project-heading">
+          <div><h3>Monthly Creative Projects</h3><p>Google Sheets share link သို့မဟုတ် Excel (.xlsx) မှ Sheet ၆ ခုကိုသာ လအလိုက်တင်ပြီး Chart ပြောင်းကြည့်နိုင်သည်။</p></div>
+          {isAdmin && <><button className="btn btn-outline" type="button" onClick={() => excelInputRef.current?.click()} disabled={isExcelImporting}><Upload size={15} /> Upload .xlsx</button><input ref={excelInputRef} className="hidden-file-input" type="file" accept=".xlsx" onChange={handleExcelImport} /></>}
+        </div>
+        {isAdmin && <div className="google-sheet-import"><label>Google Sheets Share Link<input type="url" value={googleSheetUrl} onChange={(e) => setGoogleSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/.../edit?usp=sharing" /></label><button className="btn btn-primary" type="button" onClick={handleGoogleSheetImport} disabled={isExcelImporting}>{isExcelImporting ? <Loader2 size={15} className="spin" /> : <Upload size={15} />} Import Link</button><small>Google Sheet → Share → General access → Anyone with the link → Viewer ဖြစ်ရပါမယ်။ သတ်မှတ်ထားသော tabs မဟုတ်တာများကို မယူပါ။</small></div>}
+        <div className="monthly-project-controls">
+          <label>Report Month<input type="month" value={selectedReportMonth} onChange={(e) => setSelectedReportMonth(e.target.value)} /></label>
+          <label>Sheet<select value={activeProjectSheet?.key || selectedSheetKey} onChange={(e) => setSelectedSheetKey(e.target.value)}>{(activeProjectReport?.sheets || []).map((sheet) => <option key={sheet.key} value={sheet.key}>{sheet.name}</option>)}</select></label>
+          <label>Group By<select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select></label>
+          <label>View<select value={chartType} onChange={(e) => setChartType(e.target.value)}>{CHARTS.map((type) => <option key={type}>{type}</option>)}</select></label>
+        </div>
+        {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{activeProjectSheet.title || activeProjectSheet.name}</b><span>{activeProjectSheet.rows.length} records · Source: {activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div>{isAdmin && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`Delete ${selectedReportMonth} report?`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete Month</button>}</div><ProjectChart type={chartType} data={chartData} /></> : <div className="monthly-project-empty">ဒီလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}
       </div>
 
       {/* Domain-Wide KPI Summary Bar */}

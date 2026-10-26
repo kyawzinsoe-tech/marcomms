@@ -20,14 +20,32 @@ exports.createBusinessUnit = async (req, res, next) => { try {
   if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Only administrators can manage Business Units.' });
   const name = String(req.body.name || '').trim(); if (!name) return res.status(400).json({ error: 'Business Unit name is required.' });
   const unit = await RecruitmentBusinessUnit.create({ name, code: unitCode(req.body.code || name), hrOwner: String(req.body.hrOwner || '').trim(), createdBy: req.user._id });
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_BUSINESS_UNIT_CREATED', targetEntity: 'RecruitmentBusinessUnit', targetId: unit._id, ip: clientIp(req), metadata: { name: unit.name, code: unit.code } });
   res.status(201).json({ businessUnit: unit });
 } catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'Business Unit name or code already exists.' }); next(error); } };
 
 exports.updateBusinessUnit = async (req, res, next) => { try {
   if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Only administrators can manage Business Units.' });
   const updates = {}; ['name','hrOwner','status'].forEach((key) => { if (req.body[key] !== undefined) updates[key] = String(req.body[key]).trim(); }); if (req.body.code !== undefined) updates.code = unitCode(req.body.code);
-  const unit = await RecruitmentBusinessUnit.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
-  if (!unit) return res.status(404).json({ error: 'Business Unit not found.' }); res.json({ businessUnit: unit });
+  const before = await RecruitmentBusinessUnit.findById(req.params.id);
+  if (!before) return res.status(404).json({ error: 'Business Unit not found.' });
+  const oldName = before.name;
+  Object.assign(before, updates);
+  await before.save();
+  if (updates.name && updates.name !== oldName) await RecruitmentCase.updateMany({ businessUnit: oldName }, { $set: { businessUnit: updates.name } });
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_BUSINESS_UNIT_UPDATED', targetEntity: 'RecruitmentBusinessUnit', targetId: before._id, ip: clientIp(req), metadata: { oldName, name: before.name, code: before.code, status: before.status } });
+  res.json({ businessUnit: before });
+} catch (error) { next(error); } };
+
+exports.deleteBusinessUnit = async (req, res, next) => { try {
+  if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Only Super Admin can permanently delete a Business Unit.' });
+  const unit = await RecruitmentBusinessUnit.findById(req.params.id);
+  if (!unit) return res.status(404).json({ error: 'Business Unit not found.' });
+  const dependentCount = await RecruitmentCase.countDocuments({ businessUnit: unit.name });
+  if (dependentCount > 0) return res.status(409).json({ error: `This Business Unit has ${dependentCount} candidate record(s). Disable it instead of deleting it.` });
+  await unit.deleteOne();
+  logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_BUSINESS_UNIT_DELETED', targetEntity: 'RecruitmentBusinessUnit', targetId: unit._id, ip: clientIp(req), metadata: { name: unit.name, code: unit.code } });
+  res.json({ success: true });
 } catch (error) { next(error); } };
 
 function clientIp(req) {
@@ -82,6 +100,20 @@ async function recordView(req, record) {
   logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_RECORD_VIEW', targetEntity: 'RecruitmentCase', targetId: record._id, ip: clientIp(req), metadata: { department: record.department, crossDepartment, accessLogId: entry._id, notification } });
 }
 
+async function recordAction(req, record, action) {
+  return RecruitmentAccessLog.create({
+    actorId: req.user._id,
+    actorRole: req.user.role,
+    actorDepartment: (req.user.department || '').trim(),
+    recruitmentCaseId: record._id,
+    caseDepartment: record.department,
+    action,
+    crossDepartment: false,
+    clientIp: clientIp(req),
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 500)
+  });
+}
+
 exports.list = async (req, res, next) => {
   try {
     if (!canAccessRecruitment(req.user)) return res.status(403).json({ error: 'People & Recruitment access is limited to authorized management.' });
@@ -114,9 +146,11 @@ exports.create = async (req, res, next) => {
       return res.status(403).json({ error: 'You may only create recruitment records for your own department.' });
     }
     const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
-    const panel = Array.isArray(firstInterviewPanel) ? firstInterviewPanel.filter((role) => allowedInterviewers.has(role)) : [];
+    const panel = Array.isArray(firstInterviewPanel) ? firstInterviewPanel.filter((role) => allowedInterviewers.has(role)).slice(0, 1) : [];
     const safeLink = (value) => !value || /^https:\/\//i.test(String(value).trim()) ? String(value || '').trim().slice(0, 1000) : '';
     const record = await RecruitmentCase.create({ candidateName, businessUnit, position, department, selectedStages, firstInterviewPanel: panel, interviewNotes: String(interviewNotes).trim().slice(0, 1000), hrOwner: String(hrOwner).trim().slice(0, 160), assessmentType, cvUrl: safeLink(cvUrl), portfolioUrl: safeLink(portfolioUrl), interviewAt: interviewAt || undefined, createdBy: req.user._id });
+    await recordAction(req, record, 'CREATE');
+    logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_RECORD_CREATED', targetEntity: 'RecruitmentCase', targetId: record._id, ip: clientIp(req), metadata: { candidateName: record.candidateName, department: record.department } });
     res.status(201).json({ record });
   } catch (error) { next(error); }
 };
@@ -128,8 +162,15 @@ exports.update = async (req, res, next) => {
     if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
     const sameDepartment = teamFor(req.user).toLowerCase() === String(record.department || '').toLowerCase();
     if (!sameDepartment) return res.status(403).json({ error: 'You may only update Interview Process records for your own Team / Department.' });
-    const allowed = ['currentStage', 'selectedStages', 'interviewAt', 'interviewNotes', 'firstInterviewPanel', 'hrOwner', 'assessmentType', 'hodRecommendation', 'evaluationScore', 'status'];
+    const allowed = ['candidateName', 'businessUnit', 'position', 'currentStage', 'selectedStages', 'interviewAt', 'interviewNotes', 'hrOwner', 'assessmentType', 'cvUrl', 'portfolioUrl', 'hodRecommendation', 'evaluationScore', 'status'];
     for (const field of allowed) if (req.body[field] !== undefined) record[field] = req.body[field];
+    const safeLink = (value) => !value || /^https:\/\//i.test(String(value).trim()) ? String(value || '').trim().slice(0, 1000) : '';
+    if (req.body.cvUrl !== undefined) record.cvUrl = safeLink(req.body.cvUrl);
+    if (req.body.portfolioUrl !== undefined) record.portfolioUrl = safeLink(req.body.portfolioUrl);
+    if (req.body.firstInterviewPanel !== undefined) {
+      const allowedInterviewers = new Set(['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other']);
+      record.firstInterviewPanel = Array.isArray(req.body.firstInterviewPanel) ? req.body.firstInterviewPanel.filter((role) => allowedInterviewers.has(role)).slice(0, 1) : [];
+    }
     if (req.body.finalDecision !== undefined) {
       if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'HR / Management final approval is required.' });
       record.finalDecision = req.body.finalDecision;
@@ -138,8 +179,24 @@ exports.update = async (req, res, next) => {
       if (req.body.finalDecision === 'Not Approved') record.currentStage = 'not_approved';
     }
     await record.save();
+    await recordAction(req, record, 'UPDATE');
     logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_RECORD_UPDATED', targetEntity: 'RecruitmentCase', targetId: record._id, ip: clientIp(req), metadata: { currentStage: record.currentStage, finalDecision: record.finalDecision } });
     res.json({ record });
+  } catch (error) { next(error); }
+};
+
+exports.remove = async (req, res, next) => {
+  try {
+    if (!['super_admin', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Only Admin or Super Admin can delete candidate records.' });
+    const record = await RecruitmentCase.findById(req.params.id);
+    if (!record) return res.status(404).json({ error: 'Recruitment record not found.' });
+    const sameDepartment = teamFor(req.user).toLowerCase() === String(record.department || '').toLowerCase();
+    if (!sameDepartment) return res.status(403).json({ error: 'You may only delete records for your own Team / Department.' });
+    const snapshot = { candidateName: record.candidateName, position: record.position, department: record.department, currentStage: record.currentStage };
+    await recordAction(req, record, 'DELETE');
+    await record.deleteOne();
+    logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'RECRUITMENT_RECORD_DELETED', targetEntity: 'RecruitmentCase', targetId: record._id, ip: clientIp(req), metadata: snapshot });
+    res.json({ success: true });
   } catch (error) { next(error); }
 };
 

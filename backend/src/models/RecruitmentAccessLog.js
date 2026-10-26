@@ -6,7 +6,7 @@ const recruitmentAccessLogSchema = new mongoose.Schema({
   actorDepartment: { type: String, default: '' },
   recruitmentCaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'RecruitmentCase', required: true, index: true },
   caseDepartment: { type: String, required: true, index: true },
-  action: { type: String, enum: ['VIEW', 'LIST', 'CREATE', 'UPDATE', 'STAGE_CHANGE'], required: true },
+  action: { type: String, enum: ['VIEW', 'LIST', 'CREATE', 'UPDATE', 'STAGE_CHANGE', 'DELETE'], required: true },
   crossDepartment: { type: Boolean, default: false, index: true },
   clientIp: { type: String, default: '' },
   userAgent: { type: String, default: '', maxlength: 500 },

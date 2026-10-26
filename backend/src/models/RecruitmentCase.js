@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const recruitmentCaseSchema = new mongoose.Schema({
   candidateName: { type: String, required: true, trim: true, maxlength: 160 },
-  businessUnit: { type: String, enum: ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Research', 'Other'], default: 'Creative', index: true },
+  businessUnit: { type: String, trim: true, maxlength: 120, default: 'Creative', index: true },
   position: { type: String, required: true, trim: true, maxlength: 160 },
   department: { type: String, required: true, trim: true, maxlength: 120, index: true },
   currentStage: {

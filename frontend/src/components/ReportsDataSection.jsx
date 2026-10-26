@@ -25,16 +25,52 @@ import { ErrorDialog } from './common/ErrorDialog';
 import { fetchMonthlyProjectReports, importMonthlyProjectReport, importMonthlyGoogleSheet, deleteMonthlyProjectReport } from '../services/monthlyProjectReportService';
 
 const CHARTS = ['Grid', 'Pie', 'Bar', 'Line', 'Pyramid'];
-const COPY_GRID_COLUMNS = ['No', 'Project', 'Designer', 'Video Editor'];
+const SHEET_COLUMN_RULES = {
+  'copy-script': [{ label: 'Copy Writer', aliases: ['Copy Writer', 'Copywriter'] }],
+  'kbz-bank': [
+    { label: 'No.', aliases: ['No.', 'No'] },
+    { label: 'Project', aliases: ['Project'] },
+    { label: 'Designer', aliases: ['Designer'] }
+  ],
+  'kbz-pay': [
+    { label: 'No.', aliases: ['No.', 'No'] },
+    { label: 'Project', aliases: ['Project'] },
+    { label: 'Designer', aliases: ['Designer'] }
+  ],
+  'kbzpay-market': [
+    { label: 'No.', aliases: ['No.', 'No'] },
+    { label: 'Project', aliases: ['Project'] },
+    { label: 'Designer', aliases: ['Designer'] }
+  ],
+  'kbz-bank-communication': [
+    { label: 'No.', aliases: ['No.', 'No'] },
+    { label: 'Project', aliases: ['Project'] },
+    { label: 'Designer', aliases: ['Designer'] }
+  ],
+  production: [
+    { label: 'No.', aliases: ['No.', 'No'] },
+    { label: 'Project', aliases: ['Project'] },
+    { label: 'Video Editor', aliases: ['Video Editor', 'VideoEditor'] }
+  ]
+};
 const normalizeColumn = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const colorAt = (index) => ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 6];
 
-function ProjectGrid({ sheet }) {
+function getConfiguredColumns(sheet) {
   const sourceColumns = sheet?.columns || [];
   const columnLookup = new Map(sourceColumns.map((column) => [normalizeColumn(column), column]));
-  const columns = COPY_GRID_COLUMNS.map((label) => ({ label, source: columnLookup.get(normalizeColumn(label)) })).filter((item) => item.source);
+  const rules = SHEET_COLUMN_RULES[sheet?.key] || [];
+  return rules.map((rule) => ({
+    label: rule.label,
+    source: rule.aliases.map((alias) => columnLookup.get(normalizeColumn(alias))).find(Boolean)
+  })).filter((column) => column.source);
+}
 
-  if (!columns.length) return <div className="monthly-project-empty">ဒီ Sheet ထဲမှာ No, Project, Designer သို့မဟုတ် Video Editor column မတွေ့ပါ။</div>;
+function ProjectGrid({ sheet }) {
+  const columns = getConfiguredColumns(sheet);
+  const expectedColumns = (SHEET_COLUMN_RULES[sheet?.key] || []).map((column) => column.label).join(', ');
+
+  if (!columns.length) return <div className="monthly-project-empty">ဒီ Sheet ထဲမှာ သတ်မှတ်ထားသော column ({expectedColumns || 'မရှိပါ'}) မတွေ့ပါ။</div>;
   return <div className="project-table-wrap"><table className="project-report-table"><thead><tr>{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{(sheet.rows || []).map((row, index) => <tr key={`${row[columns[0].source] || index}-${index}`}>{columns.map((column) => <td key={column.label}>{row[column.source] || '—'}</td>)}</tr>)}</tbody></table></div>;
 }
 
@@ -148,8 +184,9 @@ export function ReportsDataSection({
 
   const activeProjectReport = monthlyReports.find((item) => item.month === selectedReportMonth);
   const activeProjectSheet = activeProjectReport?.sheets?.find((item) => item.key === selectedSheetKey) || activeProjectReport?.sheets?.[0];
-  const availableFields = activeProjectSheet?.columns?.filter((column) => !/^no\.?$/i.test(column)) || [];
-  const effectiveGroupField = availableFields.includes(groupField) ? groupField : (availableFields.find((field) => /status/i.test(field)) || availableFields[0]);
+  const configuredColumns = getConfiguredColumns(activeProjectSheet);
+  const availableFields = configuredColumns.map((column) => column.source).filter((column) => normalizeColumn(column) !== 'no');
+  const effectiveGroupField = availableFields.includes(groupField) ? groupField : availableFields[0];
   const chartData = Object.entries((activeProjectSheet?.rows || []).reduce((acc, row) => { const key = row[effectiveGroupField] || 'Unspecified'; acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 12);
 
   const activeSubs = subscriptions.filter((s) => !s.archived);
@@ -324,7 +361,7 @@ export function ReportsDataSection({
         <div className="monthly-project-controls">
           <label>Report Month<input type="month" value={selectedReportMonth} onChange={(e) => setSelectedReportMonth(e.target.value)} /></label>
           <label>Sheet<select value={activeProjectSheet?.key || selectedSheetKey} onChange={(e) => setSelectedSheetKey(e.target.value)}>{(activeProjectReport?.sheets || []).map((sheet) => <option key={sheet.key} value={sheet.key}>{sheet.name}</option>)}</select></label>
-          <label>Group By<select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select></label>
+          <label>{chartType === 'Grid' ? 'Grid Columns' : 'Group By'}{chartType === 'Grid' ? <span className="monthly-project-columns">{configuredColumns.map((column) => column.label).join(' · ') || 'No matching columns'}</span> : <select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select>}</label>
           <label>View<select value={chartType} onChange={(e) => setChartType(e.target.value)}>{CHARTS.map((type) => <option key={type}>{type}</option>)}</select></label>
         </div>
         {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{activeProjectSheet.title || activeProjectSheet.name}</b><span>{activeProjectSheet.rows.length} records · Source: {activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div><div className="monthly-project-actions">{activeProjectReport.sourceUrl && <a className="btn btn-outline btn-sm" href={activeProjectReport.sourceUrl} target="_blank" rel="noreferrer">View / Open</a>}{isAdmin && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setGoogleSheetUrl(activeProjectReport.sourceUrl || ''); importSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Edit / Update</button>}{isAdmin && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`${selectedReportMonth} report ကို အပြီးဖျက်မလား? ဒီလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth); onNotify?.(`${selectedReportMonth} report deleted.`, 'success'); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete</button>}</div></div><ProjectChart type={chartType} data={chartData} sheet={activeProjectSheet} /></> : <div className="monthly-project-empty">ဒီလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}

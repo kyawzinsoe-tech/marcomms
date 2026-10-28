@@ -46,6 +46,10 @@ export async function touchActiveSession() {
     return false;
   }
 
+  if (response.ok) {
+    const data=await response.json();
+    if (data.user) { const updated={...getCurrentUser(),...data.user,id:String(data.user.id || data.user._id),token}; localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(updated)); window.dispatchEvent(new CustomEvent('marcomms:profile-refreshed',{detail:updated})); }
+  }
   return response.ok;
 }
 
@@ -111,6 +115,7 @@ export async function loginUser(email, password) {
     role: normalizeRole(data.user.role),
     avatar: data.user.avatar,
     productionApprover: Boolean(data.user.productionApprover),
+    department:data.user.department || '', jobLevel:data.user.jobLevel || '', menuAccess:data.user.menuAccess || [],
     token: data.token
   };
 
@@ -166,6 +171,7 @@ export async function fetchUsersApi() {
           role: normalizeRole(u.role),
           department: u.department || '',
           jobLevel: u.jobLevel || '',
+          menuAccess:u.menuAccess || [],
           productionApprover: Boolean(u.productionApprover),
           avatar: u.avatar,
           createdAt: u.createdAt

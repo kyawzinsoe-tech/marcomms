@@ -1,6 +1,7 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
-const { requireAdmin } = require('../middleware/adminMiddleware');
+const {managedUnits} = require('../utils/menuAccess');
+const requireAdmin = (req,res,next) => managedUnits(req.user).length ? next() : res.status(403).json({error:'Report management requires your team Head or Administrator.'});
 const { listReports, importReport, importGoogleSheet, deleteReport } = require('../controllers/monthlyProjectReportController');
 const router = express.Router();
 router.use(protect);

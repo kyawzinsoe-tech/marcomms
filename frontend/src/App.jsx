@@ -33,6 +33,8 @@ import { CommandPalette } from './components/common/CommandPalette';
 import { ImportantWorkSection } from './components/ImportantWorkSection';
 import { RecruitmentSection } from './components/recruitment/RecruitmentSection';
 import { ProductionInventorySection } from './components/production-inventory/ProductionInventorySection';
+import {viewUnits, managedUnits} from './utils/menuAccess';
+import { PropertiesListSection } from './components/properties/PropertiesListSection';
 
 // Lazy-loaded chunked components for optimized initial bundle loading
 const ReportsDataSection = lazy(() =>
@@ -73,6 +75,8 @@ const HASH_MAP = {
   'production': 'production-orders',
   'production-inventory': 'production-inventory',
   'production-store': 'production-inventory',
+  'properties': 'properties',
+  'property-list': 'properties',
   'recruitment': 'recruitment',
   'interview-process': 'recruitment',
   'user-management': 'user-management',
@@ -245,9 +249,12 @@ function DashboardApp() {
         return can(PERMISSIONS.ASSET_READ_COMMS);
       case 'suppliers':
         return can(PERMISSIONS.SUPPLIER_READ);
-      case 'production-orders':
       case 'production-inventory':
+        return viewUnits(user,'posm').length > 0;
+      case 'production-orders':
         return can(PERMISSIONS.PRODUCTION_ORDER_READ);
+      case 'properties':
+        return can(PERMISSIONS.PROPERTY_READ);
       case 'user-management':
         return isAdmin;
       case 'recruitment':
@@ -607,6 +614,7 @@ function DashboardApp() {
             }
           >
             <ReportsDataSection
+              canManageMonthly={managedUnits(user).length > 0}
               reportMonth={reportMonth}
               selectedYear={selectedYear}
               subscriptions={state.subscriptions}
@@ -678,8 +686,12 @@ function DashboardApp() {
           />
         )}
 
-        {activeSection === 'production-inventory' && can(PERMISSIONS.PRODUCTION_ORDER_READ) && (
-          <ProductionInventorySection onNotify={showToast} isSuperAdmin={isSuperAdmin} />
+        {activeSection === 'production-inventory' && viewUnits(user,'posm').length > 0 && (
+          <ProductionInventorySection user={user} onNotify={showToast} isSuperAdmin={isSuperAdmin} />
+        )}
+
+        {activeSection === 'properties' && can(PERMISSIONS.PROPERTY_READ) && (
+          <PropertiesListSection user={user} onNotify={showToast} />
         )}
 
         {activeSection === 'recruitment' && (

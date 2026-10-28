@@ -18,6 +18,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const importantWorkRoutes = require('./routes/importantWorkRoutes');
 const recruitmentRoutes = require('./routes/recruitmentRoutes');
 const productionInventoryRoutes = require('./routes/productionInventoryRoutes');
+const propertyRoutes = require('./routes/propertyRoutes');
 const monthlyProjectReportRoutes = require('./routes/monthlyProjectReportRoutes');
 
 const app = express();
@@ -76,6 +77,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/important-work', importantWorkRoutes);
 app.use('/api/recruitment', recruitmentRoutes);
 app.use('/api/production-inventory', productionInventoryRoutes);
+app.use('/api/properties', propertyRoutes);
 app.use('/api/monthly-project-reports', monthlyProjectReportRoutes);
 
 if (process.env.NODE_ENV === 'production') {

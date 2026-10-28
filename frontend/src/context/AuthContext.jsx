@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
     const existing = getCurrentUser();
     if (existing) {
       setUser(existing);
+      touchActiveSession().catch(()=>{});
     }
     setLoading(false);
   }, []);
@@ -38,6 +39,8 @@ export function AuthProvider({ children }) {
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, noteActivity));
     };
   }, [user]);
+
+  useEffect(() => { const refresh=e=>setUser(e.detail); window.addEventListener('marcomms:profile-refreshed',refresh); return ()=>window.removeEventListener('marcomms:profile-refreshed',refresh); },[]);
 
   // Listen for decoupled session expiration events (e.g. 401 Unauthorized from API calls)
   useEffect(() => {

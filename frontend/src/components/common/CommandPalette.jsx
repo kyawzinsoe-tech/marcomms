@@ -17,7 +17,8 @@ import {
   Sparkles,
   Command,
   Download,
-  Calendar
+  Calendar,
+  PackageSearch
 } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 
@@ -75,6 +76,7 @@ export function CommandPalette({
   const canReadSuppliers = !user || hasPermission(user, PERMISSIONS.SUPPLIER_READ);
   const canReadProduction = !user || hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_READ);
   const canViewUsers = !user || hasPermission(user, PERMISSIONS.USER_VIEW);
+  const canReadProperties = !user || hasPermission(user, PERMISSIONS.PROPERTY_READ);
 
   // Compile all search items
   const allItems = useMemo(() => {
@@ -92,6 +94,7 @@ export function CommandPalette({
       ...(canReadComms ? [{ id: 'nav-kbz-comms', type: 'Navigation', label: 'KBZBank Comms Brand Assets', desc: 'Press kit materials, PR templates', icon: Megaphone, action: () => onNavigate('kbz-comms') }] : []),
       ...(canReadSuppliers ? [{ id: 'nav-suppliers', type: 'Navigation', label: 'Procurement Supplier Directory', desc: 'Approved printing vendors & fabricators', icon: Truck, action: () => onNavigate('suppliers') }] : []),
       ...(canReadProduction ? [{ id: 'nav-production', type: 'Navigation', label: 'Production Orders Matrix', desc: 'Fabrication orders, milestones, specs', icon: Printer, action: () => onNavigate('production-orders') }] : []),
+      ...(canReadProperties ? [{ id: 'nav-properties', type: 'Navigation', label: 'Marcomms Properties List', desc: 'Property ownership, condition and accessories', icon: PackageSearch, action: () => onNavigate('properties') }] : []),
       ...(canViewUsers ? [{ id: 'nav-users', type: 'Navigation', label: 'User Management & Sessions', desc: 'Role governance, active logins, security', icon: Users, action: () => onNavigate('user-management') }] : [])
     ];
     items.push(...destinations);
@@ -182,6 +185,7 @@ export function CommandPalette({
     canReadComms,
     canReadSuppliers,
     canReadProduction,
+    canReadProperties,
     canViewUsers,
     subscriptions,
     assets,

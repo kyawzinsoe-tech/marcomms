@@ -53,6 +53,10 @@ function logAuditEvent(params) {
   try {
     const logEntry = formatAuditLog(params || {});
     const jsonString = JSON.stringify(logEntry);
+    const AuditEvent = require('../models/AuditEvent');
+    if (AuditEvent.db.readyState === 1) {
+      AuditEvent.create(logEntry).catch(error => console.error('[AUDIT_PERSIST_FAILED]', error.message));
+    }
 
     if (logEntry.outcome === 'FAILURE') {
       console.warn(`[AUDIT_LOG_ALERT] ${jsonString}`);

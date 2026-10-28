@@ -110,6 +110,14 @@ export function Header({
           showMonthPicker: false,
           showPrint: false
         };
+      case 'properties':
+        return {
+          eyebrow: 'PROPERTY & EQUIPMENT CONTROL',
+          title: 'Marcomms Properties List',
+          desc: 'Track property ownership, quantities, condition, included accessories, and responsible owners across every business unit.',
+          showMonthPicker: false,
+          showPrint: false
+        };
       case 'user-management':
         return {
           eyebrow: 'SECURITY & RBAC GOVERNANCE',

@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { UNITS, MENUS } from '../utils/menuAccess';
 import { ROLES, normalizeRole, canAssignRole } from '../config/rbac';
 
 const ROLE_DEFINITIONS = [
@@ -106,7 +107,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
     password: '',
     role: ROLES.VIEWER,
     department: '',
-    jobLevel: ''
+    jobLevel: '', menuAccess: []
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -123,7 +124,8 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         password: '',
         role: normalizeRole(editingUser.role),
         department: editingUser.department || '',
-        jobLevel: editingUser.jobLevel || ''
+        jobLevel: editingUser.jobLevel || '',
+        menuAccess: editingUser.menuAccess || []
       });
     } else {
       setFormData({
@@ -132,7 +134,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         password: '',
         role: ROLES.VIEWER,
         department: '',
-        jobLevel: ''
+        jobLevel: '', menuAccess: []
       });
     }
   }, [editingUser, isOpen]);
@@ -204,7 +206,8 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
       email: cleanEmail,
       role: formData.role,
       department: formData.department.trim(),
-      jobLevel: formData.jobLevel
+      jobLevel: formData.jobLevel,
+      ...(currentUserRole === 'super_admin' ? {menuAccess: formData.menuAccess || []} : {})
     };
 
     if (cleanPassword) {
@@ -333,7 +336,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
               </div>
 
               <div className="form-group">
-                <label htmlFor="user-job-level">Recruitment Notification Level</label>
+                <label htmlFor="user-job-level">Job Level / Head Authority</label>
                 <select
                   id="user-job-level"
                   value={formData.jobLevel}
@@ -346,11 +349,12 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
                   <option value="manager">Manager</option>
                   <option value="staff">Staff (not notified)</option>
                 </select>
-                <small>Only Head, Deputy Head and Manager accounts receive cross-department access alerts.</small>
+                <small>Head ကိုရွေးထားပါက သက်ဆိုင်ရာ Team စာရင်းများကို Add/Edit/Delete လုပ်နိုင်ပါမည်။</small>
               </div>
             </div>
           </div>
 
+          {currentUserRole === 'super_admin' && <div className="modal-form-section"><h3>Additional Menu Access — View Only</h3><p>Head များ၏ ကိုယ့် Team စီမံခွင့်အပြင် အခြား Team ကို ကြည့်ခွင့်ပေးရန် ရွေးပါ။</p>{MENUS.map(menu => <fieldset key={menu} style={{marginBottom:12,padding:12,border:'1px solid #dbe3ee',borderRadius:10}}><legend>{{properties:'Properties List',posm:'POSM Item Store',reports:'Creative Team Reports'}[menu]}</legend><div style={{display:'flex',gap:12,flexWrap:'wrap'}}>{UNITS.map(unit => <label key={unit}><input type="checkbox" checked={(formData.menuAccess || []).some(g => g.menu === menu && g.units.includes(unit))} onChange={e => { const grants=formData.menuAccess || []; const units=grants.find(g=>g.menu===menu)?.units || []; handleChange('menuAccess',[...grants.filter(g=>g.menu!==menu),{menu,units:e.target.checked?[...units,unit]:units.filter(u=>u!==unit)}]); }}/>{unit}</label>)}</div></fieldset>)}</div>}
           {/* Section 2: Role Assignment (RBAC) */}
           <div className="modal-form-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>
             <div className="modal-section-title">

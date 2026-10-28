@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { ROLES, PERMISSIONS, normalizeRole, canViewRole, canAssignRole, hasPermission } = require('../config/rbac');
 const { logAuditEvent } = require('../utils/auditLogger');
+const { validateGrants } = require('../utils/menuAccess');
 
 // Helper to find user by MongoDB _id or email safely
 async function findUserFlexible(idOrEmail) {
@@ -37,6 +38,7 @@ exports.getUsers = async (req, res, next) => {
         role: normalizeRole(u.role),
         department: u.department || '',
         jobLevel: u.jobLevel || '',
+        menuAccess: u.menuAccess || [],
         productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
@@ -75,6 +77,7 @@ exports.setProductionApprover = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   try {
     const { name, email, password, role, department = '', jobLevel = '' } = req.body;
+    if (req.body.menuAccess !== undefined && req.user.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign additional menu access.'});
     const requester = req.user;
 
     if (!name || !email || !password) {
@@ -116,6 +119,7 @@ exports.createUser = async (req, res, next) => {
       role: requestedRole,
       department: String(department).trim(),
       jobLevel,
+      menuAccess: req.body.menuAccess === undefined ? [] : validateGrants(req.body.menuAccess),
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`
     });
 
@@ -138,6 +142,7 @@ exports.createUser = async (req, res, next) => {
         role: normalizeRole(newUser.role),
         department: newUser.department,
         jobLevel: newUser.jobLevel,
+        menuAccess: newUser.menuAccess || [],
         productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
@@ -225,10 +230,17 @@ exports.updateUser = async (req, res, next) => {
       }
       user.password = password.trim();
     }
+    if (req.body.menuAccess !== undefined) {
+      if (requester.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign additional menu access.'});
+      const before = user.menuAccess;
+      user.menuAccess = validateGrants(req.body.menuAccess);
+      req.menuAccessBefore = before;
+    }
     if (department !== undefined) user.department = String(department).trim();
     if (jobLevel !== undefined) user.jobLevel = jobLevel;
 
     await user.save();
+    if (req.body.menuAccess !== undefined) logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'MENU_ACCESS_UPDATED',targetEntity:'User',targetId:user._id,ip:req.ip,metadata:{before:req.menuAccessBefore,after:user.menuAccess}});
 
     logAuditEvent({
       actorId: requester?.id || requester?._id,
@@ -249,6 +261,7 @@ exports.updateUser = async (req, res, next) => {
         role: normalizeRole(user.role),
         department: user.department || '',
         jobLevel: user.jobLevel || '',
+        menuAccess: user.menuAccess || [],
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt

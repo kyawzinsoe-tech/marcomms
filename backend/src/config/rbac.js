@@ -79,6 +79,11 @@ const PERMISSIONS = {
   PRODUCTION_ORDER_DELETE: 'production_order:delete',
   PRODUCTION_ORDER_APPROVE_PROOF: 'production_order:approve_proof',
 
+  PROPERTY_READ: 'property:read',
+  PROPERTY_CREATE: 'property:create',
+  PROPERTY_UPDATE: 'property:update',
+  PROPERTY_DELETE: 'property:delete',
+
   // User Management
   USER_VIEW: 'user:view',
   USER_CREATE_SUPER_ADMIN: 'user:create:super_admin',
@@ -150,6 +155,7 @@ function canAssignRole(requesterRole, targetRole) {
  * @returns {Boolean}
  */
 function hasPermission(user, permission, target = null, context = {}) {
+  if (permission?.startsWith('property:')) { const access = require('../utils/menuAccess'); return permission === 'property:read' ? access.viewUnits(user,'properties').length > 0 : access.managedUnits(user).length > 0; }
   if (!user) return false;
   const role = normalizeRole(user.role);
 
@@ -215,6 +221,10 @@ function hasPermission(user, permission, target = null, context = {}) {
       case PERMISSIONS.PRODUCTION_ORDER_CREATE:
       case PERMISSIONS.PRODUCTION_ORDER_UPDATE:
       case PERMISSIONS.PRODUCTION_ORDER_DELETE:
+      case PERMISSIONS.PROPERTY_READ:
+      case PERMISSIONS.PROPERTY_CREATE:
+      case PERMISSIONS.PROPERTY_UPDATE:
+      case PERMISSIONS.PROPERTY_DELETE:
       case PERMISSIONS.PRODUCTION_ORDER_APPROVE_PROOF:
 
       // Data Operations
@@ -267,6 +277,7 @@ function hasPermission(user, permission, target = null, context = {}) {
       // Procurement & Production
       case PERMISSIONS.SUPPLIER_READ:
       case PERMISSIONS.PRODUCTION_ORDER_READ:
+      case PERMISSIONS.PROPERTY_READ:
       case PERMISSIONS.PRODUCTION_ORDER_UPDATE:
       case PERMISSIONS.PRODUCTION_ORDER_APPROVE_PROOF:
         return true;
@@ -296,6 +307,7 @@ function hasPermission(user, permission, target = null, context = {}) {
 
       // Production order reference
       case PERMISSIONS.PRODUCTION_ORDER_READ:
+      case PERMISSIONS.PROPERTY_READ:
         return true;
 
       default:
@@ -323,6 +335,7 @@ function hasPermission(user, permission, target = null, context = {}) {
 
       // Production order reference
       case PERMISSIONS.PRODUCTION_ORDER_READ:
+      case PERMISSIONS.PROPERTY_READ:
         return true;
 
       default:
@@ -350,6 +363,7 @@ function hasPermission(user, permission, target = null, context = {}) {
 
       // Production order reference
       case PERMISSIONS.PRODUCTION_ORDER_READ:
+      case PERMISSIONS.PROPERTY_READ:
         return true;
 
       default:
@@ -381,6 +395,10 @@ function hasPermission(user, permission, target = null, context = {}) {
       case PERMISSIONS.PRODUCTION_ORDER_CREATE:
       case PERMISSIONS.PRODUCTION_ORDER_UPDATE:
       case PERMISSIONS.PRODUCTION_ORDER_DELETE:
+      case PERMISSIONS.PROPERTY_READ:
+      case PERMISSIONS.PROPERTY_CREATE:
+      case PERMISSIONS.PROPERTY_UPDATE:
+      case PERMISSIONS.PROPERTY_DELETE:
         return true;
 
       default:
@@ -402,6 +420,7 @@ function hasPermission(user, permission, target = null, context = {}) {
       case PERMISSIONS.ASSET_READ_COMMS:
       case PERMISSIONS.SUPPLIER_READ:
       case PERMISSIONS.PRODUCTION_ORDER_READ:
+      case PERMISSIONS.PROPERTY_READ:
         return true;
       default:
         return false;

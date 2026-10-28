@@ -15,9 +15,11 @@ import {
   Printer,
   User as UserIcon,
   BellRing,
-  BriefcaseBusiness
-  ,Boxes
+  BriefcaseBusiness,
+  Boxes,
+  PackageSearch
 } from 'lucide-react';
+import {viewUnits} from '../utils/menuAccess';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
 
 export function Sidebar({
@@ -39,6 +41,7 @@ export function Sidebar({
   const canReadProduction = user && hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_READ);
   const canViewUsers = user && hasPermission(user, PERMISSIONS.USER_VIEW);
   const canViewRecruitment = user && (isSuperAdmin || isAdmin || ['head', 'deputy_head', 'manager'].includes(user.jobLevel));
+  const canReadProperties = user && hasPermission(user, PERMISSIONS.PROPERTY_READ);
 
   const mainNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -58,7 +61,7 @@ export function Sidebar({
   const procurementItems = [
     { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers },
     { id: 'production-orders', label: 'Production Orders', icon: Printer, visible: canReadProduction }
-    ,{ id: 'production-inventory', label: 'Production Item Store', icon: Boxes, visible: canReadProduction }
+    ,{ id: 'production-inventory', label: 'Production Item Store', icon: Boxes, visible: viewUnits(user,'posm').length > 0 }
   ].filter((item) => item.visible);
 
   const adminNavItems = [
@@ -67,6 +70,10 @@ export function Sidebar({
 
   const peopleItems = [
     { id: 'recruitment', label: 'Interview Process', icon: BriefcaseBusiness, visible: canViewRecruitment }
+  ].filter((item) => item.visible);
+
+  const propertyItems = [
+    { id: 'properties', label: 'Properties List', icon: PackageSearch, visible: canReadProperties }
   ].filter((item) => item.visible);
 
   const handleNav = (id, e) => {
@@ -145,6 +152,13 @@ export function Sidebar({
         <div style={{ marginTop: '18px' }}>
           <div className="nav-group-header">Procurement & Vendors</div>
           {renderNavGroup(procurementItems)}
+        </div>
+      )}
+
+      {propertyItems.length > 0 && (
+        <div style={{ marginTop: '18px' }}>
+          <div className="nav-group-header">Property Management</div>
+          {renderNavGroup(propertyItems)}
         </div>
       )}
 

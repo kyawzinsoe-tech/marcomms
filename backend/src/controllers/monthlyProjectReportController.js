@@ -65,7 +65,7 @@ async function saveReport({ month, originalName, sourceType, sourceUrl = '', buf
   }
   const existing = await MonthlyProjectReport.findOne({ month }).lean();
   const report = await MonthlyProjectReport.findOneAndUpdate(
-    { month }, { month, originalName, sourceType, sourceUrl, sheets:[...(existing?.sheets || []).filter(s=>!sheets.some(n=>n.key===s.key)),...sheets], uploadedBy: userId }, { upsert: true, new: true, runValidators: true }
+    { month }, { month, originalName, sourceType, sourceUrl, payAliasRestored:true, sheets:[...(existing?.sheets || []).filter(s=>!sheets.some(n=>n.key===s.key)),...sheets], uploadedBy: userId }, { upsert: true, new: true, runValidators: true }
   ).lean();
   return { report:restrictReport(report,user), operation: existing ? 'update' : 'create', importedSheets: sheets.map((sheet) => sheet.name), ignoredSheets: sheetNames.filter((name) => !identify(name)) };
 }
@@ -115,9 +115,11 @@ exports.deleteReport = async (req, res, next) => { try {
   const remaining = report.sheets.filter(s=>!(permitsSheet(managedUnits(req.user),s.key) && (!req.query.sheet || req.query.sheet===s.key)));
   if (remaining.length === report.sheets.length) return res.status(403).json({error:'You cannot delete another team report.'});
   report.sheets = remaining;
+  report.payAliasRestored = true;
   await report.save();
   logAuditEvent({ actorId: req.user._id, actorRole: req.user.role, action: 'MONTHLY_REPORT_DELETE', targetEntity: 'monthly_project_report', targetId: report._id, ip: req.ip, metadata: { month: req.params.month } });
   res.json({ success: true });
 } catch (error) { next(error); } };
 
 exports._test = { identify, parseMatrix, permitsSheet, restrictReport };
+exports.parseWorkbook = parseWorkbook;

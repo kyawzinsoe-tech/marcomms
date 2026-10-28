@@ -5,6 +5,7 @@ const monthlyProjectReportSchema = new mongoose.Schema({
   originalName: { type: String, required: true },
   sourceType: { type: String, enum: ['upload', 'google-sheet'], default: 'upload' },
   sourceUrl: { type: String, default: '' },
+  payAliasRestored: { type: Boolean, default: false },
   sheets: [{
     key: { type: String, required: true },
     name: { type: String, required: true },

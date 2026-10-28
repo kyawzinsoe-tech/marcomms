@@ -1,4 +1,5 @@
-import { getAuthToken } from './authService';
+import {canOpenMenu} from '../utils/menuAccess';
+import { getAuthToken, getCurrentUser } from './authService';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 const STORAGE_KEY = 'creativeHubDashboardV3';
@@ -116,17 +117,19 @@ export function handleApiResponse(response) {
 
 export async function fetchDashboardData() {
   const token = getAuthToken();
+  const profile = getCurrentUser();
+  const mask = value => ({...value,subscriptions:canOpenMenu(profile,'subscriptions') ? value.subscriptions : canOpenMenu(profile,'alerts') ? (value.subscriptions || []).map(({id,product,tool,status,expiry,alertDays,email,reminderEmail,archived})=>({id,product,tool,status,expiry,alertDays,email,reminderEmail,archived})) : canOpenMenu(profile,'tokens') ? (value.subscriptions || []).map(({id,product,tool,initialTokens,archived})=>({id,product,tool,initialTokens,archived})) : [],tokenEntries:canOpenMenu(profile,'tokens') ? value.tokenEntries : []});
 
   // 1. Try Backend API
   if (token) {
     try {
       const [subRes, tokRes] = await Promise.all([
-        fetchWithRetry('/api/subscriptions', {
+        (['subscriptions','alerts','tokens'].some(menu=>canOpenMenu(profile,menu)) ? fetchWithRetry(canOpenMenu(profile,'subscriptions') ? '/api/subscriptions' : '/api/navigation-data?for='+ (canOpenMenu(profile,'alerts') ? 'alerts' : 'tokens'), {
           headers: { Authorization: `Bearer ${token}` }
-        }).then(handleApiResponse),
-        fetchWithRetry('/api/tokens', {
+        }).then(handleApiResponse) : Promise.resolve({ok:true,json:async()=>({subscriptions:[]})})),
+        (canOpenMenu(profile,'tokens') ? fetchWithRetry('/api/tokens', {
           headers: { Authorization: `Bearer ${token}` }
-        }).then(handleApiResponse)
+        }).then(handleApiResponse) : Promise.resolve({ok:true,json:async()=>({tokenEntries:[]})}))
       ]);
 
       if (subRes.ok && tokRes.ok) {
@@ -151,13 +154,13 @@ export async function fetchDashboardData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return normalizeData(JSON.parse(raw));
+      return normalizeData(token ? mask(JSON.parse(raw)) : JSON.parse(raw));
     }
 
     for (const key of LEGACY_KEYS) {
       const old = localStorage.getItem(key);
       if (old) {
-        const migrated = normalizeData(JSON.parse(old));
+        const migrated = normalizeData(token ? mask(JSON.parse(old)) : JSON.parse(old));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
         return migrated;
       }
@@ -166,7 +169,7 @@ export async function fetchDashboardData() {
     console.error('Error reading localStorage:', error);
   }
 
-  return normalizeData(DEMO_DATA);
+  return normalizeData(token ? mask(DEMO_DATA) : DEMO_DATA);
 }
 
 export async function fetchExecutiveSummary() {

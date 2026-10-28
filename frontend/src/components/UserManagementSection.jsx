@@ -297,7 +297,7 @@ export function UserManagementSection({
               gap: '4px'
             }}
           >
-            <Building2 size={12} color="#0284c7" /> KBZ Bank Design
+            <Building2 size={12} color="#0284c7" /> KBZ Bank Marketing
           </span>
         );
       case ROLES.PAY_DESIGN:
@@ -314,7 +314,7 @@ export function UserManagementSection({
               gap: '4px'
             }}
           >
-            <CreditCard size={12} color="#2563eb" /> KBZPay Design
+            <CreditCard size={12} color="#2563eb" /> KBZPay Marketing
           </span>
         );
       case ROLES.COMMS_DESIGN:
@@ -331,7 +331,7 @@ export function UserManagementSection({
               gap: '4px'
             }}
           >
-            <Megaphone size={12} color="#d97706" /> KBZBank Comms Design
+            <Megaphone size={12} color="#d97706" /> Communication Team
           </span>
         );
       case ROLES.PROCUREMENT_OFFICER:
@@ -348,7 +348,7 @@ export function UserManagementSection({
               gap: '4px'
             }}
           >
-            <Truck size={12} color="#059669" /> Procurement Officer
+            <Truck size={12} color="#059669" /> Procurement & Merchandising Officer
           </span>
         );
       case ROLES.ADMIN:
@@ -513,10 +513,10 @@ export function UserManagementSection({
                   [ROLES.SUPER_ADMIN]: `Super Admin (${superAdminCount})`,
                   [ROLES.ADMIN]: `Admin (${adminCount})`,
                   [ROLES.HEAD_BRAND]: 'Head of Brand',
-                  [ROLES.BANK_DESIGN]: 'KBZ Bank Design',
-                  [ROLES.PAY_DESIGN]: 'KBZPay Design',
-                  [ROLES.COMMS_DESIGN]: 'KBZBank Comms Design',
-                  [ROLES.PROCUREMENT_OFFICER]: 'Procurement Officer',
+                  [ROLES.BANK_DESIGN]: 'KBZ Bank Marketing',
+                  [ROLES.PAY_DESIGN]: 'KBZPay Marketing',
+                  [ROLES.COMMS_DESIGN]: 'Communication Team',
+                  [ROLES.PROCUREMENT_OFFICER]: 'Procurement & Merchandising Officer',
                   [ROLES.VIEWER]: `Viewer (${viewerCount})`
                 }[role]}
               </option>

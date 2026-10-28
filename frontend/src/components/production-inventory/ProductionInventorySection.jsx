@@ -4,7 +4,7 @@ import { addStockMovement, createProductionItem, deleteProductionItem, deleteSto
 import {managedUnits, canonicalUnit} from '../../utils/menuAccess';
 import { AuthenticatedImage } from '../common/AuthenticatedImage';
 
-const BUS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Research', 'Merchandising', 'Other'];
+const BUS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Merchandising', 'Other'];
 const EMPTY_ITEM = { sku: '', name: '', unit: 'pcs', businessUnit: 'KBZ Bank', stockDepartment: '', openingQuantity: 0, reorderLevel: 0 };
 const EMPTY_MOVE = { direction: 'OUT', quantity: 1, date: new Date().toISOString().slice(0, 10), businessUnit: 'KBZ Bank', fromDepartment: '', toDepartment: '', functionName: '', eventName: '', reference: '', note: '' };
 

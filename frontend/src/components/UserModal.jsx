@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { UNITS, MENUS } from '../utils/menuAccess';
+import { UNITS, MENUS, MENU_DEFINITIONS } from '../utils/menuAccess';
 import { ROLES, normalizeRole, canAssignRole } from '../config/rbac';
 
 const ROLE_DEFINITIONS = [
@@ -40,7 +40,7 @@ const ROLE_DEFINITIONS = [
   },
   {
     role: ROLES.BANK_DESIGN,
-    label: 'KBZ Bank Design',
+    label: 'KBZ Bank Marketing',
     icon: Building2,
     iconColor: '#0284c7',
     activeColor: '#0369a1',
@@ -50,7 +50,7 @@ const ROLE_DEFINITIONS = [
   },
   {
     role: ROLES.PAY_DESIGN,
-    label: 'KBZPay Design',
+    label: 'KBZPay Marketing',
     icon: CreditCard,
     iconColor: '#2563eb',
     activeColor: '#1d4ed8',
@@ -60,7 +60,7 @@ const ROLE_DEFINITIONS = [
   },
   {
     role: ROLES.COMMS_DESIGN,
-    label: 'KBZBank Comms Design',
+    label: 'Communication Team',
     icon: Megaphone,
     iconColor: '#d97706',
     activeColor: '#b45309',
@@ -70,7 +70,7 @@ const ROLE_DEFINITIONS = [
   },
   {
     role: ROLES.PROCUREMENT_OFFICER,
-    label: 'Procurement Officer',
+    label: 'Procurement & Merchandising Officer',
     icon: Truck,
     iconColor: '#059669',
     activeColor: '#047857',
@@ -107,7 +107,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
     password: '',
     role: ROLES.VIEWER,
     department: '',
-    jobLevel: '', menuAccess: []
+    jobLevel: '', menuAccess: [], assignedMenus: []
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -123,9 +123,10 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         email: editingUser.email || '',
         password: '',
         role: normalizeRole(editingUser.role),
-        department: editingUser.department || '',
+        department: /research/i.test(editingUser.department || '') ? '' : editingUser.department || '',
         jobLevel: editingUser.jobLevel || '',
-        menuAccess: editingUser.menuAccess || []
+        menuAccess: editingUser.menuAccess || [],
+        assignedMenus: editingUser.assignedMenus ?? MENU_DEFINITIONS.map(([id])=>id)
       });
     } else {
       setFormData({
@@ -134,7 +135,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         password: '',
         role: ROLES.VIEWER,
         department: '',
-        jobLevel: '', menuAccess: []
+        jobLevel: '', menuAccess: [], assignedMenus: []
       });
     }
   }, [editingUser, isOpen]);
@@ -158,7 +159,9 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
   );
 
   const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value,
+      ...(field === 'menuAccess' ? {assignedMenus:[...new Set([...(prev.assignedMenus || []), ...value.filter(g=>g.units?.length).map(g=>g.menu==='posm'?'production-inventory':g.menu)])]} : {})
+    }));
     if (validationErrors[field]) {
       setValidationErrors((prev) => {
         const next = { ...prev };
@@ -207,7 +210,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
       role: formData.role,
       department: formData.department.trim(),
       jobLevel: formData.jobLevel,
-      ...(currentUserRole === 'super_admin' ? {menuAccess: formData.menuAccess || []} : {})
+      ...(currentUserRole === 'super_admin' ? {menuAccess: formData.menuAccess || [], assignedMenus:formData.assignedMenus || []} : {})
     };
 
     if (cleanPassword) {
@@ -323,16 +326,8 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
               </div>
 
               <div className="form-group">
-                <label htmlFor="user-department">Department</label>
-                <input
-                  id="user-department"
-                  type="text"
-                  maxLength={120}
-                  placeholder="e.g. Creative Team"
-                  value={formData.department}
-                  onChange={(e) => handleChange('department', e.target.value)}
-                  disabled={isSaving}
-                />
+                <label htmlFor="user-department">Business Unit / Department</label>
+                <select id="user-department" value={formData.department} onChange={e=>handleChange('department',e.target.value)} disabled={isSaving}><option value="">Select Business Unit</option>{['Creative','KBZ Bank','KBZPay','Comms','Merchandising'].map(unit=><option key={unit}>{unit}</option>)}{formData.department && !['Creative','KBZ Bank','KBZPay','Comms','Merchandising'].includes(formData.department) && <option>{formData.department}</option>}</select><small>Properties List တွင် ကိုယ့် Business Unit နှင့် သက်ဆိုင်သော စာရင်းကိုသာ မြင်ရပါမည်။</small>
               </div>
 
               <div className="form-group">
@@ -354,6 +349,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
             </div>
           </div>
 
+          {currentUserRole === 'super_admin' && formData.role !== 'super_admin' && <div className="modal-form-section"><h3>Assigned Portal Menus</h3><p>Super Admin သာ Menu တစ်ခုချင်း ရွေးပေးနိုင်ပါသည်။ ရွေးပေးထားသော Menu အတွင်း လုပ်ပိုင်ခွင့်က Assigned Role အတိုင်းဖြစ်ပါမည်။</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>{MENU_DEFINITIONS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" checked={(formData.assignedMenus || []).includes(id)} onChange={e=>handleChange('assignedMenus',e.target.checked?[...(formData.assignedMenus || []),id]:(formData.assignedMenus || []).filter(x=>x!==id))}/>{label}</label>)}</div></div>}
           {currentUserRole === 'super_admin' && <div className="modal-form-section"><h3>Additional Menu Access — View Only</h3><p>Head များ၏ ကိုယ့် Team စီမံခွင့်အပြင် အခြား Team ကို ကြည့်ခွင့်ပေးရန် ရွေးပါ။</p>{MENUS.map(menu => <fieldset key={menu} style={{marginBottom:12,padding:12,border:'1px solid #dbe3ee',borderRadius:10}}><legend>{{properties:'Properties List',posm:'POSM Item Store',reports:'Creative Team Reports'}[menu]}</legend><div style={{display:'flex',gap:12,flexWrap:'wrap'}}>{UNITS.map(unit => <label key={unit}><input type="checkbox" checked={(formData.menuAccess || []).some(g => g.menu === menu && g.units.includes(unit))} onChange={e => { const grants=formData.menuAccess || []; const units=grants.find(g=>g.menu===menu)?.units || []; handleChange('menuAccess',[...grants.filter(g=>g.menu!==menu),{menu,units:e.target.checked?[...units,unit]:units.filter(u=>u!==unit)}]); }}/>{unit}</label>)}</div></fieldset>)}</div>}
           {/* Section 2: Role Assignment (RBAC) */}
           <div className="modal-form-section" style={{ borderBottom: 'none', paddingBottom: 0 }}>

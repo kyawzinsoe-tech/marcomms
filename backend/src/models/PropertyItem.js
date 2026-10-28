@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const propertyItemSchema = new mongoose.Schema({
   propertyNo: { type: String, required: true, unique: true, trim: true, maxlength: 60 },
   date: { type: Date, required: true },
-  businessUnit: { type: String, required: true, enum: ['Bank', 'Pay', 'Comms', 'Research', 'Creative', 'Merchandising'] },
+  businessUnit: { type: String, required: true, enum: ['Bank', 'Pay', 'Comms', 'Creative', 'Merchandising'] },
   category: { type: String, required: true, trim: true, maxlength: 80 },
   itemType: { type: String, required: true, trim: true, maxlength: 120 },
   customType: { type: String, trim: true, maxlength: 120, default: '' },

@@ -155,6 +155,8 @@ function canAssignRole(requesterRole, targetRole) {
  * @returns {Boolean}
  */
 function hasPermission(user, permission, target = null, context = {}) {
+  const accessControl=require('../utils/menuAccess'); const menu=accessControl.permissionMenu(permission);
+  if(menu && !accessControl.canOpenMenu(user,menu)) return false;
   if (permission?.startsWith('property:')) { const access = require('../utils/menuAccess'); return permission === 'property:read' ? access.viewUnits(user,'properties').length > 0 : access.managedUnits(user).length > 0; }
   if (!user) return false;
   const role = normalizeRole(user.role);

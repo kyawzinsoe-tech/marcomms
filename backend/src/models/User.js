@@ -44,7 +44,8 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    menuAccess: { type: [{ _id: false, menu: {type:String, enum:['properties','posm','reports']}, units: [{type:String, enum:['Bank','Pay','Comms','Research','Creative','Merchandising']}] }], default: [] },
+    assignedMenus: { type: [String], default: null },
+    menuAccess: { type: [{ _id: false, menu: {type:String, enum:['properties','posm','reports']}, units: [{type:String, enum:['Bank','Pay','Comms','Creative','Merchandising']}] }], default: [] },
     department: {
       type: String,
       trim: true,

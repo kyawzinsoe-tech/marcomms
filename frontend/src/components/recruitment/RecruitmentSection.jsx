@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BriefcaseBusiness, CalendarDays, CheckCircle2, Eye, Loader2, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { createRecruitmentBusinessUnit, createRecruitmentCase, deleteRecruitmentBusinessUnit, deleteRecruitmentCase, fetchRecruitmentBusinessUnits, fetchRecruitmentCase, fetchRecruitmentCases, updateRecruitmentBusinessUnit, updateRecruitmentCase } from '../../services/recruitmentService';
 
-const BUSINESS_UNITS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Research', 'Other'];
+const BUSINESS_UNITS = ['KBZ Bank', 'KBZPay', 'Comms', 'Creative', 'Other'];
 const INTERVIEWERS = ['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other'];
-const ASSESSMENTS = ['', 'Design Test', 'Portfolio Review', 'Writing / Communication Assessment', 'Marketing Case Study', 'Content Assessment', 'Product Assessment', 'Technical Test', 'Research Case Study', 'Data Analysis', 'Other'];
+const ASSESSMENTS = ['', 'Design Test', 'Portfolio Review', 'Writing / Communication Assessment', 'Marketing Case Study', 'Content Assessment', 'Product Assessment', 'Technical Test', 'Data Analysis', 'Other'];
 const PIPELINE = [
   ['cv_review', 'CV Review'], ['shortlisted', 'Shortlisted'], ['sent_to_hr', 'Sent to HR'], ['interview_scheduled', 'Interview Scheduled'],
   ['interview_completed', 'Interview Completed'], ['assessment_assigned', 'Assessment Assigned'], ['assessment_submitted', 'Assessment Submitted'],
@@ -36,7 +36,7 @@ export function RecruitmentSection({ user, onNotify }) {
   const [loading, setLoading] = useState(true);
   const teamDepartment = user?.department || (user?.role === 'super_admin' ? 'Creative' : '');
   const [form, setForm] = useState({ ...EMPTY, department: teamDepartment });
-  const load = useCallback(async () => { try { const [caseRows, units] = await Promise.all([fetchRecruitmentCases(), fetchRecruitmentBusinessUnits()]); setRecords(caseRows); setBusinessUnits(units); } catch (error) { onNotify?.(error.message, 'error'); } finally { setLoading(false); } }, [onNotify]);
+  const load = useCallback(async () => { try { const [caseRows, units] = await Promise.all([fetchRecruitmentCases(), fetchRecruitmentBusinessUnits()]); setRecords(caseRows.filter(r=>!/research/i.test(r.businessUnit || ''))); setBusinessUnits(units.filter(u=>!/research/i.test(u.name || ''))); } catch (error) { onNotify?.(error.message, 'error'); } finally { setLoading(false); } }, [onNotify]);
   useEffect(() => { load(); }, [load]);
   const selectableBusinessUnits = useMemo(() => {
     const activeNames = businessUnits.filter((unit) => unit.status === 'active').map((unit) => unit.name);

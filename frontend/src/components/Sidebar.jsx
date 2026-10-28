@@ -19,7 +19,7 @@ import {
   Boxes,
   PackageSearch
 } from 'lucide-react';
-import {viewUnits} from '../utils/menuAccess';
+import {viewUnits, canOpenMenu, isHead} from '../utils/menuAccess';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
 
 export function Sidebar({
@@ -40,7 +40,7 @@ export function Sidebar({
   const canReadSuppliers = user && hasPermission(user, PERMISSIONS.SUPPLIER_READ);
   const canReadProduction = user && hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_READ);
   const canViewUsers = user && hasPermission(user, PERMISSIONS.USER_VIEW);
-  const canViewRecruitment = user && (isSuperAdmin || isAdmin || ['head', 'deputy_head', 'manager'].includes(user.jobLevel));
+  const canViewRecruitment = canOpenMenu(user,'recruitment') && user && (isSuperAdmin || isAdmin || user.role === 'head_brand' || ['head', 'deputy_head', 'manager'].includes(user.jobLevel));
   const canReadProperties = user && hasPermission(user, PERMISSIONS.PROPERTY_READ);
 
   const mainNavItems = [
@@ -84,7 +84,7 @@ export function Sidebar({
 
   const renderNavGroup = (items) => (
     <div className="nav-links">
-      {items.map((item) => {
+      {items.filter(item=>canOpenMenu(user,item.id)).map((item) => {
         const Icon = item.icon;
         const isActive = activeSection === item.id;
         const hasSeparator = Boolean(item.separatorBefore);
@@ -194,8 +194,8 @@ export function Sidebar({
               <Eye size={14} />
             </div>
             <div>
-              <b style={{ color: '#ffffff' }}>Viewer Mode</b>
-              <small>Read-only access active</small>
+              <b style={{ color: '#ffffff' }}>{isHead(user) ? 'Head Access' : 'Role Access'}</b>
+              <small>{isHead(user) ? 'Manage your team records' : 'Assigned permissions active'}</small>
             </div>
           </div>
         )}

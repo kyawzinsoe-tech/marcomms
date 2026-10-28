@@ -106,7 +106,7 @@ exports.getSupplierById = async (req, res, next) => {
 exports.createSupplier = async (req, res, next) => {
   try {
     if (!hasPermission(req.user, PERMISSIONS.SUPPLIER_CREATE)) {
-      return res.status(403).json({ error: 'Access denied. Only Procurement Officers or Administrators can create suppliers.' });
+      return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can create suppliers.' });
     }
 
     const { name, code, categories, contactPerson, phone, email, address, rating, status, notes } = req.body;
@@ -156,7 +156,7 @@ exports.createSupplier = async (req, res, next) => {
 exports.updateSupplier = async (req, res, next) => {
   try {
     if (!hasPermission(req.user, PERMISSIONS.SUPPLIER_UPDATE)) {
-      return res.status(403).json({ error: 'Access denied. Only Procurement Officers or Administrators can update suppliers.' });
+      return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can update suppliers.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -199,7 +199,7 @@ exports.updateSupplier = async (req, res, next) => {
 exports.deleteSupplier = async (req, res, next) => {
   try {
     if (!hasPermission(req.user, PERMISSIONS.SUPPLIER_DELETE)) {
-      return res.status(403).json({ error: 'Access denied. Only Procurement Officers or Administrators can delete suppliers.' });
+      return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can delete suppliers.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

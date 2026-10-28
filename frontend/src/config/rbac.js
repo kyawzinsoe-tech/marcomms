@@ -151,9 +151,10 @@ export function canAssignRole(requesterRole, targetRole) {
  * @param {Object} [context] - Additional context (e.g. { superAdminCount })
  * @returns {Boolean}
  */
-import { viewUnits, managedUnits } from '../utils/menuAccess';
+import { viewUnits, managedUnits, canOpenMenu, permissionMenu } from '../utils/menuAccess';
 
 export function hasPermission(user, permission, target = null, context = {}) {
+  const menu=permissionMenu(permission); if(menu && !canOpenMenu(user,menu)) return false;
   if (permission?.startsWith('property:')) return permission === 'property:read' ? viewUnits(user,'properties').length > 0 : managedUnits(user).length > 0;
   if (!user) return false;
   const role = normalizeRole(user.role);

@@ -6,7 +6,7 @@ const { createAssetDownloadUrl } = require('../services/storageService');
 
 const {viewUnits, managedUnits, canonicalUnit} = require('../utils/menuAccess');
 const {logAuditEvent} = require('../utils/auditLogger');
-const itemUnit = item => canonicalUnit(item.businessUnit) || 'Merchandising';
+const itemUnit = item => /research/i.test(item.businessUnit) ? '__removed__' : canonicalUnit(item.businessUnit) || 'Merchandising';
 const ALLOWED = new Set(['image/png', 'image/jpeg']);
 const MAX_BYTES = 8 * 1024 * 1024;
 const clean = (value, max = 200) => String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
@@ -41,6 +41,7 @@ exports.getItems = async (req, res, next) => { try {
 exports.createItem = async (req, res, next) => { try {
   if (!canWrite(req.user)) return res.status(403).json({ error: 'Access denied.' });
   const { sku, name, unit, openingQuantity, reorderLevel, businessUnit, stockDepartment } = req.body;
+  if (/research/i.test(businessUnit || '')) return res.status(400).json({error:'Select an available Business Unit.'});
   if (!clean(sku, 60) || !clean(name, 180)) return res.status(400).json({ error: 'SKU and item name are required.' });
   if (!managedUnits(req.user).includes(canonicalUnit(businessUnit) || 'Merchandising')) return res.status(403).json({error:'You can only add items for your own team.'});
   const opening = Number(openingQuantity || 0);
@@ -89,6 +90,7 @@ exports.updateItem = async (req, res, next) => { try {
   if (req.body.name !== undefined) item.name = clean(req.body.name, 180);
   if (req.body.unit !== undefined) item.unit = clean(req.body.unit || 'pcs', 40);
   if (req.body.businessUnit !== undefined) {
+    if (/research/i.test(req.body.businessUnit)) return res.status(400).json({error:'Select an available Business Unit.'});
     if (!managedUnits(req.user).includes(canonicalUnit(req.body.businessUnit) || 'Merchandising')) return res.status(403).json({error:'Access denied for the destination team.'});
     item.businessUnit = clean(req.body.businessUnit, 120);
   }

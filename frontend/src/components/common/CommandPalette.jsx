@@ -20,6 +20,7 @@ import {
   Calendar,
   PackageSearch
 } from 'lucide-react';
+import {canOpenMenu} from '../../utils/menuAccess';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 
 export function CommandPalette({
@@ -110,7 +111,7 @@ export function CommandPalette({
     items.push(...quickActions);
 
     // 3. Live Subscriptions Records
-    subscriptions.forEach((sub) => {
+    (canOpenMenu(user,'subscriptions') ? subscriptions : []).forEach((sub) => {
       if (!sub.archived) {
         items.push({
           id: `sub-${sub.id}`,
@@ -144,7 +145,7 @@ export function CommandPalette({
     });
 
     // 5. Live Suppliers Records
-    suppliers.forEach((sup) => {
+    (canOpenMenu(user,'suppliers') ? suppliers : []).forEach((sup) => {
       if (!sup.archived) {
         items.push({
           id: `sup-${sup.id}`,
@@ -161,7 +162,7 @@ export function CommandPalette({
     });
 
     // 6. Live Production Orders Records
-    productionOrders.forEach((po) => {
+    (canOpenMenu(user,'production-orders') ? productionOrders : []).forEach((po) => {
       if (!po.archived) {
         items.push({
           id: `po-${po.id}`,
@@ -177,9 +178,10 @@ export function CommandPalette({
       }
     });
 
-    return items;
+    return items.filter(item=>{ const actions={'act-add-sub':'subscriptions','act-add-token':'tokens','act-add-user':'user-management','act-print-monthly':'reports','act-print-yearly':'reports'}; if(actions[item.id]) return canOpenMenu(user,actions[item.id]); const map={'nav-production':'production-orders','nav-users':'user-management'}; const menu=map[item.id] || item.id.replace(/^nav-/,''); return item.type !== 'Navigation' || canOpenMenu(user,menu); });
   }, [
     isAdmin,
+    user,
     canReadBank,
     canReadPay,
     canReadComms,

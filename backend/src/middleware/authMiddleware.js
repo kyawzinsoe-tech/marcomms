@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Session = require('../models/Session');
+const {canOpenMenu} = require('../utils/menuAccess');
+const API_MENUS = {users:'user-management',subscriptions:'subscriptions',tokens:'tokens',reminders:'alerts',backup:'reports',suppliers:'suppliers','production-orders':'production-orders',sessions:'user-management',dashboard:'dashboard','important-work':'important-work',recruitment:'recruitment','production-inventory':'production-inventory',properties:'properties','monthly-project-reports':'reports'};
 const IDLE_TIMEOUT_MINUTES = Math.max(5, Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES || 480));
 
 async function protect(req, res, next) {
@@ -47,6 +49,9 @@ async function protect(req, res, next) {
     }
 
     req.user = user;
+    const resource = String(req.originalUrl || '').split('?')[0].split('/')[2];
+    const menu=API_MENUS[resource];
+    if ((menu && !canOpenMenu(user,menu)) || (resource==='assets' && !['kbz-bank','kbz-pay','kbz-comms'].some(id=>canOpenMenu(user,id)))) return res.status(403).json({error:'This menu has not been assigned by Super Admin.'});
     if (!session.lastSeenAt || now.getTime() - session.lastSeenAt.getTime() > 60 * 1000) {
       Session.updateOne({ _id: session._id }, { $set: { lastSeenAt: now } }).catch(() => {});
     }

@@ -1,6 +1,7 @@
 const LEADERSHIP_LEVELS = Object.freeze(['head', 'deputy_head', 'manager']);
 
 function canAccessRecruitment(user) {
+  if (!require('./menuAccess').canOpenMenu(user,'recruitment')) return false;
   return Boolean(user && (
     user.role === 'super_admin' ||
     user.role === 'admin' ||

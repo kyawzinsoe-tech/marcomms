@@ -33,7 +33,7 @@ import { CommandPalette } from './components/common/CommandPalette';
 import { ImportantWorkSection } from './components/ImportantWorkSection';
 import { RecruitmentSection } from './components/recruitment/RecruitmentSection';
 import { ProductionInventorySection } from './components/production-inventory/ProductionInventorySection';
-import {viewUnits, managedUnits} from './utils/menuAccess';
+import {viewUnits, managedUnits, canOpenMenu, MENU_DEFINITIONS} from './utils/menuAccess';
 import { PropertiesListSection } from './components/properties/PropertiesListSection';
 
 // Lazy-loaded chunked components for optimized initial bundle loading
@@ -240,6 +240,7 @@ function DashboardApp() {
 
   // Route permission validator
   const checkPermissionForSection = useCallback((sec) => {
+    if(!canOpenMenu(user,sec)) return false;
     switch (sec) {
       case 'kbz-bank':
         return can(PERMISSIONS.ASSET_READ_BANK);
@@ -262,7 +263,7 @@ function DashboardApp() {
       default:
         return true;
     }
-  }, [can, isAdmin, isSuperAdmin, user?.jobLevel]);
+  }, [can, isAdmin, isSuperAdmin, user]);
 
   // Synchronize activeSection with window.location.hash and browser Back/Forward navigation
   useEffect(() => {
@@ -273,10 +274,9 @@ function DashboardApp() {
       if (checkPermissionForSection(target)) {
         setActiveSection(target);
       } else {
-        setActiveSection('dashboard');
-        if (window.location.hash && window.location.hash !== '#dashboard' && window.location.hash !== '#') {
-          window.location.hash = '#dashboard';
-        }
+        const fallback=MENU_DEFINITIONS.map(([id])=>id).find(id=>checkPermissionForSection(id));
+        setActiveSection(fallback || 'no-access');
+        if(fallback && window.location.hash !== '#'+fallback) window.location.hash='#'+fallback;
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
     };
@@ -532,7 +532,7 @@ function DashboardApp() {
               />
             )}
 
-            <SubscriptionsTable
+            {canOpenMenu(user,'subscriptions') && <SubscriptionsTable
               subscriptions={subscriptions}
               isAdmin={isAdmin}
               isSuperAdmin={isSuperAdmin}
@@ -540,10 +540,11 @@ function DashboardApp() {
               onEditSubscription={handleOpenEditSubscription}
               onArchiveSubscription={handleArchiveSubscription}
               onDeleteSubscription={handleDeleteSubscription}
-            />
+            />}
           </>
         )}
 
+        {activeSection === 'no-access' && <div className="section-card"><h2>No menus assigned</h2><p>Super Admin ထံမှ Menu access ရရှိပြီးမှ အသုံးပြုနိုင်ပါမည်။</p></div>}
         {/* VIEW 2: ALERTS & RENEWALS */}
         {activeSection === 'alerts' && (
           <AlertsSection

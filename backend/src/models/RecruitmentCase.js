@@ -14,7 +14,7 @@ const recruitmentCaseSchema = new mongoose.Schema({
   firstInterviewPanel: [{ type: String, enum: ['Design Manager', 'Art Director', 'Creative Director', 'Deputy Head', 'HOD', 'HR', 'Other'] }],
   interviewNotes: { type: String, trim: true, maxlength: 1000, default: '' },
   hrOwner: { type: String, trim: true, maxlength: 160, default: '' },
-  assessmentType: { type: String, enum: ['', 'Design Test', 'Portfolio Review', 'Writing / Communication Assessment', 'Marketing Case Study', 'Content Assessment', 'Product Assessment', 'Technical Test', 'Research Case Study', 'Data Analysis', 'Other'], default: '' },
+  assessmentType: { type: String, enum: ['', 'Design Test', 'Portfolio Review', 'Writing / Communication Assessment', 'Marketing Case Study', 'Content Assessment', 'Product Assessment', 'Technical Test', 'Data Analysis', 'Other'], default: '' },
   cvUrl: { type: String, trim: true, maxlength: 1000, default: '' },
   portfolioUrl: { type: String, trim: true, maxlength: 1000, default: '' },
   interviewAt: { type: Date },

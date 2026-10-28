@@ -219,7 +219,7 @@ exports.getProductionOrderById = async (req, res, next) => {
 exports.createProductionOrder = async (req, res, next) => {
   try {
     if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_CREATE)) {
-      return res.status(403).json({ error: 'Access denied. Only Procurement Officers or Administrators can create production orders.' });
+      return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can create production orders.' });
     }
 
     const {
@@ -531,7 +531,7 @@ exports.updateProductionOrder = async (req, res, next) => {
 exports.deleteProductionOrder = async (req, res, next) => {
   try {
     if (!hasPermission(req.user, PERMISSIONS.PRODUCTION_ORDER_DELETE)) {
-      return res.status(403).json({ error: 'Access denied. Only Procurement Officers or Administrators can delete production orders.' });
+      return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can delete production orders.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Zap, Plus, FileText, Calendar, ShieldCheck, PieChart, Activity, DollarSign, Layers } from 'lucide-react';
 import { TrendChart } from './TrendChart';
 import { formatNumber, formatMoney, formatMonthName } from '../utils/formatters';
 
 export function TokenSection({
   entries = [],
+  allEntries = [],
   reportMonth,
   selectedYear,
   tokenAllocationTotal = 0,
@@ -15,6 +16,15 @@ export function TokenSection({
   onPrintMonthly,
   onPrintYearly
 }) {
+  const [rangeYear, setRangeYear] = useState(selectedYear);
+  const [fromMonth, setFromMonth] = useState(1);
+  const [toMonth, setToMonth] = useState(12);
+  const years = [...new Set([selectedYear, ...allEntries.map(e => Number(e.date?.slice(0,4))).filter(Boolean)])].sort((a,b)=>b-a);
+  const monthlyRows = Array.from({length:toMonth-fromMonth+1}, (_,i) => {
+    const month = `${rangeYear}-${String(fromMonth+i).padStart(2,'0')}`;
+    const records = allEntries.filter(e => !e.archived && e.date?.slice(0,7) === month);
+    return {month, count:records.length, tokens:records.reduce((n,e)=>n+Number(e.tokens||0),0), cost:records.reduce((n,e)=>n+Number(e.cost||0),0)};
+  });
   // Safe Calculations
   const remainingTokens = useMemo(() => {
     if (tokenAllocationTotal <= 0) return 0;
@@ -124,6 +134,12 @@ export function TokenSection({
           </div>
         </div>
 
+        <div className="token-range-controls" aria-label="Monthly token range">
+          <label>Year<select value={rangeYear} onChange={e=>setRangeYear(Number(e.target.value))}>{years.map(y=><option key={y}>{y}</option>)}</select></label>
+          <label>From month<select value={fromMonth} onChange={e=>{const m=Number(e.target.value);setFromMonth(m);if(m>toMonth)setToMonth(m);}}>{Array.from({length:12},(_,i)=><option key={i} value={i+1}>{new Date(2026,i,1).toLocaleString('en',{month:'long'})}</option>)}</select></label>
+          <label>To month<select value={toMonth} onChange={e=>setToMonth(Number(e.target.value))}>{Array.from({length:13-fromMonth},(_,i)=><option key={i} value={fromMonth+i}>{new Date(2026,fromMonth+i-1,1).toLocaleString('en',{month:'long'})}</option>)}</select></label>
+        </div>
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>Month</th><th>Entries</th><th>Tokens Used</th><th>Cost (USD)</th></tr></thead><tbody>{monthlyRows.map(row=><tr key={row.month}><td>{formatMonthName(row.month)}</td><td>{row.count}</td><td>{formatNumber(row.tokens)}</td><td>{formatMoney(row.cost)}</td></tr>)}</tbody><tfoot><tr><th>Total</th><td>{monthlyRows.reduce((n,r)=>n+r.count,0)}</td><td>{formatNumber(monthlyRows.reduce((n,r)=>n+r.tokens,0))}</td><td>{formatMoney(monthlyRows.reduce((n,r)=>n+r.cost,0))}</td></tr></tfoot></table></div>
         {/* Daily Trend Chart */}
         <div>
           <div className="chart-header">

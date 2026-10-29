@@ -2191,3 +2191,31 @@ tbody tr:hover {
 .recruitment-config-list{display:grid;gap:12px}.recruitment-config-list article{display:grid;grid-template-columns:1fr auto;align-items:center}.recruitment-config-list article p{grid-column:1/-1;color:var(--text-muted);margin:8px 0 0}
 .recruitment-settings{display:grid;gap:10px}.recruitment-settings>div{display:flex;align-items:center;gap:9px;padding:10px;background:var(--bg-surface-secondary);border-radius:10px}
 @media(max-width:760px){.recruitment-overview-grid{grid-template-columns:1fr}.recruitment-module-nav{margin-left:-4px;margin-right:-4px}}
+
+/* Keep form text inside its controls, including native selects. */
+.property-form > *, .brand-asset-form > *, .brand-file-fields > *, .brand-folder-fields > * { min-width:0; }
+.property-form input,.property-form select,.property-form textarea,
+.brand-asset-form input,.brand-asset-form select { width:100%; box-sizing:border-box; height:auto; min-height:44px; line-height:1.5; padding:10px 12px; }
+.brand-asset-modal { width:min(900px,100%); max-width:900px; box-sizing:border-box; overflow-x:hidden; }
+.brand-file-fields { grid-template-columns:minmax(0,1fr) minmax(0,2fr); }
+.brand-file-url-field { grid-column:1/-1; }
+.brand-folder-fields { grid-template-columns:minmax(0,1fr); }
+.brand-link-input { min-width:0; width:100%; box-sizing:border-box; }
+.brand-link-input input { flex:1; width:0; }
+.brand-link-heading { flex-wrap:wrap; }
+.brand-source-toggle { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.report-picker { display:grid; gap:14px; }
+.report-picker label { display:flex; gap:10px; align-items:center; }
+.report-picker input[type=checkbox] { width:18px; height:18px; }
+.token-range-controls { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.token-range-controls label { display:grid; gap:5px; }
+.token-range-controls select { height:auto; min-height:42px; padding:8px 12px; }
+@media(max-width:600px) { .brand-file-fields { grid-template-columns:minmax(0,1fr); } .brand-asset-modal { padding:18px; } }
+@media print {
+ body, #root { min-height:0!important; height:auto!important; overflow:visible!important; }
+ #root > :not(.app-container), .app-container > :not(.print-only-container) { display:none!important; }
+ .app-container { display:block!important; min-height:0!important; height:auto!important; padding:0!important; }
+ .print-only-container { position:static!important; height:auto!important; min-height:0!important; }
+ .print-table { break-inside:auto; } .print-table thead { display:table-header-group; }
+ .print-section-title { break-after:avoid; }
+}

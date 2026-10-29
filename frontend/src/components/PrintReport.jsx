@@ -2,32 +2,23 @@ import React from 'react';
 import { formatDate, formatMoney, formatNumber, formatMonthName } from '../utils/formatters';
 
 export function PrintReport({
+  sections = ['subscriptions', 'tokens'],
   type,
   reportMonth,
   selectedYear,
   subscriptions = [],
   tokenEntries = [],
-  alerts = [],
-  suppliers = [],
-  productionOrders = [],
-  assets = []
+  alerts = []
 }) {
   const isMonthly = type === 'month';
   const reportPeriodText = isMonthly
     ? `Monthly Report Period: ${formatMonthName(reportMonth)}`
     : `Annual Portfolio Period: Calendar Year ${selectedYear}`;
 
-  const activeSubs = subscriptions.filter((s) => !s.archived);
-  const activeTokens = tokenEntries.filter((t) => !t.archived);
-  const activeOrders = productionOrders.filter((o) => !o.archived);
-  const activeSuppliers = suppliers.filter((s) => !s.archived);
-  const activeAssets = assets.filter((a) => !a.archived);
-
+  const activeSubs = (sections.includes('subscriptions') ? subscriptions : []).filter((s) => !s.archived);
+  const activeTokens = (sections.includes('tokens') ? tokenEntries : []).filter((t) => !t.archived);
   const totalTokens = activeTokens.reduce((sum, e) => sum + Number(e.tokens || 0), 0);
   const totalTokenCost = activeTokens.reduce((sum, e) => sum + Number(e.cost || 0), 0);
-  const totalProductionSpend = activeOrders
-    .filter((o) => o.status !== 'Cancelled')
-    .reduce((sum, o) => sum + (Number(o.totalCost) || 0), 0);
 
   return (
     <div className="print-only-container">
@@ -55,38 +46,23 @@ export function PrintReport({
         </div>
       </div>
 
-      {/* Global Executive KPI Summary Row */}
+      {/* Selected report totals */}
       <div className="print-kpi-row">
-        <div className="print-kpi-item">
+        {sections.includes('subscriptions') && <div className="print-kpi-item">
           <span>Active Subscriptions</span>
           <b>{activeSubs.length}</b>
-        </div>
-        <div className="print-kpi-item">
-          <span>Active Alerts</span>
-          <b>{alerts.length}</b>
-        </div>
-        <div className="print-kpi-item">
+        </div>}
+        {sections.includes('tokens') && <><div className="print-kpi-item">
           <span>AI Tokens Used</span>
           <b>{formatNumber(totalTokens)}</b>
         </div>
         <div className="print-kpi-item">
           <span>Est. Token Cost</span>
           <b>{formatMoney(totalTokenCost)}</b>
-        </div>
-        <div className="print-kpi-item">
-          <span>Production Orders</span>
-          <b>{activeOrders.length} ({totalProductionSpend.toLocaleString()} MMK)</b>
-        </div>
-        <div className="print-kpi-item">
-          <span>Printing Suppliers</span>
-          <b>{activeSuppliers.length}</b>
-        </div>
-        <div className="print-kpi-item">
-          <span>Brand Assets</span>
-          <b>{activeAssets.length}</b>
-        </div>
+        </div></>}
       </div>
 
+      {sections.includes('subscriptions') && activeSubs.length > 0 && <>
       {/* Section 1: Subscriptions Overview */}
       <h2 style={{ fontSize: '13px', marginBottom: '6px', textTransform: 'uppercase', color: '#1e293b' }}>
         1. Creative Subscriptions Overview
@@ -124,6 +100,8 @@ export function PrintReport({
         </tbody>
       </table>
 
+      </>}
+      {sections.includes('tokens') && activeTokens.length > 0 && <>
       {/* Section 2: AI Token Consumption */}
       <h2 style={{ fontSize: '13px', marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', color: '#1e293b' }}>
         2. AI Token Consumption History
@@ -159,73 +137,7 @@ export function PrintReport({
         </tbody>
       </table>
 
-      {/* Section 3: Production Orders & Fabrication Milestones */}
-      {activeOrders.length > 0 && (
-        <>
-          <h2 style={{ fontSize: '13px', marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', color: '#1e293b' }}>
-            3. Printing Suppliers & Production Order Matrix
-          </h2>
-          <table className="print-table">
-            <thead>
-              <tr>
-                <th style={{ width: '16%' }}>Order #</th>
-                <th style={{ width: '24%' }}>Campaign & Item</th>
-                <th style={{ width: '18%' }}>Supplier</th>
-                <th style={{ width: '14%' }}>Quantity</th>
-                <th style={{ width: '14%' }}>Total Cost</th>
-                <th style={{ width: '14%' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeOrders.map((order) => (
-                <tr key={order.id}>
-                  <td style={{ fontFamily: 'monospace' }}><b>{order.orderNumber}</b></td>
-                  <td>
-                    <b>{order.campaignName}</b>
-                    <div style={{ fontSize: '10px', color: '#64748b' }}>{order.itemDescription}</div>
-                  </td>
-                  <td>{order.supplier?.name || order.supplierName || '—'}</td>
-                  <td>{Number(order.quantity || 0).toLocaleString()} pcs</td>
-                  <td>{order.totalCost ? `${Number(order.totalCost).toLocaleString()}` : '—'}</td>
-                  <td>{order.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {/* Section 4: Brand Asset Libraries Governance Summary */}
-      {activeAssets.length > 0 && (
-        <>
-          <h2 style={{ fontSize: '13px', marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', color: '#1e293b' }}>
-            4. Brand Asset Libraries Governance Summary
-          </h2>
-          <table className="print-table">
-            <thead>
-              <tr>
-                <th style={{ width: '20%' }}>Library</th>
-                <th style={{ width: '30%' }}>Asset Title</th>
-                <th style={{ width: '20%' }}>Category</th>
-                <th style={{ width: '15%' }}>File Format</th>
-                <th style={{ width: '15%' }}>Dimensions / Size</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeAssets.map((asset) => (
-                <tr key={asset.id}>
-                  <td><b>{asset.library?.toUpperCase().replace(/_/g, ' ')}</b></td>
-                  <td>{asset.title}</td>
-                  <td>{asset.category}</td>
-                  <td>{asset.fileType || 'PNG'}</td>
-                  <td>{asset.dimensions || asset.fileSize || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-
+      </>}
       {/* Sign-off & Footer */}
       <div style={{ marginTop: '28px', borderTop: '1px solid #cbd5e1', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#475569' }}>
         <div>

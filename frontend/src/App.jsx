@@ -135,6 +135,8 @@ function DashboardApp() {
   const [editingToken, setEditingToken] = useState(null);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [printType, setPrintType] = useState(null);
+  const [reportPicker, setReportPicker] = useState(null);
+  const [reportSections, setReportSections] = useState(['subscriptions', 'tokens']);
   const [printData, setPrintData] = useState({ suppliers: [], productionOrders: [], assets: [] });
   const [toast, setToast] = useState(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -448,27 +450,15 @@ function DashboardApp() {
   };
 
   // PDF / Print Generation (Allowed for all authenticated roles)
-  const handlePrint = async (type) => {
-    try {
-      const [supData, poData, bankAssets, payAssets, commsAssets] = await Promise.all([
-        fetchSuppliers().catch(() => []),
-        fetchProductionOrders().catch(() => []),
-        fetchAssets({ library: 'kbz_bank' }).catch(() => []),
-        fetchAssets({ library: 'kbz_pay' }).catch(() => []),
-        fetchAssets({ library: 'kbz_comms' }).catch(() => [])
-      ]);
-      setPrintData({
-        suppliers: supData,
-        productionOrders: poData,
-        assets: [...bankAssets, ...payAssets, ...commsAssets]
-      });
-    } catch {
-      // Degrade gracefully with existing empty state
-    }
-    setPrintType(type);
-    setTimeout(() => {
-      window.print();
-    }, 80);
+  const handlePrint = (type) => {
+    setReportSections(activeSection === 'tokens' ? ['tokens'] : ['subscriptions', 'tokens'].filter(id => canOpenMenu(user, id)));
+    setReportPicker(type);
+  };
+  const printSelectedReport = async () => {
+    await import('./components/PrintReport');
+    setPrintType(reportPicker);
+    setReportPicker(null);
+    setTimeout(() => window.print(), 500);
   };
 
   if (!isAuthenticated) {
@@ -573,6 +563,7 @@ function DashboardApp() {
         {activeSection === 'tokens' && (
           <>
             <TokenSection
+              allEntries={state.tokenEntries}
               entries={selectedMonthEntries}
               reportMonth={reportMonth}
               selectedYear={selectedYear}
@@ -754,9 +745,11 @@ function DashboardApp() {
         </>
       )}
 
+      {reportPicker && <div className="modal-overlay"><div className="modal-card" role="dialog" aria-modal="true" aria-label="Choose PDF sections"><h3>PDF ထုတ်မည့်အပိုင်း ရွေးပါ</h3><p>{reportPicker === 'month' ? reportMonth : selectedYear} · Data ရှိသောအပိုင်းများသာ ထုတ်ပါမည်။</p><div className="report-picker">{[['subscriptions','Subscriptions'],['tokens','AI Token Usage']].filter(([id]) => canOpenMenu(user,id)).map(([id,label]) => <label key={id}><input type="checkbox" checked={reportSections.includes(id)} onChange={e => setReportSections(current => e.target.checked ? [...current,id] : current.filter(item => item !== id))} />{label}</label>)}</div><div className="modal-footer"><button className="btn btn-outline" onClick={() => setReportPicker(null)}>Cancel</button><button className="btn btn-primary" disabled={!reportSections.length} onClick={printSelectedReport}>Print / Save PDF</button></div></div></div>}
       {printType && (
         <Suspense fallback={null}>
           <PrintReport
+            sections={reportSections}
             type={printType}
             reportMonth={reportMonth}
             selectedYear={selectedYear}

@@ -2219,3 +2219,6 @@ tbody tr:hover {
  .print-table { break-inside:auto; } .print-table thead { display:table-header-group; }
  .print-section-title { break-after:avoid; }
 }
+.monthly-project-controls { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+.monthly-project-controls input,.monthly-project-controls select { box-sizing:border-box;height:auto;min-height:44px;line-height:1.5; }
+.report-range-note { font-size:13px;line-height:1.7;color:var(--text-secondary);padding:12px;background:var(--bg-muted);border-radius:10px;overflow-wrap:anywhere; }

@@ -1,0 +1,20 @@
+import React from 'react';
+import {test,expect,vi,afterEach} from 'vitest';
+import {render,screen,fireEvent,cleanup} from '@testing-library/react';
+vi.mock('../services/supplierService',()=>({fetchSuppliers:async()=>[]}));
+vi.mock('../services/productionOrderService',()=>({fetchProductionOrders:async()=>[]}));
+vi.mock('../services/assetService',()=>({fetchAssets:async()=>[]}));
+vi.mock('../services/monthlyProjectReportService',()=>({fetchMonthlyProjectReports:async()=>({reports:['01','02'].map(m=>({month:`2026-${m}`,sheets:[{key:'kbz-bank',name:'KBZ Bank',columns:['No.','Project','Designer'],rows:[{'No.':'1',Project:`Project ${m}`,Designer:'WY'}]}]}))}),importMonthlyProjectReport:vi.fn(),importMonthlyGoogleSheet:vi.fn(),deleteMonthlyProjectReport:vi.fn()}));
+import {ReportsDataSection} from '../components/ReportsDataSection';
+afterEach(cleanup);
+test('yearly grid includes multiple imported months and preserves monthly import target',async()=>{
+ render(<ReportsDataSection reportMonth="2026-01" selectedYear={2026}/>);
+ await screen.findByText('Project 01');
+ fireEvent.change(screen.getByLabelText('Period'),{target:{value:'year'}});
+ expect(screen.getByText('Project 01')).toBeTruthy();
+ expect(screen.getByText('Project 02')).toBeTruthy();
+ expect(screen.getByRole('columnheader',{name:'Month'})).toBeTruthy();
+ expect(screen.getByText(/2 records/)).toBeTruthy();
+ expect(screen.getByLabelText('Report / Import Month').value).toBe('2026-01');
+ expect(screen.queryByRole('button',{name:'Delete'})).toBeNull();
+});

@@ -24,6 +24,8 @@ import { getAuthToken } from '../services/authService';
 import { ErrorDialog } from './common/ErrorDialog';
 import { fetchMonthlyProjectReports, importMonthlyProjectReport, importMonthlyGoogleSheet, deleteMonthlyProjectReport } from '../services/monthlyProjectReportService';
 
+import { projectRange, combineProjectReports } from '../utils/projectReportRange';
+
 const CHARTS = ['Grid', 'Pie', 'Bar', 'Line', 'Pyramid'];
 const CHART_LABELS = { Grid: 'Grid', Pie: 'Pie Chart', Bar: 'Bar Chart', Line: 'Line Graph', Pyramid: 'Pyramid Chart' };
 const SHEET_COLUMN_RULES = {
@@ -72,7 +74,7 @@ function ProjectGrid({ sheet }) {
   const expectedColumns = (SHEET_COLUMN_RULES[sheet?.key] || []).map((column) => column.label).join(', ');
 
   if (!columns.length) return <div className="monthly-project-empty">ဒီ Sheet ထဲမှာ သတ်မှတ်ထားသော column ({expectedColumns || 'မရှိပါ'}) မတွေ့ပါ။</div>;
-  return <div className="project-table-wrap"><table className="project-report-table"><thead><tr>{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{(sheet.rows || []).map((row, index) => <tr key={`${row[columns[0].source] || index}-${index}`}>{columns.map((column) => <td key={column.label}>{row[column.source] || '—'}</td>)}</tr>)}</tbody></table></div>;
+  return <div className="project-table-wrap"><table className="project-report-table"><thead><tr>{sheet.isCombined && <th>Month</th>}{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{(sheet.rows || []).map((row, index) => <tr key={`${row[columns[0].source] || index}-${index}`}>{sheet.isCombined && <td>{formatMonthName(row.__reportMonth)}</td>}{columns.map((column) => <td key={column.label}>{row[column.source] || '—'}</td>)}</tr>)}</tbody></table></div>;
 }
 
 function ProjectChart({ type, data, sheet }) {
@@ -120,6 +122,8 @@ export function ReportsDataSection({
   const [operationalDataStatus, setOperationalDataStatus] = useState('loading');
   const [monthlyReports, setMonthlyReports] = useState([]);
   const [selectedReportMonth, setSelectedReportMonth] = useState(reportMonth);
+  const [periodMode, setPeriodMode] = useState('month');
+  const [rangeEnd, setRangeEnd] = useState(reportMonth);
   const [selectedSheetKey, setSelectedSheetKey] = useState('kbz-bank');
   const [chartType, setChartType] = useState('Grid');
   const [groupField, setGroupField] = useState('Status');
@@ -185,11 +189,19 @@ export function ReportsDataSection({
   };
 
   const activeProjectReport = monthlyReports.find((item) => item.month === selectedReportMonth);
-  const activeProjectSheet = activeProjectReport?.sheets?.find((item) => item.key === selectedSheetKey) || activeProjectReport?.sheets?.[0];
+  const range = projectRange(periodMode, selectedReportMonth, rangeEnd);
+  const periodSheets = periodMode === 'month' ? (activeProjectReport?.sheets || []) : combineProjectReports(monthlyReports, range.start, range.end);
+  const activeProjectSheet = periodSheets.find(item => item.key === selectedSheetKey) || periodSheets[0];
+  const periodReports = monthlyReports.filter(item => item.month >= range.start && item.month <= range.end);
+  const periodMonths = [...new Set(periodReports.filter(r => r.sheets?.some(sheet => sheet.key === activeProjectSheet?.key)).map(r => r.month))].sort();
+  const missingMonths = [];
+  if (range.start && range.end) { let cursor = range.start; while (cursor <= range.end && missingMonths.length < 120) { if (!periodMonths.includes(cursor)) missingMonths.push(cursor); const [y,m] = cursor.split('-').map(Number); cursor = `${m === 12 ? y+1 : y}-${String(m === 12 ? 1 : m+1).padStart(2,'0')}`; } }
+
   const configuredColumns = getConfiguredColumns(activeProjectSheet);
   const availableFields = configuredColumns.map((column) => column.source).filter((column) => normalizeColumn(column) !== 'no');
+  if (periodMode !== 'month') availableFields.unshift('Month');
   const effectiveGroupField = availableFields.includes(groupField) ? groupField : availableFields[0];
-  const chartData = Object.entries((activeProjectSheet?.rows || []).reduce((acc, row) => { const key = row[effectiveGroupField] || 'Unspecified'; acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 12);
+  const chartData = Object.entries((activeProjectSheet?.rows || []).reduce((acc, row) => { const key = (effectiveGroupField === 'Month' ? row.__reportMonth : row[effectiveGroupField]) || 'Unspecified'; acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value })).sort((a, b) => effectiveGroupField === 'Month' ? a.label.localeCompare(b.label) : b.value - a.value);
 
   const activeSubs = subscriptions.filter((s) => !s.archived);
   const activeTokens = tokenEntries.filter((t) => !t.archived);
@@ -356,17 +368,19 @@ export function ReportsDataSection({
 
       <div className="monthly-project-dashboard">
         <div className="monthly-project-heading">
-          <div><h3>Monthly Creative Projects</h3><p>Google Sheets share link သို့မဟုတ် Excel (.xlsx) မှ Sheet ၆ ခုကိုသာ လအလိုက်တင်ပြီး Chart ပြောင်းကြည့်နိုင်သည်။</p></div>
+          <div><h3>Creative Projects Reports</h3><p>Google Sheets share link သို့မဟုတ် Excel (.xlsx) မှ Sheet ၆ ခုကိုသာ လအလိုက်တင်ပြီး Chart ပြောင်းကြည့်နိုင်သည်။</p></div>
           {canManageMonthly && <><button className="btn btn-outline" type="button" onClick={() => excelInputRef.current?.click()} disabled={isExcelImporting}><Upload size={15} /> Upload .xlsx</button><input ref={excelInputRef} className="hidden-file-input" type="file" accept=".xlsx" onChange={handleExcelImport} /></>}
         </div>
         {canManageMonthly && <div ref={importSectionRef} className="google-sheet-import"><label>Google Sheets Share Link<input type="url" value={googleSheetUrl} onChange={(e) => setGoogleSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/.../edit?usp=sharing" /></label><button className="btn btn-primary" type="button" onClick={handleGoogleSheetImport} disabled={isExcelImporting}>{isExcelImporting ? <Loader2 size={15} className="spin" /> : <Upload size={15} />} {activeProjectReport ? 'Update Link' : 'Import Link'}</button><small>Google Sheet → Share → General access → Anyone with the link → Viewer ဖြစ်ရပါမယ်။ သတ်မှတ်ထားသော tabs မဟုတ်တာများကို မယူပါ။</small></div>}
         <div className="monthly-project-controls">
-          <label>Report Month<input type="month" value={selectedReportMonth} onChange={(e) => setSelectedReportMonth(e.target.value)} /></label>
-          <label>Sheet<select value={activeProjectSheet?.key || selectedSheetKey} onChange={(e) => setSelectedSheetKey(e.target.value)}>{(activeProjectReport?.sheets || []).map((sheet) => <option key={sheet.key} value={sheet.key}>{sheet.name}</option>)}</select></label>
+          <label>Period<select value={periodMode} onChange={e => setPeriodMode(e.target.value)}><option value="month">Monthly</option><option value="quarter">Quarterly (3 months)</option><option value="four">4 Months</option><option value="year">Yearly</option><option value="custom">Custom Range</option></select></label>
+          <label>{periodMode === 'custom' ? 'Start / Import Month' : 'Report / Import Month'}<input type="month" value={selectedReportMonth} onChange={(e) => setSelectedReportMonth(e.target.value)} /></label>
+          {periodMode === 'custom' && <label>End Month<input type="month" min={selectedReportMonth} value={rangeEnd < selectedReportMonth ? selectedReportMonth : rangeEnd} onChange={e => setRangeEnd(e.target.value)} /></label>}
+          <label>Sheet<select value={activeProjectSheet?.key || selectedSheetKey} onChange={(e) => setSelectedSheetKey(e.target.value)}>{periodSheets.map((sheet) => <option key={sheet.key} value={sheet.key}>{sheet.name}</option>)}</select></label>
           <label>{chartType === 'Grid' ? 'Grid Columns' : 'Group By'}{chartType === 'Grid' ? <span className="monthly-project-columns">{configuredColumns.map((column) => column.label).join(' · ') || 'No matching columns'}</span> : <select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select>}</label>
           <label>View<select value={chartType} onChange={(e) => setChartType(e.target.value)}>{CHARTS.map((type) => <option key={type} value={type}>{CHART_LABELS[type]}</option>)}</select></label>
         </div>
-        {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{activeProjectSheet.title || activeProjectSheet.name}</b><span>{activeProjectSheet.rows.length} records · Source: {activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div><div className="monthly-project-actions">{activeProjectReport.sourceUrl && <a className="btn btn-outline btn-sm" href={activeProjectReport.sourceUrl} target="_blank" rel="noreferrer">View / Open</a>}{activeProjectSheet.canManage && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setGoogleSheetUrl(activeProjectReport.sourceUrl || ''); importSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Edit / Update</button>}{activeProjectSheet.canManage && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`${selectedReportMonth} report ကို အပြီးဖျက်မလား? ဒီလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth, activeProjectSheet.key); onNotify?.(`${selectedReportMonth} report deleted.`, 'success'); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete</button>}</div></div><ProjectChart type={chartType} data={chartData} sheet={activeProjectSheet} /></> : <div className="monthly-project-empty">ဒီလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}
+        {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{periodMode === 'month' ? (activeProjectSheet.title || activeProjectSheet.name) : `${activeProjectSheet.name} · ${formatMonthName(range.start)} – ${formatMonthName(range.end)}`}</b><span>{activeProjectSheet.rows.length} records · Source: {periodMode !== 'month' ? `${periodMonths.length} imported months` : activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div><div className="monthly-project-actions">{periodMode === 'month' && activeProjectReport?.sourceUrl && <a className="btn btn-outline btn-sm" href={activeProjectReport.sourceUrl} target="_blank" rel="noreferrer">View / Open</a>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setGoogleSheetUrl(activeProjectReport.sourceUrl || ''); importSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Edit / Update</button>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`${selectedReportMonth} report ကို အပြီးဖျက်မလား? ဒီလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth, activeProjectSheet.key); onNotify?.(`${selectedReportMonth} report deleted.`, 'success'); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete</button>}</div></div>{periodMode !== 'month' && <p className="report-range-note">Included: {periodMonths.map(formatMonthName).join(', ') || 'None'}{missingMonths.length > 0 && <><br/>Data မထည့်ရသေးသောလများ: {missingMonths.map(formatMonthName).join(', ')}။ ထည့်ထားသောလများကိုသာ ပေါင်းထားပါသည်။</>}</p>}<ProjectChart type={chartType} data={chartData} sheet={activeProjectSheet} /></> : <div className="monthly-project-empty">ရွေးထားသောကာလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}
       </div>
 
       {/* Domain-Wide KPI Summary Bar */}

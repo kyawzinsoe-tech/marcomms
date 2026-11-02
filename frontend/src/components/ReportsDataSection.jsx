@@ -24,6 +24,9 @@ import { getAuthToken } from '../services/authService';
 import { ErrorDialog } from './common/ErrorDialog';
 import { fetchMonthlyProjectReports, importMonthlyProjectReport, importMonthlyGoogleSheet, deleteMonthlyProjectReport } from '../services/monthlyProjectReportService';
 
+import { chartColor } from '../utils/chartColors';
+import { ProjectTimelineChart } from './ProjectTimelineChart';
+import { projectTimeline } from '../utils/projectChartData';
 import { projectRange, combineProjectReports } from '../utils/projectReportRange';
 
 const CHARTS = ['Grid', 'Pie', 'Bar', 'Line', 'Pyramid'];
@@ -57,7 +60,7 @@ const SHEET_COLUMN_RULES = {
   ]
 };
 const normalizeColumn = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-const colorAt = (index) => ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 6];
+const colorAt = chartColor;
 
 function getConfiguredColumns(sheet) {
   const sourceColumns = sheet?.columns || [];
@@ -77,16 +80,18 @@ function ProjectGrid({ sheet }) {
   return <div className="project-table-wrap"><table className="project-report-table"><thead><tr>{sheet.isCombined && <th>Month</th>}{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{(sheet.rows || []).map((row, index) => <tr key={`${row[columns[0].source] || index}-${index}`}>{sheet.isCombined && <td>{formatMonthName(row.__reportMonth)}</td>}{columns.map((column) => <td key={column.label}>{row[column.source] || '—'}</td>)}</tr>)}</tbody></table></div>;
 }
 
-function ProjectChart({ type, data, sheet }) {
+export function ProjectChart({ type, data, sheet, timeline, timelineMode }) {
   if (type === 'Grid') return <ProjectGrid sheet={sheet} />;
   const max = Math.max(...data.map((item) => item.value), 1);
+  const sum = data.reduce((n,item)=>n+item.value,0);
+  const displayLabel = label => /^\d{4}-\d{2}$/.test(label) ? formatMonthName(label) : label;
   if (type === 'Pie') {
     let progress = 0; const total = data.reduce((sum, item) => sum + item.value, 0) || 1;
     const stops = data.map((item, index) => { const start = progress; progress += item.value / total * 100; return `${colorAt(index)} ${start}% ${progress}%`; }).join(',');
-    return <div className="project-pie-wrap"><div className="project-pie" style={{ background: `conic-gradient(${stops})` }} /> <div className="project-chart-legend">{data.map((item, index) => <span key={item.label}><i style={{ background: colorAt(index) }} />{item.label} ({item.value})</span>)}</div></div>;
+    return <div className="project-pie-wrap"><div className="project-pie" style={{ background: `conic-gradient(${stops})` }} /> <div className="project-chart-legend">{data.map((item, index) => <span key={item.label}><i style={{ background: colorAt(index) }} />{displayLabel(item.label)} · {item.value} projects · {(item.value / total * 100).toFixed(1)}%</span>)}</div></div>;
   }
-  if (type === 'Line') return <svg className="project-svg-chart" viewBox="0 0 720 260" role="img" aria-label="Line chart"><polyline fill="none" stroke="#4f46e5" strokeWidth="5" points={data.map((item, index) => `${45 + index * (630 / Math.max(data.length - 1, 1))},${220 - item.value / max * 180}`).join(' ')} />{data.map((item, index) => <g key={item.label}><circle cx={45 + index * (630 / Math.max(data.length - 1, 1))} cy={220 - item.value / max * 180} r="7" fill={colorAt(index)} /><text x={45 + index * (630 / Math.max(data.length - 1, 1))} y="248" textAnchor="middle" fontSize="12">{item.label.slice(0, 12)}</text></g>)}</svg>;
-  return <div className={type === 'Pyramid' ? 'project-pyramid' : 'project-bars'}>{data.map((item, index) => <div key={item.label} className="project-bar-row"><span>{item.label}</span><div style={{ width: `${Math.max(item.value / max * 100, 5)}%`, background: colorAt(index) }}>{item.value}</div></div>)}</div>;
+  if (type === 'Line') return <ProjectTimelineChart key={`${sheet.key}-${timelineMode}`} data={timeline} daily={timelineMode.endsWith('date')} />;
+  return <div className={type === 'Pyramid' ? 'project-pyramid' : 'project-bars'}>{data.map((item, index) => <div key={item.label} className="project-bar-row"><span>{displayLabel(item.label)}</span><div title={`${displayLabel(item.label)}: ${item.value} projects`} style={{ width: `${Math.max(item.value / max * 100, 5)}%`, background: colorAt(index) }}>{item.value} projects · {sum ? (item.value/sum*100).toFixed(1) : 0}%</div></div>)}</div>;
 }
 
 export function ReportsDataSection({
@@ -125,6 +130,7 @@ export function ReportsDataSection({
   const [periodMode, setPeriodMode] = useState('month');
   const [rangeEnd, setRangeEnd] = useState(reportMonth);
   const [selectedSheetKey, setSelectedSheetKey] = useState('kbz-bank');
+  const [timelineMode, setTimelineMode] = useState('month');
   const [chartType, setChartType] = useState('Grid');
   const [groupField, setGroupField] = useState('Status');
   const [isExcelImporting, setIsExcelImporting] = useState(false);
@@ -202,6 +208,8 @@ export function ReportsDataSection({
   if (periodMode !== 'month') availableFields.unshift('Month');
   const effectiveGroupField = availableFields.includes(groupField) ? groupField : availableFields[0];
   const chartData = Object.entries((activeProjectSheet?.rows || []).reduce((acc, row) => { const key = (effectiveGroupField === 'Month' ? row.__reportMonth : row[effectiveGroupField]) || 'Unspecified'; acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value })).sort((a, b) => effectiveGroupField === 'Month' ? a.label.localeCompare(b.label) : b.value - a.value);
+
+  const timeline = projectTimeline(activeProjectSheet?.rows || [], {start:range.start,end:range.end,mode:timelineMode,personNames:activeProjectSheet?.key === 'production' ? ['Video Editor','VideoEditor'] : activeProjectSheet?.key === 'copy-script' ? ['Copy Writer','Copywriter'] : ['Designer']});
 
   const activeSubs = subscriptions.filter((s) => !s.archived);
   const activeTokens = tokenEntries.filter((t) => !t.archived);
@@ -377,10 +385,10 @@ export function ReportsDataSection({
           <label>{periodMode === 'custom' ? 'Start / Import Month' : 'Report / Import Month'}<input type="month" value={selectedReportMonth} onChange={(e) => setSelectedReportMonth(e.target.value)} /></label>
           {periodMode === 'custom' && <label>End Month<input type="month" min={selectedReportMonth} value={rangeEnd < selectedReportMonth ? selectedReportMonth : rangeEnd} onChange={e => setRangeEnd(e.target.value)} /></label>}
           <label>Sheet<select value={activeProjectSheet?.key || selectedSheetKey} onChange={(e) => setSelectedSheetKey(e.target.value)}>{periodSheets.map((sheet) => <option key={sheet.key} value={sheet.key}>{sheet.name}</option>)}</select></label>
-          <label>{chartType === 'Grid' ? 'Grid Columns' : 'Group By'}{chartType === 'Grid' ? <span className="monthly-project-columns">{configuredColumns.map((column) => column.label).join(' · ') || 'No matching columns'}</span> : <select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select>}</label>
+          {chartType === 'Line' ? <label>Line Graph Data<select value={timelineMode} onChange={e=>setTimelineMode(e.target.value)}><option value="month">Month — Total Projects</option><option value="person-month">Month × Designer / Contributor</option><option value="date">Date — Total Projects</option><option value="person-date">Date × Designer / Contributor</option></select></label> : <label>{chartType === 'Grid' ? 'Grid Columns' : 'Group By'}{chartType === 'Grid' ? <span className="monthly-project-columns">{configuredColumns.map((column) => column.label).join(' · ') || 'No matching columns'}</span> : <select value={effectiveGroupField || ''} onChange={(e) => setGroupField(e.target.value)}>{availableFields.map((field) => <option key={field}>{field}</option>)}</select>}</label>}
           <label>View<select value={chartType} onChange={(e) => setChartType(e.target.value)}>{CHARTS.map((type) => <option key={type} value={type}>{CHART_LABELS[type]}</option>)}</select></label>
         </div>
-        {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{periodMode === 'month' ? (activeProjectSheet.title || activeProjectSheet.name) : `${activeProjectSheet.name} · ${formatMonthName(range.start)} – ${formatMonthName(range.end)}`}</b><span>{activeProjectSheet.rows.length} records · Source: {periodMode !== 'month' ? `${periodMonths.length} imported months` : activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div><div className="monthly-project-actions">{periodMode === 'month' && activeProjectReport?.sourceUrl && <a className="btn btn-outline btn-sm" href={activeProjectReport.sourceUrl} target="_blank" rel="noreferrer">View / Open</a>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setGoogleSheetUrl(activeProjectReport.sourceUrl || ''); importSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Edit / Update</button>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`${selectedReportMonth} report ကို အပြီးဖျက်မလား? ဒီလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth, activeProjectSheet.key); onNotify?.(`${selectedReportMonth} report deleted.`, 'success'); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete</button>}</div></div>{periodMode !== 'month' && <p className="report-range-note">Included: {periodMonths.map(formatMonthName).join(', ') || 'None'}{missingMonths.length > 0 && <><br/>Data မထည့်ရသေးသောလများ: {missingMonths.map(formatMonthName).join(', ')}။ ထည့်ထားသောလများကိုသာ ပေါင်းထားပါသည်။</>}</p>}<ProjectChart type={chartType} data={chartData} sheet={activeProjectSheet} /></> : <div className="monthly-project-empty">ရွေးထားသောကာလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}
+        {activeProjectSheet ? <><div className="monthly-project-title"><div><b>{periodMode === 'month' ? (activeProjectSheet.title || activeProjectSheet.name) : `${activeProjectSheet.name} · ${formatMonthName(range.start)} – ${formatMonthName(range.end)}`}</b><span>{activeProjectSheet.rows.length} records · Source: {periodMode !== 'month' ? `${periodMonths.length} imported months` : activeProjectReport.sourceType === 'google-sheet' ? 'Google Sheets link' : activeProjectReport.originalName}</span></div><div className="monthly-project-actions">{periodMode === 'month' && activeProjectReport?.sourceUrl && <a className="btn btn-outline btn-sm" href={activeProjectReport.sourceUrl} target="_blank" rel="noreferrer">View / Open</a>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setGoogleSheetUrl(activeProjectReport.sourceUrl || ''); importSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Edit / Update</button>}{periodMode === 'month' && activeProjectSheet.canManage && <button type="button" className="btn btn-danger btn-sm" onClick={async () => { if (!window.confirm(`${selectedReportMonth} report ကို အပြီးဖျက်မလား? ဒီလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`)) return; try { await deleteMonthlyProjectReport(selectedReportMonth, activeProjectSheet.key); onNotify?.(`${selectedReportMonth} report deleted.`, 'success'); await loadMonthlyReports(); } catch (error) { setErrorMessage(error.message); } }}>Delete</button>}</div></div>{periodMode !== 'month' && <p className="report-range-note">Included: {periodMonths.map(formatMonthName).join(', ') || 'None'}{missingMonths.length > 0 && <><br/>Data မထည့်ရသေးသောလများ: {missingMonths.map(formatMonthName).join(', ')}။ ထည့်ထားသောလများကိုသာ ပေါင်းထားပါသည်။</>}</p>}<p className="report-range-note">{chartType === 'Line' ? 'X-axis: Month / Date · Y-axis: Number of projects · Colour: Designer / Contributor' : `Count: Number of projects · Group: ${effectiveGroupField || '—'}`}<br/>Excel ကို လအလိုက် Import လုပ်ပါ။ Designer / Copy Writer / Video Editor ကို ဖြည့်ပါ။ နေ့အလိုက်ကြည့်ရန် Date သို့မဟုတ် Deadline ကို YYYY-MM-DD သို့မဟုတ် DD.MM.YYYY ဖြည့်ပါ။</p><ProjectChart type={chartType} data={chartData} sheet={activeProjectSheet} timeline={timeline} timelineMode={timelineMode} /></> : <div className="monthly-project-empty">ရွေးထားသောကာလအတွက် report data မရှိသေးပါ။ Report Month ရွေးပြီး Google Sheets link သို့မဟုတ် .xlsx file တင်ပါ။<small>ယူမည့် Sheets: Copy & Script, KBZ Bank (Bank), KBZ Pay (Pay), KBZPay Market, KBZ Bank Communication (Comms), Production</small></div>}
       </div>
 
       {/* Domain-Wide KPI Summary Bar */}

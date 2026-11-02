@@ -2222,3 +2222,16 @@ tbody tr:hover {
 .monthly-project-controls { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
 .monthly-project-controls input,.monthly-project-controls select { box-sizing:border-box;height:auto;min-height:44px;line-height:1.5; }
 .report-range-note { font-size:13px;line-height:1.7;color:var(--text-secondary);padding:12px;background:var(--bg-muted);border-radius:10px;overflow-wrap:anywhere; }
+.project-timeline {display:grid;gap:16px;color:var(--text-primary)}
+.project-timeline > label {display:grid;gap:6px;max-width:360px;font-weight:700}
+.project-timeline select {height:auto;min-height:44px;padding:10px}
+.project-timeline-scroll {overflow-x:auto;max-width:100%;border:1px solid var(--border-light);border-radius:12px}
+.project-timeline .project-chart-legend {flex-direction:row;flex-wrap:wrap;gap:12px}
+.project-bars .project-bar-row {grid-template-columns:minmax(100px,180px) minmax(0,1fr)}
+.project-bar-row div {box-sizing:border-box;white-space:nowrap;min-width:145px}
+.project-pie-wrap {flex-wrap:wrap}
+
+.project-chart-legend i {width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.15)}
+.project-chart-legend span {display:flex;align-items:center;gap:6px;font-weight:600}
+.project-pie {border:3px solid var(--bg-surface);box-shadow:0 0 0 1px var(--border-light)}
+.project-bar-row div {font-weight:700}

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const PropertyItem = require('../models/PropertyItem');
+const nextPropertyNumber = require('../utils/propertyNumber');
 const { PERMISSIONS, hasPermission } = require('../config/rbac');
 const { logAuditEvent } = require('../utils/auditLogger');
 
@@ -19,7 +20,7 @@ function payload(body = {}) {
   const condition = clean(body.condition, 40);
   const itemType = clean(body.itemType, 120);
   const customType = itemType === 'Other' ? clean(body.customType, 120) : '';
-  if (!clean(body.propertyNo, 60) || !clean(body.productName, 180) || !itemType || !clean(body.owner, 160)) throw Object.assign(new Error('No., product name, property type and owner are required.'), { status: 400 });
+  if (!clean(body.productName, 180) || !itemType || !clean(body.owner, 160)) throw Object.assign(new Error('Product name, property type and owner are required.'), { status: 400 });
   if (!BUSINESS_UNITS.has(businessUnit)) throw Object.assign(new Error('Select a valid Business Unit.'), { status: 400 });
   if (!CONDITIONS.has(condition)) throw Object.assign(new Error('Select a valid condition.'), { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1) throw Object.assign(new Error('Quantity must be a whole number of at least 1.'), { status: 400 });
@@ -27,12 +28,15 @@ function payload(body = {}) {
   const includedAccessories = Array.isArray(body.includedAccessories) ? body.includedAccessories.map((v) => clean(v, 80)).filter(Boolean).slice(0, 12) : [];
   const detailKeys = ['team', 'deviceNo', 'keyboard', 'mouse', 'charger', 'specification', 'brand', 'drive', 'mainData', 'description', 'mediaType'];
   const details = Object.fromEntries(detailKeys.map((key) => [key, clean(body.details?.[key], 1000)]));
-  return { propertyNo: clean(body.propertyNo, 60).toUpperCase(), date, businessUnit, category: clean(body.category, 80), itemType, customType, productName: clean(body.productName, 180), quantity, condition, owner: clean(body.owner, 160), includedAccessories, details, note: clean(body.note, 1500) };
+  details.specification = details.specification || [...new Set([details.mainData, details.description].filter(Boolean))].join(' · ');
+  delete details.mainData;
+  delete details.description;
+  return { date, businessUnit, category: clean(body.category, 80), itemType, customType, productName: clean(body.productName, 180), quantity, condition, owner: clean(body.owner, 160), includedAccessories, details, note: clean(body.note, 1500) };
 }
 
 exports.list = async (req, res, next) => { try {
   if (!can(req.user, PERMISSIONS.PROPERTY_READ)) return res.status(403).json({ error: 'Access denied.' });
-  const items = await PropertyItem.find({businessUnit: {$in:viewUnits(req.user, 'properties')}}).sort({ date: -1, createdAt: -1 });
+  const items = await PropertyItem.find({businessUnit: {$in:viewUnits(req.user, 'properties')}}).sort({ createdAt: 1, _id: 1 });
   logAuditEvent({...actor(req),action:'PROPERTY_VIEW',targetEntity:'property',metadata:{count:items.length}});
   res.json({ items: items.map((item) => ({ ...item.toObject({flattenMaps:true}), id: String(item._id) })) });
 } catch (error) { next(error); } };
@@ -40,7 +44,9 @@ exports.list = async (req, res, next) => { try {
 exports.create = async (req, res, next) => { try {
   if (!can(req.user, PERMISSIONS.PROPERTY_CREATE)) return res.status(403).json({ error: 'Access denied.' });
   if (!allowedUnit(req.user, req.body.businessUnit)) return res.status(403).json({ error: 'You can only manage your own team properties.' });
-  const item = await PropertyItem.create({ ...payload(req.body), createdBy: req.user._id, updatedBy: req.user._id });
+  const data = payload(req.body);
+  const propertyNo = await nextPropertyNumber();
+  const item = await PropertyItem.create({ ...data, propertyNo, createdBy: req.user._id, updatedBy: req.user._id });
   logAuditEvent({ ...actor(req), action: 'PROPERTY_CREATE', targetEntity: 'property', targetId: item._id, metadata: { propertyNo: item.propertyNo, businessUnit: item.businessUnit } });
   res.status(201).json({ item: { ...item.toObject({flattenMaps:true}), id: String(item._id) } });
 } catch (error) { if (error?.code === 11000) return res.status(409).json({ error: 'This property No. already exists.' }); if (error.status) return res.status(error.status).json({ error: error.message }); next(error); } };

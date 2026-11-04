@@ -18,7 +18,7 @@ const validProperty = {
 
 test('normalizes a valid property payload and keeps bundled desktop accessories', () => {
   const result = _propertyValidation.payload(validProperty);
-  assert.equal(result.propertyNo, 'PROP-001');
+  assert.equal(result.propertyNo, undefined); // Client cannot assign or change the automatic number.
   assert.equal(result.businessUnit, 'Creative');
   assert.equal(result.quantity, 2);
   assert.deepEqual(result.includedAccessories, ['Desktop', 'Keyboard', 'Mouse']);
@@ -35,4 +35,11 @@ test('rejects invalid quantity', () => {
 
 test('rejects an unknown business unit', () => {
   assert.throws(() => _propertyValidation.payload({ ...validProperty, businessUnit: 'Unknown' }), /valid Business Unit/);
+});
+
+test('accepts automatic numbering and consolidates legacy detail fields', () => {
+ const result = _propertyValidation.payload({...validProperty, propertyNo: undefined, details: {mainData:'Archive HDD', description:'Campaign videos'}});
+ assert.equal(result.details.specification, 'Archive HDD · Campaign videos');
+ assert.equal(result.details.mainData, undefined);
+ assert.equal(result.details.description, undefined);
 });

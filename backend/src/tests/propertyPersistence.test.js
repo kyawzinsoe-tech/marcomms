@@ -7,9 +7,9 @@ const body={propertyNo:'P-01',date:'2026-10-28',businessUnit:'Merchandising',cat
 const response=()=>({statusCode:200,status(code){this.statusCode=code;return this;},json(value){this.body=value;return this;}});
 test('Head update reaches model save and retains equipment details',async()=>{
   let saved=false;const old=Property.findById;
-  const item={_id:id,businessUnit:'Merchandising',save:async()=>{saved=true;},toObject(){return {...body};}};
+  const item={_id:id,propertyNo:'17',businessUnit:'Merchandising',save:async()=>{saved=true;},toObject(){return {...body};}};
   Property.findById=async()=>item;
-  try{const res=response();await controller.update({user:{_id:id,role:'bank_design',jobLevel:'head'},params:{id},body},res,error=>{throw error;});assert.equal(saved,true);assert.equal(res.body.item.details.deviceNo,'UPS-01');}finally{Property.findById=old;}
+  try{const res=response();await controller.update({user:{_id:id,role:'bank_design',jobLevel:'head'},params:{id},body},res,error=>{throw error;});assert.equal(saved,true);assert.equal(item.propertyNo,'17');assert.equal(res.body.item.details.deviceNo,'UPS-01');}finally{Property.findById=old;}
 });
 test('additional view grant cannot update a record',async()=>{
   const res=response();await controller.update({user:{role:'viewer',menuAccess:[{menu:'properties',units:['Merchandising']}]},params:{id},body},res,error=>{throw error;});assert.equal(res.statusCode,403);

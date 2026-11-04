@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, Trash2, X, Download, Printer } from 'lucide-react';
 import { PERMISSIONS, hasPermission } from '../../config/rbac';
 import { createProperty, deleteProperty, fetchProperties, updateProperty } from '../../services/propertyService';
+import { propertyExportTable, exportPropertiesExcel, printPropertiesPdf } from '../../utils/propertyExport';
 import './PropertiesListSection.css';
 import './column-picker.css';
 import {viewUnits, managedUnits} from '../../utils/menuAccess';
@@ -40,6 +41,7 @@ export function PropertiesListSection({ user, onNotify, previewItems }) {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(blank());
   const [showNote, setShowNote] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [group, setGroup] = useState('All Equipment');
   const [columns, setColumns] = useState([]);
@@ -61,6 +63,8 @@ export function PropertiesListSection({ user, onNotify, previewItems }) {
   const chooseCategory = (category) => { const itemType = TYPES[category][0]; setForm((f) => ({ ...f, category, itemType, customType: '', includedAccessories: accessoriesFor(itemType) })); };
   const chooseType = (itemType) => setForm((f) => ({ ...f, itemType, includedAccessories: accessoriesFor(itemType) }));
   const save = async (e) => { e.preventDefault(); setBusy(true); try { const saved = previewItems ? {...form, id: selected?.id || String(Date.now())} : selected ? await updateProperty(selected.id || selected._id, form) : await createProperty(form); setItems((list) => selected ? list.map((x) => (x.id || x._id) === (selected.id || selected._id) ? saved : x) : [saved, ...list]); setMode(null); onNotify?.(selected ? 'Property updated.' : 'Property added.', 'success'); } catch (err) { onNotify?.(err.message, 'error'); } finally { setBusy(false); } };
+  const exportExcel = async () => { setExporting(true); try { await exportPropertiesExcel(propertyExportTable(filtered, columns, DETAIL_FIELDS)); } catch (error) { onNotify?.(error.message || 'Excel export failed.', 'error'); } finally { setExporting(false); } };
+  const exportPdf = () => { try { printPropertiesPdf(propertyExportTable(filtered, columns, DETAIL_FIELDS), `${unitLabel(unit)} · ${group}${query ? ` · Search: ${query}` : ''}`); } catch (error) { onNotify?.(error.message || 'PDF export failed.', 'error'); } };
   const remove = async () => { setBusy(true); try { if (!previewItems) await deleteProperty(selected.id || selected._id); setItems((list) => list.filter((x) => (x.id || x._id) !== (selected.id || selected._id))); setMode(null); onNotify?.('Property deleted and audit log recorded.', 'success'); } catch (err) { onNotify?.(err.message, 'error'); } finally { setBusy(false); } };
 
   return <section className="properties-section">
@@ -68,6 +72,7 @@ export function PropertiesListSection({ user, onNotify, previewItems }) {
     <div className="property-tabs">{visibleUnits.map((x) => <button key={x} className={unit === x ? 'active' : ''} onClick={() => setUnit(x)}>{unitLabel(x)}</button>)}</div>
     <div className="property-tabs">{GROUPS.map((x) => <button key={x} className={group === x ? 'active' : ''} onClick={() => setGroup(x)}>{x}</button>)}</div>
     <details className="property-column-picker"><summary>Choose additional columns</summary><div>{Object.entries(DETAIL_FIELDS).filter(([key]) => key !== 'specification').map(([key,label]) => <label key={key}><input type="checkbox" checked={columns.includes(key)} onChange={() => setColumns(c => c.includes(key) ? c.filter(x => x !== key) : [...c,key])}/>{label}</label>)}</div></details>
+    <div className="property-export-toolbar"><div><b>Export Properties List</b><small>လက်ရှိ Filter နှင့် ရွေးထားသော Column များအတိုင်း ထုတ်ပါမည်။ PDF အတွက် Print dialog မှ Save as PDF ရွေးပါ။</small></div><button type="button" onClick={exportExcel} disabled={!filtered.length || exporting}><Download size={16}/>{exporting ? 'Exporting…' : 'Export Excel (.xlsx)'}</button><button type="button" onClick={exportPdf} disabled={!filtered.length}><Printer size={16}/>Export PDF</button></div>
     <div className="property-kpis"><div><b>{filtered.length}</b><span>Property Records</span></div><div><b>{totalQty}</b><span>Total Quantity</span></div><div><b>{attention}</b><span>Needs Attention</span></div></div>
     <label className="property-search"><Search size={18}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search No., product, type or owner..." /></label>
     <div className="property-table-wrap"><table className="property-table"><thead><tr><th>No</th><th>Date</th><th>Name</th><th>Product Name</th><th>Quantity</th><th>Condition</th><th>Owner</th><th>Specification</th>{columns.map(key => <th key={key}>{DETAIL_FIELDS[key]}</th>)}<th>Actions</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id || item._id}><td><b>{item.propertyNo}</b></td><td>{new Date(item.date).toLocaleDateString()}</td><td>{item.category} / {item.itemType === 'Other' ? item.customType : item.itemType}{item.includedAccessories?.length ? <small>{item.includedAccessories.join(', ')}</small> : null}</td><td>{item.productName}<small>{unitLabel(item.businessUnit)}</small></td><td>{item.quantity}</td><td><span className={`condition condition-${item.condition.toLowerCase().replace(/\s/g, '-')}`}>{item.condition}</span></td><td>{item.owner}</td><td>{propertySpecification(item)}</td>{columns.map(key => <td key={key}>{(key === "note" ? item.note : item.details?.[key]) || "—"}</td>)}<td><div className="property-actions"><button onClick={() => { setSelected(item); setMode('view'); }} title="Open"><Eye size={16}/></button>{canUpdate && writableUnits.includes(item.businessUnit) && <button onClick={() => openEdit(item)} title="Edit"><Pencil size={16}/></button>}{canDelete && writableUnits.includes(item.businessUnit) && <button onClick={() => { setSelected(item); setMode('delete'); }} title="Delete"><Trash2 size={16}/></button>}</div></td></tr>)}</tbody></table>{!filtered.length && <div className="property-empty">No properties found. Add the first property record.</div>}</div>

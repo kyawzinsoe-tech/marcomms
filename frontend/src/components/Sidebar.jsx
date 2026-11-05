@@ -23,6 +23,8 @@ import {viewUnits, canOpenMenu, isHead} from '../utils/menuAccess';
 import { PERMISSIONS, hasPermission } from '../config/rbac';
 
 export function Sidebar({
+  assetPillars = [],
+  hiddenMenus = [],
   activeSection,
   onNavigate,
   alertCount,
@@ -52,11 +54,13 @@ export function Sidebar({
     { id: 'reports', label: 'Reports & Data', icon: FileText, separatorBefore: true }
   ];
 
-  const assetPillarItems = [
+  const builtinAssetItems = [
     { id: 'kbz-bank', label: 'KBZ Bank', icon: Building2, visible: canReadBank },
     { id: 'kbz-pay', label: 'KBZPay', icon: CreditCard, visible: canReadPay },
     { id: 'kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
   ].filter((item) => item.visible);
+
+  const assetPillarItems = [...builtinAssetItems.map(item=>{const key=item.id.replaceAll('-','_');const config=assetPillars.find(p=>p.key===key);return {...item,label:config?.label||item.label,visible:!config?.archived&&!config?.mergedInto};}).filter(item=>item.visible),...assetPillars.filter(p=>p.key.startsWith('custom_')&&!p.archived&&!p.mergedInto&&(isSuperAdmin||[...(p.viewRoles||[]),...(p.writeRoles||[])].includes(user?.role))).map(p=>({id:'asset-'+p.key,label:p.label,icon:Building2}))];
 
   const procurementItems = [
     { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers },
@@ -84,7 +88,7 @@ export function Sidebar({
 
   const renderNavGroup = (items) => (
     <div className="nav-links">
-      {items.filter(item=>canOpenMenu(user,item.id)).map((item) => {
+      {items.filter(item=>!hiddenMenus.includes(item.id) && (item.id.startsWith('asset-custom_') || canOpenMenu(user,item.id))).map((item) => {
         const Icon = item.icon;
         const isActive = activeSection === item.id;
         const hasSeparator = Boolean(item.separatorBefore);

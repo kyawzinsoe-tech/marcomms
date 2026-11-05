@@ -94,6 +94,7 @@ export function normalizeData(data) {
     id: x.id || x._id || generateId('tok'),
     date: x.date || '',
     account: x.account || '',
+    businessUnit: x.businessUnit || '',
     project: x.project || '',
     tokens: Number(x.tokens || 0),
     cost: x.cost !== undefined && x.cost !== null ? String(x.cost) : '',

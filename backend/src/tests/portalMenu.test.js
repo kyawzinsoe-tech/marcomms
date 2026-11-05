@@ -1,0 +1,4 @@
+const test=require('node:test');const assert=require('node:assert/strict');
+const {requireSuperAdmin}=require('../middleware/adminMiddleware');const Setting=require('../models/Setting');
+test('only Super Admin may update global menu visibility',()=>{for(const role of ['admin','head_brand','viewer','procurement_officer']){let allowed=false;const res={status(n){this.code=n;return this;},json(){return this;}};requireSuperAdmin({user:{role}},res,()=>allowed=true);assert.equal(res.code,403);assert.equal(allowed,false);}let allowed=false;requireSuperAdmin({user:{role:'super_admin'}},{},()=>allowed=true);assert.equal(allowed,true);});
+test('menu settings retain the hidden menu list in database schema',()=>{const config=new Setting({hiddenMenus:['suppliers','production-orders']});assert.deepEqual(config.toObject().hiddenMenus,['suppliers','production-orders']);assert.deepEqual(new Setting().hiddenMenus.toObject(),[]);});

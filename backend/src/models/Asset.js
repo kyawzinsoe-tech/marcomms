@@ -10,7 +10,7 @@ const assetSchema = new mongoose.Schema(
     library: {
       type: String,
       required: [true, 'Asset library is required'],
-      enum: ['kbz_bank', 'kbz_pay', 'kbz_comms'],
+
       default: 'kbz_bank'
     },
     category: {

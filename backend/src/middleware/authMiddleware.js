@@ -51,7 +51,7 @@ async function protect(req, res, next) {
     req.user = user;
     const resource = String(req.originalUrl || '').split('?')[0].split('/')[2];
     const menu=API_MENUS[resource];
-    if ((menu && !canOpenMenu(user,menu)) || (resource==='assets' && !['kbz-bank','kbz-pay','kbz-comms'].some(id=>canOpenMenu(user,id)))) return res.status(403).json({error:'This menu has not been assigned by Super Admin.'});
+    if ((menu && !canOpenMenu(user,menu))) return res.status(403).json({error:'This menu has not been assigned by Super Admin.'});
     if (!session.lastSeenAt || now.getTime() - session.lastSeenAt.getTime() > 60 * 1000) {
       Session.updateOne({ _id: session._id }, { $set: { lastSeenAt: now } }).catch(() => {});
     }

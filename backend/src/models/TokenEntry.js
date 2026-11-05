@@ -11,6 +11,7 @@ const tokenEntrySchema = new mongoose.Schema(
       required: [true, 'Account email or identifier is required'],
       trim: true
     },
+    businessUnit: { type: String, trim: true, maxlength: 100, default: '' },
     project: {
       type: String,
       required: [true, 'Project description is required'],

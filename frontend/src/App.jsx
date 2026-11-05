@@ -1,3 +1,5 @@
+import { AssetPillarSettings, pillarApi } from './components/AssetPillarSettings';
+import { PortalMenuSettings, loadPortalMenus } from './components/PortalMenuSettings';
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
@@ -86,7 +88,7 @@ const HASH_MAP = {
 const getCanonicalSection = (hash) => {
   if (!hash) return 'dashboard';
   const clean = hash.replace(/^#\/?/, '').trim().toLowerCase();
-  return HASH_MAP[clean] || 'dashboard';
+  return /^asset-custom_[a-f0-9]+$/.test(clean) ? clean : HASH_MAP[clean] || 'dashboard';
 };
 
 function DashboardApp() {
@@ -124,6 +126,12 @@ function DashboardApp() {
     resetToDemo
   } = useDashboardState();
 
+  const [assetPillars,setAssetPillars] = useState([]);
+  const [pillarsLoaded,setPillarsLoaded] = useState(false);
+  const refreshPillars=useCallback(()=>pillarApi().then(data=>{setAssetPillars(data.pillars);setPillarsLoaded(true);}),[]);
+  useEffect(()=>{if(!isAuthenticated)return;const refresh=()=>refreshPillars().catch(()=>{});refresh();window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};},[isAuthenticated,refreshPillars]);
+  const [hiddenMenus,setHiddenMenus] = useState([]);
+  useEffect(()=>{if(!isAuthenticated)return; const refresh=()=>loadPortalMenus().then(setHiddenMenus).catch(()=>{});refresh();window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};},[isAuthenticated]);
   const [activeSection, setActiveSection] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       return getCanonicalSection(window.location.hash);
@@ -242,6 +250,10 @@ function DashboardApp() {
 
   // Route permission validator
   const checkPermissionForSection = useCallback((sec) => {
+    if(sec.startsWith('asset-custom_')) {const pillar=assetPillars.find(p=>'asset-'+p.key===sec);return !!pillar&&!pillar.archived&&!pillar.mergedInto&&(isSuperAdmin||[...(pillar.viewRoles||[]),...(pillar.writeRoles||[])].includes(user?.role));}
+    const builtinPillar=assetPillars.find(p=>p.key===sec.replaceAll('-','_'));
+    if(builtinPillar?.archived || builtinPillar?.mergedInto) return false;
+    if(hiddenMenus.includes(sec)) return false;
     if(!canOpenMenu(user,sec)) return false;
     switch (sec) {
       case 'kbz-bank':
@@ -265,7 +277,7 @@ function DashboardApp() {
       default:
         return true;
     }
-  }, [can, isAdmin, isSuperAdmin, user]);
+  }, [can, isAdmin, isSuperAdmin, user, hiddenMenus, assetPillars]);
 
   // Synchronize activeSection with window.location.hash and browser Back/Forward navigation
   useEffect(() => {
@@ -273,6 +285,7 @@ function DashboardApp() {
 
     const handleHashChange = () => {
       const target = getCanonicalSection(window.location.hash);
+      if(target.startsWith('asset-custom_')&&!pillarsLoaded)return;
       if (checkPermissionForSection(target)) {
         setActiveSection(target);
       } else {
@@ -287,7 +300,7 @@ function DashboardApp() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [isAuthenticated, checkPermissionForSection]);
+  }, [isAuthenticated, checkPermissionForSection, pillarsLoaded]);
 
   const handleNavigate = (sec) => {
     if (!checkPermissionForSection(sec)) return;
@@ -467,7 +480,7 @@ function DashboardApp() {
 
   return (
     <div className="app-container">
-      <Sidebar
+      <Sidebar assetPillars={assetPillars} hiddenMenus={hiddenMenus}
         activeSection={activeSection}
         onNavigate={handleNavigate}
         alertCount={alerts.length}
@@ -630,7 +643,7 @@ function DashboardApp() {
         {activeSection === 'kbz-bank' && can(PERMISSIONS.ASSET_READ_BANK) && (
           <AssetLibrarySection
             library="kbz_bank"
-            title="KBZ Bank Asset Library"
+            title={(assetPillars.find(p=>p.key==='kbz_bank')?.label || 'KBZ Bank')+' Asset Library'}
             subtitle="Official brand identities, vector logomarks, typography, and marketing key visuals for KBZ Bank."
             icon={Building2}
             user={user}
@@ -642,7 +655,7 @@ function DashboardApp() {
         {activeSection === 'kbz-pay' && can(PERMISSIONS.ASSET_READ_PAY) && (
           <AssetLibrarySection
             library="kbz_pay"
-            title="KBZPay Asset Library"
+            title={(assetPillars.find(p=>p.key==='kbz_pay')?.label || 'KBZPay')+' Asset Library'}
             subtitle="Official brand assets, mobile app icon sets, partner lockups, and design systems for KBZPay."
             icon={CreditCard}
             user={user}
@@ -654,7 +667,7 @@ function DashboardApp() {
         {activeSection === 'kbz-comms' && can(PERMISSIONS.ASSET_READ_COMMS) && (
           <AssetLibrarySection
             library="kbz_comms"
-            title="KBZBank Comms Asset Library"
+            title={(assetPillars.find(p=>p.key==='kbz_comms')?.label || 'KBZBank Comms')+' Asset Library'}
             subtitle="Corporate communication templates, press kit lockups, event banners, and PR design materials."
             icon={Megaphone}
             user={user}
@@ -662,6 +675,7 @@ function DashboardApp() {
           />
         )}
 
+        {assetPillars.filter(p=>p.key.startsWith('custom_')&&activeSection==='asset-'+p.key&&checkPermissionForSection(activeSection)).map(p=><AssetLibrarySection key={p.key} library={p.key} title={p.label+' Asset Library'} user={user} onNotify={showToast} customPillar={p}/>)}
         {/* VIEW 9: PROCUREMENT SUPPLIER DIRECTORY */}
         {activeSection === 'suppliers' && can(PERMISSIONS.SUPPLIER_READ) && (
           <SupplierDirectorySection
@@ -700,6 +714,8 @@ function DashboardApp() {
               </div>
             }
           >
+            {isSuperAdmin && <AssetPillarSettings pillars={assetPillars} onRefresh={refreshPillars} onOpen={handleNavigate}/>}
+            {isSuperAdmin && <PortalMenuSettings hiddenMenus={hiddenMenus} onSaved={setHiddenMenus}/> }
             <UserManagementSection
               users={usersList}
               currentUserId={user?.id}

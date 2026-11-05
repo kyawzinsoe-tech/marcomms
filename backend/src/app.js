@@ -64,12 +64,14 @@ app.get(['/health', '/api/health'], (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/portal-menus', require('./routes/portalMenuRoutes'));
 app.use('/api/navigation-data', require('./routes/navigationDataRoutes'));
 app.use('/api/users', userRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/asset-pillars', require('./routes/assetPillarRoutes'));
 app.use('/api/assets', assetRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/production-orders', productionOrderRoutes);

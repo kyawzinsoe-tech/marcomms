@@ -102,6 +102,7 @@ export function PrintReport({
 
       </>}
       {sections.includes('tokens') && activeTokens.length > 0 && <>
+      <table className="print-table"><thead><tr><th>Business Unit</th><th>Entries</th><th>Tokens Used</th><th>Cost (USD)</th></tr></thead><tbody>{Array.from(new Set(activeTokens.map(t=>t.businessUnit || 'Unassigned'))).map(unit=>{const rows=activeTokens.filter(t=>(t.businessUnit || 'Unassigned')===unit);return rows.length ? <tr key={unit}><td>{unit}</td><td>{rows.length}</td><td>{formatNumber(rows.reduce((n,t)=>n+Number(t.tokens||0),0))}</td><td>{formatMoney(rows.reduce((n,t)=>n+Number(t.cost||0),0))}</td></tr>:null})}</tbody></table>
       {/* Section 2: AI Token Consumption */}
       <h2 style={{ fontSize: '13px', marginTop: '16px', marginBottom: '6px', textTransform: 'uppercase', color: '#1e293b' }}>
         2. AI Token Consumption History
@@ -111,7 +112,7 @@ export function PrintReport({
           <tr>
             <th style={{ width: '14%' }}>Date</th>
             <th style={{ width: '18%' }}>Account</th>
-            <th style={{ width: '22%' }}>Project / Usage</th>
+            <th>Business Unit</th><th style={{ width: '22%' }}>Project / Usage</th>
             <th style={{ width: '16%' }}>Tokens Used</th>
             <th style={{ width: '14%' }}>Cost (USD)</th>
             <th style={{ width: '16%' }}>Notes</th>
@@ -127,7 +128,7 @@ export function PrintReport({
               <tr key={tok.id}>
                 <td>{formatDate(tok.date)}</td>
                 <td>{tok.account || '—'}</td>
-                <td><b>{tok.project || '—'}</b></td>
+                <td>{tok.businessUnit || 'Unassigned'}</td><td><b>{tok.project || '—'}</b></td>
                 <td>{formatNumber(tok.tokens)}</td>
                 <td>{tok.cost ? formatMoney(tok.cost) : '—'}</td>
                 <td>{tok.notes || '—'}</td>

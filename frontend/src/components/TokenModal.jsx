@@ -6,20 +6,24 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
   const [formData, setFormData] = useState({
     date: '',
     account: '',
+    businessUnit: '',
     project: '',
     tokens: '',
     cost: '',
     notes: ''
   });
 
+  const [otherUnit, setOtherUnit] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    setOtherUnit(!!tokenEntry?.businessUnit && !['Bank','Pay','Bank & Pay'].includes(tokenEntry.businessUnit));
     if (tokenEntry) {
       setFormData({
         date: tokenEntry.date || '',
         account: tokenEntry.account || '',
+        businessUnit: tokenEntry.businessUnit || '',
         project: tokenEntry.project || '',
         tokens: tokenEntry.tokens !== undefined ? String(tokenEntry.tokens) : '',
         cost: tokenEntry.cost !== undefined ? String(tokenEntry.cost) : '',
@@ -35,6 +39,7 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
       setFormData({
         date: initialDate,
         account: '',
+    businessUnit: '',
         project: '',
         tokens: '',
         cost: '',
@@ -77,6 +82,7 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
     if (!formData.date) {
       errors.date = 'Usage date is required.';
     }
+    if (!formData.businessUnit.trim()) errors.businessUnit = 'Select Bank, Pay or Bank & Pay.';
     if (!formData.account.trim()) {
       errors.account = 'Account or email is required.';
     }
@@ -182,6 +188,16 @@ export function TokenModal({ isOpen, onClose, onSave, tokenEntry, defaultMonth }
                 )}
               </div>
 
+              <div className="form-group col-span-2">
+                <label htmlFor="token-business-unit">Business Unit *</label>
+                <select id="token-business-unit" required value={otherUnit ? 'Other' : formData.businessUnit} onChange={e => {setOtherUnit(e.target.value === 'Other'); handleChange('businessUnit', e.target.value === 'Other' ? '' : e.target.value);}} disabled={isSaving}>
+                  <option value="">Select Business Unit</option>
+                  <option value="Bank">Bank</option><option value="Pay">Pay</option><option value="Bank & Pay">Bank &amp; Pay</option><option value="Other">Other</option>
+                </select>
+                {otherUnit && <><label htmlFor="token-other-unit">Other Business Unit Name *</label><input id="token-other-unit" required maxLength={100} placeholder="e.g. Comms / Creative" value={formData.businessUnit} onChange={e=>handleChange('businessUnit',e.target.value)} disabled={isSaving}/></>}
+                <small>ဒီ Token သုံးစွဲမှုနှင့် သက်ဆိုင်သော Bank / Pay ကို ရွေးပါ။</small>
+                {validationErrors.businessUnit && <span className="field-error-msg">{validationErrors.businessUnit}</span>}
+              </div>
               <div className="form-group col-span-2">
                 <label htmlFor="token-project">Project / Campaign Description *</label>
                 <input

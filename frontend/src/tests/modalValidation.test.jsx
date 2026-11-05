@@ -157,6 +157,7 @@ describe('Modal Form Validation Component Test Suite', () => {
       const tokensInput = screen.getByLabelText(/Tokens Used/i);
       const costInput = screen.getByLabelText(/Estimated Cost/i);
 
+      fireEvent.change(screen.getByLabelText(/Business Unit/i), { target: { value: 'Bank & Pay' } });
       fireEvent.change(accountInput, { target: { value: 'designer@kbzbank.com' } });
       fireEvent.change(projectInput, { target: { value: 'App Icon Redesign' } });
       fireEvent.change(tokensInput, { target: { value: '10000' } });
@@ -165,7 +166,7 @@ describe('Modal Form Validation Component Test Suite', () => {
       const form = screen.getByRole('dialog').querySelector('form');
       fireEvent.submit(form);
 
-      expect(handleSave).toHaveBeenCalled();
+      expect(handleSave).toHaveBeenCalledWith(expect.objectContaining({ businessUnit: 'Bank & Pay' }));
     });
   });
 });

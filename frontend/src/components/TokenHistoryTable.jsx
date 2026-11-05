@@ -22,6 +22,7 @@ export function TokenHistoryTable({
   onDeleteToken
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [unitFilter, setUnitFilter] = useState('All');
   const [accountFilter, setAccountFilter] = useState('All');
 
   // Confirmation modal states
@@ -51,15 +52,16 @@ export function TokenHistoryTable({
       const matchAccount =
         accountFilter === 'All' || entry.account === accountFilter;
 
-      return matchSearch && matchAccount;
+      return matchSearch && matchAccount && (unitFilter === 'All' || (entry.businessUnit || 'Unassigned') === unitFilter);
     });
-  }, [entries, searchTerm, accountFilter]);
+  }, [entries, searchTerm, accountFilter, unitFilter]);
 
-  const isFilteringActive = searchTerm.trim() !== '' || accountFilter !== 'All';
+  const isFilteringActive = searchTerm.trim() !== '' || accountFilter !== 'All' || unitFilter !== 'All';
 
   const handleResetFilters = () => {
     setSearchTerm('');
     setAccountFilter('All');
+    setUnitFilter('All');
   };
 
   const handleExportCsv = () => {
@@ -138,6 +140,7 @@ export function TokenHistoryTable({
           </select>
         </div>
 
+        <div className="select-input-wrap"><select aria-label="Filter by business unit" value={unitFilter} onChange={e=>setUnitFilter(e.target.value)}><option value="All">All Business Units</option>{Array.from(new Set(['Bank','Pay','Bank & Pay',...entries.map(e=>e.businessUnit || 'Unassigned')])).map(unit=><option key={unit}>{unit}</option>)}</select></div>
         {isFilteringActive && (
           <button
             type="button"
@@ -157,7 +160,7 @@ export function TokenHistoryTable({
             <tr>
               <th scope="col" style={{ width: '13%' }}>Date</th>
               <th scope="col" style={{ width: '18%' }}>Account</th>
-              <th scope="col" style={{ width: '22%' }}>Project / Usage</th>
+              <th scope="col">Business Unit</th><th scope="col" style={{ width: '22%' }}>Project / Usage</th>
               <th scope="col" style={{ width: '14%' }}>Tokens Used</th>
               <th scope="col" style={{ width: '13%' }}>Est. Cost (USD)</th>
               <th scope="col" style={{ width: '18%' }}>Notes</th>
@@ -170,7 +173,7 @@ export function TokenHistoryTable({
             {filteredEntries.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 7 : 6}
+                  colSpan={isAdmin ? 8 : 7}
                   style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}
                 >
                   <History size={28} style={{ opacity: 0.3, marginBottom: '8px' }} />
@@ -186,6 +189,7 @@ export function TokenHistoryTable({
                   <td style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                     {tok.account || '—'}
                   </td>
+                  <td>{tok.businessUnit || 'Unassigned'}</td>
                   <td>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {tok.project || '—'}

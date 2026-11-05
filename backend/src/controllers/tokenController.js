@@ -21,6 +21,7 @@ exports.getTokenEntries = async (req, res, next) => {
         id: String(e._id),
         date: e.date,
         account: e.account,
+        businessUnit: e.businessUnit || '',
         project: e.project,
         tokens: e.tokens,
         cost: e.cost,
@@ -37,6 +38,7 @@ exports.getTokenEntries = async (req, res, next) => {
 // POST /api/tokens (Admin only)
 exports.createTokenEntry = async (req, res, next) => {
   try {
+    if (typeof req.body.businessUnit !== 'string' || !req.body.businessUnit.trim() || req.body.businessUnit.trim().length > 100) return res.status(400).json({ error: 'Select a business unit or enter an Other name (maximum 100 characters).' });
     const entryData = {
       ...req.body,
       createdBy: req.user._id
@@ -48,6 +50,7 @@ exports.createTokenEntry = async (req, res, next) => {
         id: String(entry._id),
         date: entry.date,
         account: entry.account,
+        businessUnit: entry.businessUnit || '',
         project: entry.project,
         tokens: entry.tokens,
         cost: entry.cost,
@@ -81,6 +84,7 @@ exports.updateTokenEntry = async (req, res, next) => {
         id: String(entry._id),
         date: entry.date,
         account: entry.account,
+        businessUnit: entry.businessUnit || '',
         project: entry.project,
         tokens: entry.tokens,
         cost: entry.cost,

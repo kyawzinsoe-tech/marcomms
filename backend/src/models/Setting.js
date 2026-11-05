@@ -8,6 +8,7 @@ const settingSchema = new mongoose.Schema(
       unique: true,
       default: 'dashboard_config'
     },
+    hiddenMenus: { type: [String], default: [] },
     reportMonth: {
       type: String,
       default: () => new Date().toISOString().slice(0, 7)

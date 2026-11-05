@@ -19,9 +19,9 @@ const permissionFor = (library, operation) => {
   return PERMISSIONS[`ASSET_${operation}_${suffix}`];
 };
 
-export function AssetLibrarySection({ library, title, subtitle, icon, user, onNotify }) {
+export function AssetLibrarySection({ library, title, subtitle, icon, user, onNotify, customPillar }) {
   const Icon = icon || Layers;
-  const label = ASSET_LIBRARY_LABELS[library] || 'Brand';
+  const label = customPillar?.label || ASSET_LIBRARY_LABELS[library] || 'Brand';
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -32,9 +32,9 @@ export function AssetLibrarySection({ library, title, subtitle, icon, user, onNo
   const [brokenImages, setBrokenImages] = useState(() => new Set());
   const [error, setError] = useState(null);
 
-  const canCreate = Boolean(user && hasPermission(user, permissionFor(library, 'CREATE')));
-  const canEdit = Boolean(user && (hasPermission(user, permissionFor(library, 'UPDATE')) || canCreate));
-  const canDelete = Boolean(user && hasPermission(user, permissionFor(library, 'DELETE')));
+  const canCreate = Boolean(user && (customPillar ? user.role==='super_admin'||customPillar.writeRoles?.includes(user.role) : hasPermission(user, permissionFor(library, 'CREATE'))));
+  const canEdit = Boolean(user && ((customPillar ? canCreate : hasPermission(user, permissionFor(library, 'UPDATE'))) || canCreate));
+  const canDelete = Boolean(user && (customPillar ? user.role==='super_admin'||customPillar.writeRoles?.includes(user.role) : hasPermission(user, permissionFor(library, 'DELETE'))));
 
   const load = useCallback(async () => {
     setLoading(true);

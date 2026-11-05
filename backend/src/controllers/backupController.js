@@ -98,6 +98,7 @@ exports.exportBackup = async (req, res, next) => {
         id: String(t._id),
         date: t.date,
         account: t.account,
+        businessUnit: t.businessUnit || '',
         project: t.project,
         tokens: t.tokens,
         cost: t.cost,
@@ -209,6 +210,7 @@ exports.importBackup = async (req, res, next) => {
         const tokenDocs = tokenEntries.map((t) => ({
           date: t.date,
           account: t.account,
+        businessUnit: t.businessUnit || '',
           project: t.project,
           tokens: Number(t.tokens || 0),
           cost: t.cost || '',

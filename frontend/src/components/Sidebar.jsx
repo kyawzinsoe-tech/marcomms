@@ -60,7 +60,7 @@ export function Sidebar({
     { id: 'kbz-comms', label: 'KBZBank Comms', icon: Megaphone, visible: canReadComms }
   ].filter((item) => item.visible);
 
-  const assetPillarItems = [...builtinAssetItems.map(item=>{const key=item.id.replaceAll('-','_');const config=assetPillars.find(p=>p.key===key);return {...item,label:config?.label||item.label,visible:!config?.archived&&!config?.mergedInto};}).filter(item=>item.visible),...assetPillars.filter(p=>p.key.startsWith('custom_')&&!p.archived&&!p.mergedInto&&(isSuperAdmin||[...(p.viewRoles||[]),...(p.writeRoles||[])].includes(user?.role))).map(p=>({id:'asset-'+p.key,label:p.label,icon:Building2}))];
+  const assetPillarItems = [...(isSuperAdmin?[{id:'production-guidelines',label:'Production Guidelines',icon:Printer}]:[]),...builtinAssetItems.map(item=>{const key=item.id.replaceAll('-','_');const config=assetPillars.find(p=>p.key===key);return {...item,label:config?.label||item.label,visible:!config?.archived&&!config?.mergedInto};}).filter(item=>item.visible),...assetPillars.filter(p=>p.key.startsWith('custom_')&&!p.archived&&!p.mergedInto&&(isSuperAdmin||[...(p.viewRoles||[]),...(p.writeRoles||[])].includes(user?.role))).map(p=>({id:'asset-'+p.key,label:p.label,icon:Building2}))];
 
   const procurementItems = [
     { id: 'suppliers', label: 'Supplier Directory', icon: Truck, visible: canReadSuppliers },

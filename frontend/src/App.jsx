@@ -1,3 +1,4 @@
+import { ProductionGuidelines } from './components/ProductionGuidelines';
 import { AssetPillarSettings, pillarApi } from './components/AssetPillarSettings';
 import { PortalMenuSettings, loadPortalMenus } from './components/PortalMenuSettings';
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
@@ -57,6 +58,7 @@ const HASH_MAP = {
   '#': 'dashboard',
   'dashboard': 'dashboard',
   'alerts': 'alerts',
+  'production-guidelines': 'production-guidelines',
   'subscriptions': 'subscriptions',
   'tokens': 'tokens',
   'token-usage': 'tokens',
@@ -250,6 +252,7 @@ function DashboardApp() {
 
   // Route permission validator
   const checkPermissionForSection = useCallback((sec) => {
+    if(sec==='production-guidelines') return isSuperAdmin && !hiddenMenus.includes(sec);
     if(sec.startsWith('asset-custom_')) {const pillar=assetPillars.find(p=>'asset-'+p.key===sec);return !!pillar&&!pillar.archived&&!pillar.mergedInto&&(isSuperAdmin||[...(pillar.viewRoles||[]),...(pillar.writeRoles||[])].includes(user?.role));}
     const builtinPillar=assetPillars.find(p=>p.key===sec.replaceAll('-','_'));
     if(builtinPillar?.archived || builtinPillar?.mergedInto) return false;
@@ -676,6 +679,7 @@ function DashboardApp() {
         )}
 
         {assetPillars.filter(p=>p.key.startsWith('custom_')&&activeSection==='asset-'+p.key&&checkPermissionForSection(activeSection)).map(p=><AssetLibrarySection key={p.key} library={p.key} title={p.label+' Asset Library'} user={user} onNotify={showToast} customPillar={p}/>)}
+        {activeSection==='production-guidelines'&&isSuperAdmin&&<ProductionGuidelines/>}
         {/* VIEW 9: PROCUREMENT SUPPLIER DIRECTORY */}
         {activeSection === 'suppliers' && can(PERMISSIONS.SUPPLIER_READ) && (
           <SupplierDirectorySection

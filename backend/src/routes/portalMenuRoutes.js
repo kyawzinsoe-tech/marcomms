@@ -3,7 +3,7 @@ const Setting = require('../models/Setting');
 const {protect} = require('../middleware/authMiddleware');
 const {requireSuperAdmin} = require('../middleware/adminMiddleware');
 const {logAuditEvent} = require('../utils/auditLogger');
-const allowed = ['alerts','subscriptions','tokens','important-work','reports','kbz-bank','kbz-pay','kbz-comms','suppliers','production-orders','production-inventory','properties','recruitment'];
+const allowed = ['production-guidelines','alerts','subscriptions','tokens','important-work','reports','kbz-bank','kbz-pay','kbz-comms','suppliers','production-orders','production-inventory','properties','recruitment'];
 router.use(protect);
 router.get('/',async(req,res,next)=>{try{const config=await Setting.findOne({key:'dashboard_config'});res.json({hiddenMenus:config?.hiddenMenus || []});}catch(e){next(e);}});
 router.put('/',requireSuperAdmin,async(req,res,next)=>{try{

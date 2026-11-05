@@ -45,7 +45,7 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   next();
 });
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '16mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health Check
@@ -71,6 +71,7 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/production-guidelines', require('./routes/productionGuidelineRoutes'));
 app.use('/api/asset-pillars', require('./routes/assetPillarRoutes'));
 app.use('/api/assets', assetRoutes);
 app.use('/api/suppliers', supplierRoutes);

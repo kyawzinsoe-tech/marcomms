@@ -5,7 +5,7 @@ const MENU_DEFINITIONS = [
   ['important-work','Important Work'], ['reports','Reports & Data'], ['kbz-bank','KBZ Bank Assets'],
   ['kbz-pay','KBZPay Assets'], ['kbz-comms','Communication Assets'], ['suppliers','Supplier Directory'],
   ['production-orders','Production Orders'], ['production-inventory','Production Item Store'],
-  ['properties','Properties List'], ['recruitment','Interview Process'], ['user-management','User Management']
+  ['production-guidelines','Production Guidelines'], ['properties','Properties List'], ['recruitment','Interview Process'], ['user-management','User Management']
 ];
 function canOpenMenu(user, menu) {
   if (!user) return false;

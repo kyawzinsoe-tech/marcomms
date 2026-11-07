@@ -622,6 +622,7 @@ function DashboardApp() {
             }
           >
             <ReportsDataSection
+              user={user}
               canManageMonthly={managedUnits(user).length > 0}
               reportMonth={reportMonth}
               selectedYear={selectedYear}

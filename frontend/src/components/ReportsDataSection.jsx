@@ -1,3 +1,4 @@
+import {CreativeWorkspace} from './CreativeWorkspace';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FileText,
@@ -95,6 +96,7 @@ export function ProjectChart({ type, data, sheet, timeline, timelineMode }) {
 }
 
 export function ReportsDataSection({
+  user,
   reportMonth,
   selectedYear,
   subscriptions = [],
@@ -336,6 +338,7 @@ export function ReportsDataSection({
 
   return (
     <section className="card" id="reports" aria-label="Reports & Enterprise Data Hub">
+      <CreativeWorkspace user={user}/>
       {/* Module Header */}
       <div className="card-header">
         <div>

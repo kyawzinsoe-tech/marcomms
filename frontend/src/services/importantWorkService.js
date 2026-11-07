@@ -30,3 +30,10 @@ export const fetchCreativeMembers=()=>request('/members').then(d=>d.members);
 export const addCreativeMember=item=>request('/members',{method:'POST',body:JSON.stringify(item)}).then(d=>d.member);
 export const editCreativeMember=(id,item)=>request(`/members/${id}`,{method:'PUT',body:JSON.stringify(item)}).then(d=>d.member);
 export const deleteCreativeMember=id=>request(`/members/${id}`,{method:'DELETE'});
+
+export const requestDesignRevision=(id,note)=>request(`/${id}/revision`,{method:'POST',body:JSON.stringify({note})});
+export const submitDesignRevision=(id,designDriveUrl)=>request(`/${id}/revised-check`,{method:'POST',body:JSON.stringify({designDriveUrl})});
+export const checkReviewDesign=id=>request(`/${id}/review-check`,{method:'POST'});
+export const emailDesignBP=id=>request(`/${id}/email-bp`,{method:'POST'});
+
+export const checkAssignedDesigner=id=>request(`/${id}/designer-check`,{method:'POST',body:JSON.stringify({})});

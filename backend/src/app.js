@@ -79,6 +79,7 @@ app.use('/api/production-orders', productionOrderRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/important-work', importantWorkRoutes);
+app.use('/api/creative-workspace',require('./routes/creativeWorkspaceRoutes'));
 app.use('/api/recruitment', recruitmentRoutes);
 app.use('/api/production-inventory', productionInventoryRoutes);
 app.use('/api/properties', propertyRoutes);
@@ -92,7 +93,7 @@ if (process.env.NODE_ENV === 'production') {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src https://drive.google.com; upgrade-insecure-requests");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src https://drive.google.com https://docs.google.com; upgrade-insecure-requests");
   };
   if (fs.existsSync(indexFile)) {
     app.use(express.static(frontendDist, { setHeaders: setFrontendHeaders }));

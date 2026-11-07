@@ -1,0 +1,3 @@
+const mongoose=require('mongoose');
+const schema=new mongoose.Schema({_id:{type:String,default:'creative-workspace'},nodes:{type:[{_id:false,id:String,parentId:String,position:String,name:String}],default:()=>require('../services/creativeWorkspace').defaultNodes()},sheets:{type:[{month:String,title:String,url:String}],default:()=>[{month:'2026-11',title:'Creative Projects · November 2026',url:'https://docs.google.com/spreadsheets/d/14FJixR5WMxVV07fUL1zFT11ov_vG2kp7/edit?gid=1602603746#gid=1602603746'}]},updatedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'}},{timestamps:true,optimisticConcurrency:true});
+module.exports=mongoose.model('CreativeWorkspace',schema);

@@ -237,3 +237,10 @@ async function sendRecruitmentAccessAlert({ to, department, candidateName, posit
 }
 
 module.exports = { sendReminderEmail, sendImportantWorkReminder, sendRecruitmentAccessAlert, isValidEmail };
+
+module.exports.sendDesignDelivery=async({to,title,url})=>{
+ if(!isValidEmail(to))throw new Error('A valid BP email is required.');
+ const source=(process.env.REMINDER_FROM_EMAIL||'').trim();if(!source)throw new Error('Email sender is not configured. Design remains approved; contact Super Admin.');
+ const result=await new SESClient({region:process.env.AWS_REGION||'us-east-1'}).send(new SendEmailCommand({Source:source,Destination:{ToAddresses:[to]},Message:{Subject:{Data:`Approved design: ${title}`,Charset:'UTF-8'},Body:{Text:{Data:`Approved design: ${title}\n\nDrive link: ${url}\n\nOpen with your authorized Google account.`,Charset:'UTF-8'}}}}));
+ return {messageId:result.MessageId};
+};

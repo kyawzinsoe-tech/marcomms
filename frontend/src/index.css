@@ -550,15 +550,19 @@ a {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 36px;
-  padding: 0 14px;
+  min-height: 36px;
+  height: auto;
+  padding: 8px 14px;
+  line-height: 1.4;
   border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   border: 1px solid transparent;
   transition: all var(--transition-normal);
   user-select: none;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .btn:not(:disabled):active {
@@ -2261,3 +2265,12 @@ tbody tr:hover {
 .guideline-size-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:8px;margin-bottom:12px;align-items:end}
 @media(max-width:1000px){.guideline-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.guideline-grid,.guideline-filters,.guideline-link-fields{grid-template-columns:minmax(0,1fr)}.guideline-size-row{grid-template-columns:repeat(2,minmax(0,1fr))}.guideline-modal .modal-footer{flex-wrap:wrap}}
+
+/* Form labels keep controls on their own line; checkboxes retain a compact row. */
+label:has(> input:not([type=checkbox]):not([type=radio])), label:has(> select), label:has(> textarea){display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;line-height:1.6}
+label:has(> input[type=checkbox]),label:has(> input[type=radio]){display:inline-flex;align-items:center;gap:9px;line-height:1.5;cursor:pointer}
+label>input[type=checkbox],label>input[type=radio]{flex:0 0 auto;width:18px;height:18px;margin:0;align-self:center}
+.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form-group{min-width:0}.form-group input,.form-group select,.form-group textarea{width:100%;min-width:0}.modal-footer{flex-wrap:wrap;align-items:center}.card-header{gap:16px;flex-wrap:wrap}.card-header>div{min-width:0}.card-header p{overflow-wrap:anywhere}.btn svg{flex-shrink:0}
+.pillar-menu-form{display:grid;gap:16px}.pillar-menu-form>p{margin:0}.permission-fieldset{min-width:0;border:1px solid var(--border-default);border-radius:12px;padding:16px;margin:0}.permission-fieldset legend{font-size:13px;font-weight:700;padding:0 7px}.permission-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.permission-options .permission-option{display:flex;align-items:center;padding:12px;border:1px solid var(--border-default);border-radius:9px;background:var(--bg-surface-secondary);min-width:0}.permission-option span{overflow-wrap:anywhere;font-size:13px}.permission-option:has(input:checked){border-color:var(--primary);background:var(--primary-light)}.asset-pillar-settings>p{margin:8px 0 18px}.record-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+@media(max-width:700px){.permission-options{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid{grid-template-columns:1fr}.form-group.col-span-2{grid-column:auto}}
+@media(max-width:420px){.permission-options{grid-template-columns:1fr}}

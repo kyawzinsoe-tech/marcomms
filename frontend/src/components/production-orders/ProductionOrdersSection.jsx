@@ -1,3 +1,5 @@
+import { ProductionProgressBar } from './ProductionProcessLine';
+import { ProductionOrderDashboard } from './ProductionOrderDashboard';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Printer,
@@ -392,56 +394,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         </div>
       </div>
 
-      {/* Production Order Summary Metrics Bar */}
-      <div className="sub-summary-bar">
-        <div className="sub-summary-item">
-          <Printer size={14} className="sub-summary-icon" />
-          <span>
-            <b>{metrics.total}</b> Production Order{metrics.total === 1 ? '' : 's'}
-          </span>
-        </div>
-
-        <div className="sub-summary-item">
-          <Clock size={14} style={{ color: 'var(--info-text)' }} />
-          <span>
-            <b>{metrics.inProduction}</b> In Production
-          </span>
-        </div>
-
-        {metrics.sampleProofing > 0 && (
-          <div className="sub-summary-item">
-            <ShieldCheck size={14} style={{ color: 'var(--warning-text)' }} />
-            <span>
-              <b>{metrics.sampleProofing}</b> Sample Proofing
-            </span>
-          </div>
-        )}
-
-        <div className="sub-summary-item">
-          <CheckCircle2 size={14} className="sub-summary-icon success" />
-          <span>
-            <b>{metrics.completed}</b> Completed
-          </span>
-        </div>
-
-        {metrics.totalSpend > 0 && (
-          <div className="sub-summary-item">
-            <DollarSign size={14} className="sub-summary-icon cost" />
-            <span>
-              <b>{metrics.totalSpend.toLocaleString()}</b> Total Value
-            </span>
-          </div>
-        )}
-
-        {isFilteringActive && (
-          <div className="sub-summary-item">
-            <Filter size={14} className="sub-summary-icon cost" />
-            <span>
-              <b>{processedOrders.length}</b> Matching Filters
-            </span>
-          </div>
-        )}
-      </div>
+      <ProductionOrderDashboard orders={orders} metrics={metrics}/>
 
       {/* Command & Filter Bar */}
       <div className="table-filter-bar">
@@ -740,7 +693,8 @@ export function ProductionOrdersSection({ user, onNotify }) {
                   </td>
 
                   <td>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpandedWorkflowId((id) => id === order.id ? null : order.id)}>
+                    <ProductionProgressBar currentStep={order.workflowStep} completed={order.status==='Completed'}/>
+                    <button type="button" className="btn btn-outline btn-sm" aria-expanded={expandedWorkflowId === order.id} onClick={() => setExpandedWorkflowId((id) => id === order.id ? null : order.id)}>
                       <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide Process' : 'View Process'}
                     </button>
                   </td>
@@ -778,7 +732,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 {expandedWorkflowId === order.id && (
                   <tr>
                     <td colSpan={(canEdit || canDelete) ? 10 : 9}>
-                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} />
+                      <ProductionWorkflow showProgress={false} order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} />
                     </td>
                   </tr>
                 )}

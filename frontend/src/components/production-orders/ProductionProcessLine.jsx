@@ -13,3 +13,9 @@ export const PRODUCTION_STEPS = [
 ];
 export const canonicalProductionStep=step=>({vendor_procedure:'invoice_head_approval',invoice_delivery_order:'final_payment'})[step]||step||'artwork';
 export function ProductionProcessLine({currentStep='artwork',history=[]}){const current=canonicalProductionStep(currentStep);return <ol className="production-workflow-steps" aria-label="Production process">{PRODUCTION_STEPS.map(([key,label],index)=>{const recorded=history.some(h=>h.step===key&&['COMPLETED','APPROVED','SKIPPED'].includes(h.action));return <li key={key} className={current===key?'current':recorded?'complete':''} aria-current={current===key?'step':undefined}><span className="workflow-node">{index+1}</span><span>{label}</span></li>})}</ol>}
+
+export function ProductionProgressBar({currentStep='artwork', completed=false}) {
+ const index = completed ? 9 : Math.max(0, PRODUCTION_STEPS.findIndex(([key])=>key===canonicalProductionStep(currentStep)));
+ const label = completed ? 'Order Completed' : PRODUCTION_STEPS[index][1];
+ return <div className="order-progress" aria-label={`Current stage: ${label}`}><strong>{completed?'Completed':`Current · ${index+1}/9`} — {label}</strong><div className={`order-progress-track ${completed?'is-complete':''}`} role="progressbar" aria-label="Production progress" aria-valuemin={0} aria-valuemax={9} aria-valuenow={index}><span style={{width:`${index/9*100}%`}}/></div><small>{completed?'All stages completed':`${index} of 9 stages passed`}</small></div>;
+}

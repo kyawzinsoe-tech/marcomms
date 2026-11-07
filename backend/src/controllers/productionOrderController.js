@@ -83,7 +83,7 @@ exports.getProductionOrders = async (req, res, next) => {
     }
 
     const orders = await ProductionOrder.find(query)
-      .populate('supplier', 'name code contactPerson phone email')
+      .populate('supplier', 'name code contactPerson phone email driveUrl')
       .populate('assetRef', 'title library fileUrl')
       .populate('proofApprovedBy', 'name email')
       .populate('createdBy', 'name email')
@@ -116,6 +116,9 @@ exports.getProductionOrders = async (req, res, next) => {
         itemDescription: o.itemDescription,
         itemCategory: o.itemCategory,
         itemType: o.itemType,
+        supplierDriveUrl: o.supplierDriveUrl || '',
+        printStage: o.printStage || '',
+        printFileUrl: o.printFileUrl || '',
         specification: o.specification,
         quantity: o.quantity,
         remainingQuantity: o.remainingQuantity,
@@ -168,7 +171,7 @@ exports.getProductionOrderById = async (req, res, next) => {
     }
 
     const order = await ProductionOrder.findById(req.params.id)
-      .populate('supplier', 'name code contactPerson phone email')
+      .populate('supplier', 'name code contactPerson phone email driveUrl')
       .populate('assetRef', 'title library fileUrl')
       .populate('proofApprovedBy', 'name email')
       .populate('createdBy', 'name email');
@@ -187,6 +190,9 @@ exports.getProductionOrderById = async (req, res, next) => {
         itemDescription: order.itemDescription,
         itemCategory: order.itemCategory,
         itemType: order.itemType,
+        supplierDriveUrl: order.supplierDriveUrl || '',
+        printStage: order.printStage || '',
+        printFileUrl: order.printFileUrl || '',
         specification: order.specification,
         quantity: order.quantity,
         remainingQuantity: order.remainingQuantity,
@@ -230,6 +236,8 @@ exports.createProductionOrder = async (req, res, next) => {
       itemDescription,
       itemCategory,
       itemType,
+      printStage,
+      printFileUrl,
       specification,
       quantity,
       remainingQuantity,
@@ -281,6 +289,9 @@ exports.createProductionOrder = async (req, res, next) => {
       itemDescription: itemDescription.trim(),
       itemCategory: String(itemCategory || '').trim().slice(0, 120),
       itemType: String(itemType || '').trim().slice(0, 120),
+      supplierDriveUrl: supplierExists.driveUrl || '',
+      printStage: printStage || '',
+      printFileUrl: String(printFileUrl || '').trim(),
       specification: (specification || '').trim(),
       quantity: qty,
       remainingQuantity: Math.max(0, Number(remainingQuantity || 0)),
@@ -296,7 +307,7 @@ exports.createProductionOrder = async (req, res, next) => {
     });
 
     const populated = await ProductionOrder.findById(order._id)
-      .populate('supplier', 'name code contactPerson phone email')
+      .populate('supplier', 'name code contactPerson phone email driveUrl')
       .populate('assetRef', 'title library fileUrl')
       .populate('createdBy', 'name email');
 
@@ -310,6 +321,9 @@ exports.createProductionOrder = async (req, res, next) => {
         itemDescription: populated.itemDescription,
         itemCategory: populated.itemCategory,
         itemType: populated.itemType,
+        supplierDriveUrl: populated.supplierDriveUrl || '',
+        printStage: populated.printStage || '',
+        printFileUrl: populated.printFileUrl || '',
         specification: populated.specification,
         quantity: populated.quantity,
         remainingQuantity: populated.remainingQuantity,
@@ -474,10 +488,17 @@ exports.updateProductionOrder = async (req, res, next) => {
     }
 
     const allowedFields = [
-      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'specification',
+      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'printStage', 'printFileUrl', 'specification',
       'quantity', 'remainingQuantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
     ];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
+
+    if (updates.supplier) {
+      if (!mongoose.Types.ObjectId.isValid(updates.supplier)) return res.status(400).json({error:'Valid supplier reference is required.'});
+      const selectedSupplier = await Supplier.findById(updates.supplier);
+      if (!selectedSupplier) return res.status(404).json({error:'Supplier not found.'});
+      updates.supplierDriveUrl = selectedSupplier.driveUrl || '';
+    }
 
     // Automatically recalculate totalCost if unitCost or quantity is updated
     if (updates.quantity !== undefined || updates.unitCost !== undefined) {
@@ -493,7 +514,7 @@ exports.updateProductionOrder = async (req, res, next) => {
       updates,
       { new: true, runValidators: true }
     )
-      .populate('supplier', 'name code contactPerson phone email')
+      .populate('supplier', 'name code contactPerson phone email driveUrl')
       .populate('assetRef', 'title library fileUrl')
       .populate('proofApprovedBy', 'name email');
 
@@ -507,6 +528,9 @@ exports.updateProductionOrder = async (req, res, next) => {
         itemDescription: updated.itemDescription,
         itemCategory: updated.itemCategory,
         itemType: updated.itemType,
+        supplierDriveUrl: updated.supplierDriveUrl || '',
+        printStage: updated.printStage || '',
+        printFileUrl: updated.printFileUrl || '',
         specification: updated.specification,
         quantity: updated.quantity,
         remainingQuantity: updated.remainingQuantity,

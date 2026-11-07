@@ -45,6 +45,7 @@ exports.getSuppliers = async (req, res, next) => {
         code: s.code,
         categories: s.categories,
         contactPerson: s.contactPerson,
+        driveUrl: s.driveUrl || '',
         phone: s.phone,
         email: s.email,
         address: s.address,
@@ -85,6 +86,7 @@ exports.getSupplierById = async (req, res, next) => {
         code: supplier.code,
         categories: supplier.categories,
         contactPerson: supplier.contactPerson,
+        driveUrl: supplier.driveUrl || '',
         phone: supplier.phone,
         email: supplier.email,
         address: supplier.address,
@@ -109,7 +111,7 @@ exports.createSupplier = async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied. Only Procurement & Merchandising Officers or Administrators can create suppliers.' });
     }
 
-    const { name, code, categories, contactPerson, phone, email, address, rating, status, notes } = req.body;
+    const { name, code, categories, contactPerson, phone, email, address, rating, status, notes, driveUrl } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Supplier name is required.' });
@@ -120,6 +122,7 @@ exports.createSupplier = async (req, res, next) => {
       code: (code || '').trim(),
       categories: Array.isArray(categories) ? categories : typeof categories === 'string' ? categories.split(',').map((c) => c.trim()).filter(Boolean) : [],
       contactPerson: (contactPerson || '').trim(),
+      driveUrl: String(driveUrl || '').trim(),
       phone: (phone || '').trim(),
       email: (email || '').trim().toLowerCase(),
       address: (address || '').trim(),
@@ -136,6 +139,7 @@ exports.createSupplier = async (req, res, next) => {
         code: supplier.code,
         categories: supplier.categories,
         contactPerson: supplier.contactPerson,
+        driveUrl: supplier.driveUrl || '',
         phone: supplier.phone,
         email: supplier.email,
         address: supplier.address,
@@ -180,6 +184,7 @@ exports.updateSupplier = async (req, res, next) => {
         code: supplier.code,
         categories: supplier.categories,
         contactPerson: supplier.contactPerson,
+        driveUrl: supplier.driveUrl || '',
         phone: supplier.phone,
         email: supplier.email,
         address: supplier.address,

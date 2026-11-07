@@ -36,6 +36,9 @@ const productionOrderSchema = new mongoose.Schema(
       trim: true,
       maxlength: [300, 'Item description cannot exceed 300 characters']
     },
+    supplierDriveUrl: { type: String, trim: true, maxlength: 2000, default: '' },
+    printStage: { type: String, enum: ['', 'Sample Print', 'Final Print'], default: '' },
+    printFileUrl: { type: String, trim: true, maxlength: 2000, default: '', validate: { validator: value => { if (!value) return true; try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password; } catch { return false; } }, message: 'Print file link must be a full HTTPS URL.' } },
     itemCategory: { type: String, trim: true, maxlength: 120, default: '' },
     itemType: { type: String, trim: true, maxlength: 120, default: '' },
     specification: {

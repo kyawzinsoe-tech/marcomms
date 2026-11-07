@@ -618,7 +618,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                       {order.campaignName}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {order.itemDescription}
+                      {order.itemDescription}{order.printStage&&<div><strong>{order.printStage}</strong></div>}{order.printFileUrl&&/^https:\/\//i.test(order.printFileUrl)&&<div><a href={order.printFileUrl} target="_blank" rel="noopener noreferrer">Open Print File ↗</a></div>}
                     </div>
                     {order.assetRef && (
                       <div style={{ marginTop: '4px' }}>

@@ -27,6 +27,9 @@ export function ProductionOrderModal({
     itemDescription: '',
     itemCategory: '',
     itemType: '',
+    supplierDriveUrl: '',
+    printStage: '',
+    printFileUrl: '',
     specification: '',
     quantity: 1000,
     remainingQuantity: 0,
@@ -66,6 +69,9 @@ export function ProductionOrderModal({
         itemDescription: order.itemDescription || '',
         itemCategory: order.itemCategory || '',
         itemType: order.itemType || '',
+        supplierDriveUrl: order.supplierDriveUrl || order.supplier?.driveUrl || '',
+        printStage: order.printStage || '',
+        printFileUrl: order.printFileUrl || '',
         specification: order.specification || '',
         quantity: qty,
         remainingQuantity: Number(order.remainingQuantity || 0),
@@ -82,10 +88,13 @@ export function ProductionOrderModal({
         orderNumber: '',
         campaignName: '',
         supplier: suppliers[0]?.id || '',
+        supplierDriveUrl: suppliers[0]?.driveUrl || '',
         assetRef: '',
         itemDescription: '',
         itemCategory: '',
         itemType: '',
+    printStage: '',
+    printFileUrl: '',
         specification: '',
         quantity: 1000,
         remainingQuantity: 0,
@@ -117,6 +126,7 @@ export function ProductionOrderModal({
   const handleChange = (field, value) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
+      if(field==='supplier') next.supplierDriveUrl = suppliers.find(s=>s.id===value)?.driveUrl || '';
       // Auto compute totalCost when quantity or unitCost changes
       if (field === 'quantity' || field === 'unitCost') {
         const qty = Number(field === 'quantity' ? value : next.quantity) || 0;
@@ -163,6 +173,8 @@ export function ProductionOrderModal({
     if (isNaN(qty) || qty < 1) {
       errors.quantity = 'Quantity must be at least 1.';
     }
+
+    if (formData.printFileUrl) { try { const url = new URL(formData.printFileUrl); if (url.protocol !== 'https:' || url.username || url.password) throw new Error(); } catch { errors.printFileUrl = 'Enter the full HTTPS print file link.'; } }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -281,6 +293,7 @@ export function ProductionOrderModal({
                 )}
               </div>
 
+              <div className="form-group col-span-2"><label htmlFor="order-supplier-drive">Supplier Drive Link (Auto)</label><textarea id="order-supplier-drive" rows={2} readOnly value={formData.supplierDriveUrl||''} placeholder="Supplier ရွေးလျှင် သိမ်းထားသော Drive Link ပေါ်မည်။"/><small>Supplier ဖိုင်များအတွက်ဖြစ်ပြီး အောက်က Print-ready File Link နှင့် သီးခြားဖြစ်သည်။</small>{formData.supplierDriveUrl&&<a href={formData.supplierDriveUrl} target="_blank" rel="noopener noreferrer">Open Supplier Folder ↗</a>}</div>
               <div className="form-group">
                 <label htmlFor="order-asset">Linked Brand Asset (Optional)</label>
                 <select
@@ -330,6 +343,9 @@ export function ProductionOrderModal({
             </div>
 
             <div className="form-grid">
+              <div className="print-stage-track col-span-2" aria-label="Print stage progress"><span className={formData.printStage==='Sample Print'?'active':formData.printStage==='Final Print'?'done':''}>1 · Sample Print</span><i className={formData.printStage==='Final Print'?'advanced':''} aria-hidden="true"/><span className={formData.printStage==='Final Print'?'active':''}>2 · Final Print</span></div>
+              <div className="form-group"><label htmlFor="order-print-stage">Print Stage</label><select id="order-print-stage" value={formData.printStage} onChange={e=>handleChange('printStage',e.target.value)} disabled={isSaving}><option value="">Select print stage (optional)</option><option>Sample Print</option><option>Final Print</option></select></div>
+              <div className="form-group col-span-2"><label htmlFor="order-print-file">Print-ready File Link</label><textarea id="order-print-file" rows={3} maxLength={2000} placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing" value={formData.printFileUrl} onChange={e=>handleChange('printFileUrl',e.target.value)} disabled={isSaving}/><small>ပရင့်ထုတ်မည့်ဖိုင်၏ Link အပြည့်ထည့်ပါ။ Restricted ဖိုင်ကို Access ရှိသူသာ ဖွင့်နိုင်ပါသည်။</small>{validationErrors.printFileUrl&&<span role="alert" className="field-error-msg">{validationErrors.printFileUrl}</span>}</div>
               <div className="form-group col-span-2">
                 <label htmlFor="order-spec">Material & Print Specifications</label>
                 <input
@@ -356,6 +372,7 @@ export function ProductionOrderModal({
                   disabled={isSaving}
                   aria-invalid={!!validationErrors.quantity}
                 />
+                <small>မှာယူထုတ်လုပ်မည့် စုစုပေါင်းအရေအတွက်။ ဥပမာ 1,000 ထည်။</small>
                 {validationErrors.quantity && (
                   <span className="field-error-msg" role="alert">
                     <AlertCircle size={12} /> {validationErrors.quantity}
@@ -375,8 +392,9 @@ export function ProductionOrderModal({
                   onChange={(e) => handleChange('unitCost', e.target.value)}
                   disabled={isSaving}
                 />
+                <small>တစ်ခုချင်းစျေးနှုန်း။ ဥပမာ 5,000 ကျပ်။ Order တစ်ခုအတွင်း ငွေကြေးတစ်မျိုးတည်းသုံးပါ။</small>
               </div>
-              <div className="form-group"><label htmlFor="order-remaining">Remaining Quantity</label><input id="order-remaining" type="number" min="0" value={formData.remainingQuantity} onChange={(e) => handleChange('remainingQuantity', e.target.value)} disabled={isSaving} /></div>
+              <div className="form-group"><label htmlFor="order-remaining">Remaining Quantity</label><input id="order-remaining" type="number" min="0" value={formData.remainingQuantity} onChange={(e) => handleChange('remainingQuantity', e.target.value)} disabled={isSaving} /><small>ထုတ်ယူ/သုံးပြီးနောက် ကျန်ရှိသည့်အရေအတွက်။ 1,000 ထဲက 200 သုံးလျှင် 800။ Store လက်ကျန်နှင့် Auto မချိတ်ပါ။</small></div>
 
               <div className="form-group col-span-2">
                 <label htmlFor="order-total-cost">Total Estimated Cost (Auto-calculated: Qty × Unit Cost)</label>
@@ -389,7 +407,7 @@ export function ProductionOrderModal({
                   value={formData.totalCost}
                   onChange={(e) => handleChange('totalCost', e.target.value)}
                   disabled={isSaving}
-                />
+                /><small>Quantity × Unit Cost ကို Auto တွက်ပါသည်။ 1,000 × 5,000 = 5,000,000 ကျပ်။ သဘောတူထားသော စုစုပေါင်းစျေးရှိလျှင် ပြင်နိုင်ပါသည်။</small>
               </div>
             </div>
           </div>

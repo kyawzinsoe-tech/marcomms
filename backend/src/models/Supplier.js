@@ -23,6 +23,7 @@ const supplierSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    driveUrl: { type: String, trim: true, default: '', maxlength: 2000, validate: { validator: v => { if (!v) return true; try { const u=new URL(v); return u.protocol==='https:' && u.hostname==='drive.google.com' && !u.username && !u.password && (/^\/drive\/(u\/\d+\/)?folders\/[^/]+/.test(u.pathname) || /^\/file\/d\/[^/]+/.test(u.pathname)); } catch { return false; } }, message: 'Enter a full Google Drive file or folder share link.' } },
     phone: {
       type: String,
       trim: true,

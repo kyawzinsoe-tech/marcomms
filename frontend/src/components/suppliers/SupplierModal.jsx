@@ -36,6 +36,7 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }) {
     code: '',
     categories: '',
     contactPerson: '',
+    driveUrl: '',
     phone: '',
     email: '',
     address: '',
@@ -59,6 +60,7 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }) {
           ? supplier.categories.join(', ')
           : (supplier.categories || ''),
         contactPerson: supplier.contactPerson || '',
+        driveUrl: supplier.driveUrl || '',
         phone: supplier.phone || '',
         email: supplier.email || '',
         address: supplier.address || '',
@@ -72,7 +74,8 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }) {
         code: '',
         categories: '',
         contactPerson: '',
-        phone: '',
+        driveUrl: '',
+    phone: '',
         email: '',
         address: '',
         rating: 5,
@@ -135,6 +138,7 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }) {
       errors.email = 'Please enter a valid email address (e.g. sales@vendor.com).';
     }
 
+    if (formData.driveUrl) { try { const u=new URL(formData.driveUrl); if(u.protocol!=='https:'||u.hostname!=='drive.google.com'||u.username||u.password||!(/^\/drive\/(u\/\d+\/)?folders\/[^/]+/.test(u.pathname)||/^\/file\/d\/[^/]+/.test(u.pathname))) throw new Error(); } catch { errors.driveUrl='Google Drive file သို့မဟုတ် folder Link အပြည့်ထည့်ပါ။'; } }
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
@@ -385,7 +389,7 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="supplier-notes">Procurement Notes / Terms & Capabilities</label>
+              <label htmlFor="supplier-drive">Supplier Google Drive Link (optional)</label><textarea id="supplier-drive" rows={3} maxLength={2000} placeholder="https://drive.google.com/drive/folders/FOLDER_ID" value={formData.driveUrl} onChange={e=>handleChange('driveUrl',e.target.value)} disabled={isSaving}/><small>Quotation / Supplier ဖိုင် Folder Link။ Production Order မှာ Supplier ရွေးလျှင် Auto ဖြည့်ပေးမည်။</small>{validationErrors.driveUrl&&<span role="alert" className="field-error-msg">{validationErrors.driveUrl}</span>}<label htmlFor="supplier-notes">Procurement Notes / Terms & Capabilities</label>
               <textarea
                 id="supplier-notes"
                 rows={3}

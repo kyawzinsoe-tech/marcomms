@@ -159,7 +159,7 @@ export function exportSuppliersToCsv(suppliers = [], customFilename) {
  */
 export function exportProductionOrdersToCsv(orders = [], customFilename) {
   const headers = [
-    'Print Stage',
+    'Production Process',
     'Print File Link',
     'PO Number',
     'Campaign Name',
@@ -177,7 +177,7 @@ export function exportProductionOrdersToCsv(orders = [], customFilename) {
   ];
 
   const rows = orders.map((o) => [
-    o.printStage || '',
+    o.workflowStep || 'artwork',
     o.printFileUrl || '',
     o.orderNumber || '',
     o.campaignName || '',

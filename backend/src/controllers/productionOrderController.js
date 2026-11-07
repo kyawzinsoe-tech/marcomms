@@ -6,12 +6,9 @@ const ApprovalAudit = require('../models/ApprovalAudit');
 const { ROLES, PERMISSIONS, normalizeRole, hasPermission } = require('../config/rbac');
 
 const APPROVAL_STEPS = new Set(['sample_approval', 'invoice_head_approval']);
-const STATUS_BY_STEP = {
-  quotations: 'Draft', sample_approval: 'Sample Proofing', vendor_procedure: 'Submitted',
-  invoice_head_approval: 'Submitted', bulk_production: 'In Production',
-  delivery_confirmation: 'In Production', invoice_delivery_order: 'Delivered',
-  final_payment: 'Delivered', closed: 'Delivered'
-};
+const STATUS_BY_STEP = {artwork:'Draft',quotations:'Draft',sample_approval:'Sample Proofing',invoice_head_approval:'Submitted',bulk_production:'In Production',quality_check:'In Production',delivery_confirmation:'Delivered',final_payment:'Delivered',closed:'Completed'};
+function canonicalStep(step) { return ({vendor_procedure:'invoice_head_approval',invoice_delivery_order:'final_payment'})[step] || step || 'artwork'; }
+function sampleApproved(order) { return order.sampleStatus === 'Approved' || (order.workflowHistory || []).some(h=>h.step==='sample_approval' && h.action==='APPROVED'); }
 
 function isGoogleDriveUrl(value) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(value || '').trim());
@@ -33,7 +30,7 @@ function canApproveWorkflow(user, step) {
   return APPROVAL_STEPS.has(step) && isWorkflowApprover(user);
 }
 
-exports._workflowSecurity = { canApproveWorkflow, isWorkflowApprover, isGoogleDriveUrl, APPROVAL_STEPS };
+exports._workflowSecurity = { canApproveWorkflow, isWorkflowApprover, isGoogleDriveUrl, APPROVAL_STEPS, canonicalStep, sampleApproved };
 
 function canForceComplete(user) {
   return isWorkflowApprover(user);
@@ -117,7 +114,6 @@ exports.getProductionOrders = async (req, res, next) => {
         itemCategory: o.itemCategory,
         itemType: o.itemType,
         supplierDriveUrl: o.supplierDriveUrl || '',
-        printStage: o.printStage || '',
         printFileUrl: o.printFileUrl || '',
         specification: o.specification,
         quantity: o.quantity,
@@ -127,7 +123,8 @@ exports.getProductionOrders = async (req, res, next) => {
         orderDate: o.orderDate,
         deliveryDeadline: o.deliveryDeadline,
         status: o.status,
-        workflowStep: o.workflowStep,
+        workflowStep: canonicalStep(o.workflowStep),
+        sampleStatus: o.sampleStatus || 'Awaiting Print',
         workflowHistory: publicHistory(o.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
         workflowEvidence: Object.fromEntries(o.workflowEvidence || []),
         completedAt: o.completedAt,
@@ -191,7 +188,6 @@ exports.getProductionOrderById = async (req, res, next) => {
         itemCategory: order.itemCategory,
         itemType: order.itemType,
         supplierDriveUrl: order.supplierDriveUrl || '',
-        printStage: order.printStage || '',
         printFileUrl: order.printFileUrl || '',
         specification: order.specification,
         quantity: order.quantity,
@@ -201,7 +197,8 @@ exports.getProductionOrderById = async (req, res, next) => {
         orderDate: order.orderDate,
         deliveryDeadline: order.deliveryDeadline,
         status: order.status,
-        workflowStep: order.workflowStep,
+        workflowStep: canonicalStep(order.workflowStep),
+        sampleStatus: order.sampleStatus || 'Awaiting Print',
         workflowHistory: publicHistory(order.workflowHistory, [ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(normalizeRole(req.user.role))),
         workflowEvidence: Object.fromEntries(order.workflowEvidence || []),
         completedAt: order.completedAt,
@@ -236,7 +233,6 @@ exports.createProductionOrder = async (req, res, next) => {
       itemDescription,
       itemCategory,
       itemType,
-      printStage,
       printFileUrl,
       specification,
       quantity,
@@ -290,7 +286,6 @@ exports.createProductionOrder = async (req, res, next) => {
       itemCategory: String(itemCategory || '').trim().slice(0, 120),
       itemType: String(itemType || '').trim().slice(0, 120),
       supplierDriveUrl: supplierExists.driveUrl || '',
-      printStage: printStage || '',
       printFileUrl: String(printFileUrl || '').trim(),
       specification: (specification || '').trim(),
       quantity: qty,
@@ -299,9 +294,9 @@ exports.createProductionOrder = async (req, res, next) => {
       totalCost: calculatedTotal,
       orderDate: orderDate || new Date().toISOString().slice(0, 10),
       deliveryDeadline: (deliveryDeadline || '').trim(),
-      status: status || 'Draft',
-      workflowStep: 'quotations',
-      workflowHistory: [{ step: 'quotations', action: 'CREATED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role }],
+      status: 'Draft',
+      workflowStep: 'artwork',
+      workflowHistory: [{ step: 'artwork', action: 'CREATED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role }],
       notes: (notes || '').trim(),
       createdBy: req.user._id
     });
@@ -322,7 +317,6 @@ exports.createProductionOrder = async (req, res, next) => {
         itemCategory: populated.itemCategory,
         itemType: populated.itemType,
         supplierDriveUrl: populated.supplierDriveUrl || '',
-        printStage: populated.printStage || '',
         printFileUrl: populated.printFileUrl || '',
         specification: populated.specification,
         quantity: populated.quantity,
@@ -332,7 +326,8 @@ exports.createProductionOrder = async (req, res, next) => {
         orderDate: populated.orderDate,
         deliveryDeadline: populated.deliveryDeadline,
         status: populated.status,
-        workflowStep: populated.workflowStep,
+        workflowStep: canonicalStep(populated.workflowStep),
+        sampleStatus: populated.sampleStatus || 'Awaiting Print',
         workflowHistory: publicHistory(populated.workflowHistory),
         proofApprovedBy: populated.proofApprovedBy,
         proofApprovedAt: populated.proofApprovedAt,
@@ -356,12 +351,15 @@ exports.advanceWorkflow = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid production order ID format.' });
     const order = await ProductionOrder.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Production order not found.' });
-    const currentStep = order.workflowStep || 'quotations';
+    const currentStep = canonicalStep(order.workflowStep);
+    order.workflowStep = currentStep;
     const currentIndex = WORKFLOW_STEPS.indexOf(currentStep);
     if (currentIndex < 0 || currentIndex === WORKFLOW_STEPS.length - 1) return res.status(409).json({ error: 'Workflow is already complete.' });
 
     const isApproval = APPROVAL_STEPS.has(currentStep);
-    if (isApproval) {
+    const sampleAction = req.body.sampleAction;
+    const sampleOperation = currentStep === 'sample_approval' && sampleAction === 'print';
+    if (isApproval && !sampleOperation) {
       if (!canApproveWorkflow(req.user, currentStep)) {
         return res.status(403).json({ error: 'Only an Administrator or designated Head approver can approve this step.' });
       }
@@ -372,6 +370,7 @@ exports.advanceWorkflow = async (req, res, next) => {
     const note = String(req.body.note || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
     const skip = req.body.skip === true;
     const evidenceUrl = String(req.body.evidenceUrl || '').trim().slice(0, 1000);
+    if (skip && isApproval) return res.status(409).json({error:'Approval steps cannot be skipped.'});
     if (skip && !isWorkflowApprover(req.user)) {
       return res.status(403).json({ error: 'Only an Administrator or designated Head approver can skip a workflow step.' });
     }
@@ -384,6 +383,26 @@ exports.advanceWorkflow = async (req, res, next) => {
     if (evidenceUrl && !isGoogleDriveUrl(evidenceUrl)) {
       return res.status(400).json({ error: 'Evidence must be a valid Google Drive or Google Docs link.' });
     }
+    if (currentStep === 'sample_approval') {
+      if (skip) return res.status(409).json({error:'Sample approval cannot be skipped.'});
+      if (!['print','approve','revise'].includes(sampleAction)) return res.status(400).json({error:'Choose Print, Approve or Revise for the sample.'});
+      if (sampleAction === 'print') {
+        if (!evidenceUrl) return res.status(400).json({error:'Add the sample image / Drive link for review.'});
+        order.sampleStatus = 'In Review';
+      } else {
+        if (order.sampleStatus !== 'In Review') return res.status(409).json({error:'Submit a printed sample for review first.'});
+        if (sampleAction === 'revise' && !note) return res.status(400).json({error:'Add the requested changes before returning the sample.'});
+        order.sampleStatus = sampleAction === 'approve' ? 'Approved' : 'Revise';
+      }
+      if (sampleAction !== 'approve') {
+        order.workflowHistory.push({step:currentStep,action:sampleAction==='print'?'SAMPLE_PRINTED':'REVISION_REQUESTED',actor:req.user._id,actorName:req.user.name,actorRole:req.user.role,note,evidenceUrl});
+        if(evidenceUrl) order.workflowEvidence.set(currentStep,evidenceUrl);
+        await order.save();
+        if(sampleAction==='revise') await ApprovalAudit.create({order:order._id,step:currentStep,decision:'REJECTED',approver:req.user._id,approverName:req.user.name,approverEmail:req.user.email,approverRole:req.user.role,note});
+        return res.status(200).json({productionOrder:{id:String(order._id),workflowStep:currentStep,sampleStatus:order.sampleStatus,status:order.status}});
+      }
+    }
+    if (['invoice_head_approval','bulk_production','quality_check','delivery_confirmation','final_payment'].includes(currentStep) && !sampleApproved(order)) return res.status(409).json({error:'Sample approval is required before final production.'});
     const auditNote = skip ? (note || 'Step skipped as an authorized exception.') : note;
     const action = skip ? 'SKIPPED' : isApproval ? 'APPROVED' : 'COMPLETED';
     order.workflowHistory.push({ step: currentStep, action, actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note: auditNote, evidenceUrl });
@@ -423,37 +442,8 @@ exports.advanceWorkflow = async (req, res, next) => {
         note: order.completionReason, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
       });
     }
-    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, workflowHistory: publicHistory(order.workflowHistory), workflowEvidence: Object.fromEntries(order.workflowEvidence || []), status: order.status } });
-  } catch (error) { next(error); }
-};
-
-// POST /api/production-orders/:id/workflow/complete — controlled Admin/Head override
-exports.completeWorkflow = async (req, res, next) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid production order ID format.' });
-    if (!canForceComplete(req.user)) {
-      return res.status(403).json({ error: 'Only Admin or Head accounts can complete a workflow early.' });
-    }
-    const reason = String(req.body.reason || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 1000);
-    if (reason.length < 5) return res.status(400).json({ error: 'A completion reason of at least 5 characters is required.' });
-    const order = await ProductionOrder.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Production order not found.' });
-    if (order.status === 'Completed' || order.workflowStep === 'closed') return res.status(409).json({ error: 'Production order is already complete.' });
-
-    order.workflowHistory.push({ step: order.workflowStep || 'quotations', action: 'COMPLETED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role, note: reason });
-    order.workflowStep = 'closed';
-    order.status = 'Completed';
-    order.completedBy = req.user._id;
-    order.completedAt = new Date();
-    order.completionMode = 'authorized_override';
-    order.completionReason = reason;
-    await order.save();
-    await ApprovalAudit.create({
-      order: order._id, step: 'closed', decision: 'COMPLETED', approver: req.user._id,
-      approverName: req.user.name, approverEmail: req.user.email, approverRole: req.user.role,
-      note: reason, ip: String(req.ip || '').slice(0, 100), userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
-    });
-    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: order.workflowStep, status: order.status, completedAt: order.completedAt, completionMode: order.completionMode, completionReason: order.completionReason } });
+    res.status(200).json({ productionOrder: { id: String(order._id), workflowStep: canonicalStep(order.workflowStep),
+        sampleStatus: order.sampleStatus || 'Awaiting Print', workflowHistory: publicHistory(order.workflowHistory), workflowEvidence: Object.fromEntries(order.workflowEvidence || []), status: order.status } });
   } catch (error) { next(error); }
 };
 
@@ -488,7 +478,7 @@ exports.updateProductionOrder = async (req, res, next) => {
     }
 
     const allowedFields = [
-      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'printStage', 'printFileUrl', 'specification',
+      'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'printFileUrl', 'specification',
       'quantity', 'remainingQuantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
     ];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
@@ -529,7 +519,6 @@ exports.updateProductionOrder = async (req, res, next) => {
         itemCategory: updated.itemCategory,
         itemType: updated.itemType,
         supplierDriveUrl: updated.supplierDriveUrl || '',
-        printStage: updated.printStage || '',
         printFileUrl: updated.printFileUrl || '',
         specification: updated.specification,
         quantity: updated.quantity,

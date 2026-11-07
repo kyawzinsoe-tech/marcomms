@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
 
-const WORKFLOW_STEPS = [
-  'quotations', 'sample_approval', 'vendor_procedure', 'invoice_head_approval',
-  'bulk_production', 'delivery_confirmation', 'invoice_delivery_order',
-  'final_payment', 'closed'
-];
+const WORKFLOW_STEPS = ['artwork', 'quotations', 'sample_approval', 'invoice_head_approval', 'bulk_production', 'quality_check', 'delivery_confirmation', 'final_payment', 'closed'];
+const HISTORICAL_STEPS = [...WORKFLOW_STEPS, 'vendor_procedure', 'invoice_delivery_order'];
 
 const productionOrderSchema = new mongoose.Schema(
   {
@@ -37,7 +34,6 @@ const productionOrderSchema = new mongoose.Schema(
       maxlength: [300, 'Item description cannot exceed 300 characters']
     },
     supplierDriveUrl: { type: String, trim: true, maxlength: 2000, default: '' },
-    printStage: { type: String, enum: ['', 'Sample Print', 'Final Print'], default: '' },
     printFileUrl: { type: String, trim: true, maxlength: 2000, default: '', validate: { validator: value => { if (!value) return true; try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password; } catch { return false; } }, message: 'Print file link must be a full HTTPS URL.' } },
     itemCategory: { type: String, trim: true, maxlength: 120, default: '' },
     itemType: { type: String, trim: true, maxlength: 120, default: '' },
@@ -75,12 +71,13 @@ const productionOrderSchema = new mongoose.Schema(
     },
     workflowStep: {
       type: String,
-      enum: WORKFLOW_STEPS,
-      default: 'quotations'
+      enum: HISTORICAL_STEPS,
+      default: 'artwork'
     },
+    sampleStatus: { type: String, enum: ['Awaiting Print', 'In Review', 'Approved', 'Revise'], default: 'Awaiting Print' },
     workflowHistory: [{
-      step: { type: String, enum: WORKFLOW_STEPS, required: true },
-      action: { type: String, enum: ['CREATED', 'COMPLETED', 'SKIPPED', 'APPROVED', 'REJECTED'], required: true },
+      step: { type: String, enum: HISTORICAL_STEPS, required: true },
+      action: { type: String, enum: ['CREATED', 'COMPLETED', 'SKIPPED', 'APPROVED', 'REJECTED', 'SAMPLE_PRINTED', 'REVISION_REQUESTED'], required: true },
       actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       actorName: { type: String, required: true },
       actorRole: { type: String, required: true },

@@ -27,7 +27,6 @@ import {
   deleteProductionOrder,
   advanceProductionWorkflow,
   fetchApprovalAudit,
-  completeProductionWorkflow,
   PRODUCTION_STATUSES
 } from '../../services/productionOrderService';
 import { fetchSuppliers } from '../../services/supplierService';
@@ -252,28 +251,15 @@ export function ProductionOrdersSection({ user, onNotify }) {
     try {
       await advanceProductionWorkflow(
         order.id,
-        skip ? (skipDetails.reason || '') : '',
+        skipDetails.reason || '',
         skip,
-        skip ? (skipDetails.evidenceUrl || '') : ''
+        skipDetails.evidenceUrl || '',
+        skipDetails.sampleAction || ''
       );
       onNotify?.(`${skip ? 'Quotation step skipped' : 'Workflow advanced'} for ${order.orderNumber}.`, 'success');
       await loadAllData();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to advance production workflow.');
-    } finally {
-      setAdvancingWorkflowId(null);
-    }
-  };
-
-  const handleCompleteWorkflow = async (order, reason) => {
-    setAdvancingWorkflowId(order.id);
-    try {
-      await completeProductionWorkflow(order.id, reason);
-      onNotify?.(`Production order ${order.orderNumber} completed.`, 'success');
-      await loadAllData();
-      if (['admin', 'super_admin'].includes(user?.role)) fetchApprovalAudit().then(setApprovalAudit).catch(() => {});
-    } catch (err) {
-      setErrorMessage(err.message || 'Unable to complete production workflow.');
     } finally {
       setAdvancingWorkflowId(null);
     }
@@ -618,7 +604,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                       {order.campaignName}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {order.itemDescription}{order.printStage&&<div><strong>{order.printStage}</strong></div>}{order.printFileUrl&&/^https:\/\//i.test(order.printFileUrl)&&<div><a href={order.printFileUrl} target="_blank" rel="noopener noreferrer">Open Print File ↗</a></div>}
+                      {order.itemDescription}{order.printFileUrl&&/^https:\/\//i.test(order.printFileUrl)&&<div><a href={order.printFileUrl} target="_blank" rel="noopener noreferrer">Open Print File ↗</a></div>}
                     </div>
                     {order.assetRef && (
                       <div style={{ marginTop: '4px' }}>
@@ -755,7 +741,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
 
                   <td>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpandedWorkflowId((id) => id === order.id ? null : order.id)}>
-                      <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide Process' : 'View 9-Step Process'}
+                      <ListChecks size={12} /> {expandedWorkflowId === order.id ? 'Hide Process' : 'View Process'}
                     </button>
                   </td>
 
@@ -792,7 +778,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                 {expandedWorkflowId === order.id && (
                   <tr>
                     <td colSpan={(canEdit || canDelete) ? 10 : 9}>
-                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} onComplete={handleCompleteWorkflow} onViewOrder={canEdit ? handleOpenEdit : undefined} />
+                      <ProductionWorkflow order={order} user={user} advancing={advancingWorkflowId === order.id} onAdvance={handleAdvanceWorkflow} />
                     </td>
                   </tr>
                 )}

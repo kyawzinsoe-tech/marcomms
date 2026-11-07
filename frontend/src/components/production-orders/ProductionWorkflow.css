@@ -1,6 +1,6 @@
 .production-workflow { padding: 14px; background: var(--bg-surface-secondary); border-radius: var(--radius-md); }
-.production-workflow-steps { display: grid; grid-template-columns: repeat(9, minmax(92px, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
-.production-workflow-steps li { position: relative; min-width: 92px; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
+.production-workflow-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
+.production-workflow-steps li { position: relative; min-width: 0; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
 .production-workflow-steps li::after { content: ''; position: absolute; top: 12px; left: 27px; right: -7px; height: 2px; background: var(--border-default); }
 .production-workflow-steps li:last-child::after { display: none; }
 .production-workflow-steps li.complete::after { background: var(--success-text); }
@@ -13,12 +13,6 @@
 .production-workflow-steps li.current .workflow-node { color: white; border-color: var(--primary); background: var(--primary); }
 .production-workflow-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
 .production-workflow-actions > span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; }
-.workflow-po-link { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; max-width: 100%; margin-top: 5px; padding: 0; border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; overflow-wrap: anywhere; text-align: left; }
-.workflow-po-link:hover:not(:disabled) { text-decoration: underline; }
-.workflow-evidence-link { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 3px; margin-top: 5px; color: var(--primary); font-size: 10px; font-weight: 700; }
-.workflow-po-link:disabled { color: var(--text-subtle); cursor: default; }
-.production-workflow-override { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-default); }
-.production-workflow-override input { flex: 1; min-width: 180px; }
 .workflow-step-card { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
 .workflow-step-card > div { display: grid; gap: 4px; padding: 10px; border-radius: var(--radius-sm); background: var(--bg-surface); }
 .workflow-step-card small { color: var(--text-muted); }
@@ -35,6 +29,8 @@
 .production-workflow-complete { display: flex; align-items: center; gap: 10px; color: var(--success-text); background: var(--success-light); }
 .production-workflow-complete div { display: flex; flex-direction: column; gap: 2px; }
 .production-workflow-complete span { color: var(--text-muted); font-size: 12px; }
-@media (max-width: 720px) { .production-workflow-actions, .production-workflow-override { align-items: stretch; flex-direction: column; } .workflow-step-card, .workflow-inputs { grid-template-columns: 1fr; } .workflow-action-buttons { flex-wrap: wrap; } }
+@media (max-width: 720px) { .production-workflow-actions { align-items: stretch; flex-direction: column; } .workflow-step-card, .workflow-inputs { grid-template-columns: 1fr; } .workflow-action-buttons { flex-wrap: wrap; } }
 .approval-audit-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .approval-audit-panel summary { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+
+.production-workflow-steps li.current::after{background:linear-gradient(90deg,#6366f1,transparent);animation:workflow-pulse 1.8s ease-in-out infinite}.sample-review-panel{margin-top:14px;padding:14px;border:1px solid var(--border-default);border-radius:12px}.sample-review-panel small{display:block;margin-top:10px;line-height:1.6}@keyframes workflow-pulse{50%{opacity:.3}}@media(max-width:600px){.production-workflow-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.workflow-action-buttons{flex-wrap:wrap}}@media(prefers-reduced-motion:reduce){.production-workflow-steps li.current::after{animation:none}}

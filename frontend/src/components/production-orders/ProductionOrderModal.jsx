@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Printer,
@@ -7,8 +7,7 @@ import {
   Loader2,
   Calendar
 } from 'lucide-react';
-import { PRODUCTION_STATUSES } from '../../services/productionOrderService';
-import { PERMISSIONS, hasPermission } from '../../config/rbac';
+import { ProductionProcessLine } from './ProductionProcessLine';
 
 export function ProductionOrderModal({
   isOpen,
@@ -28,7 +27,6 @@ export function ProductionOrderModal({
     itemCategory: '',
     itemType: '',
     supplierDriveUrl: '',
-    printStage: '',
     printFileUrl: '',
     specification: '',
     quantity: 1000,
@@ -39,16 +37,10 @@ export function ProductionOrderModal({
     deliveryDeadline: '',
     status: 'Draft',
     notes: '',
-    approveProof: false
   });
 
   const [validationErrors, setValidationErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
-
-  const canApproveProof = useMemo(() => {
-    if (!user) return false;
-    return hasPermission(user, PERMISSIONS.PRODUCTION_ORDER_APPROVE_PROOF);
-  }, [user]);
 
   useEffect(() => {
     setValidationErrors({});
@@ -70,7 +62,6 @@ export function ProductionOrderModal({
         itemCategory: order.itemCategory || '',
         itemType: order.itemType || '',
         supplierDriveUrl: order.supplierDriveUrl || order.supplier?.driveUrl || '',
-        printStage: order.printStage || '',
         printFileUrl: order.printFileUrl || '',
         specification: order.specification || '',
         quantity: qty,
@@ -81,7 +72,6 @@ export function ProductionOrderModal({
         deliveryDeadline: order.deliveryDeadline || '',
         status: order.status || 'Draft',
         notes: order.notes || '',
-        approveProof: false
       });
     } else {
       setFormData({
@@ -93,7 +83,6 @@ export function ProductionOrderModal({
         itemDescription: '',
         itemCategory: '',
         itemType: '',
-    printStage: '',
     printFileUrl: '',
         specification: '',
         quantity: 1000,
@@ -104,7 +93,6 @@ export function ProductionOrderModal({
         deliveryDeadline: '',
         status: 'Draft',
         notes: '',
-        approveProof: false
       });
     }
   }, [order, suppliers, isOpen]);
@@ -343,8 +331,7 @@ export function ProductionOrderModal({
             </div>
 
             <div className="form-grid">
-              <div className="print-stage-track col-span-2" aria-label="Print stage progress"><span className={formData.printStage==='Sample Print'?'active':formData.printStage==='Final Print'?'done':''}>1 · Sample Print</span><i className={formData.printStage==='Final Print'?'advanced':''} aria-hidden="true"/><span className={formData.printStage==='Final Print'?'active':''}>2 · Final Print</span></div>
-              <div className="form-group"><label htmlFor="order-print-stage">Print Stage</label><select id="order-print-stage" value={formData.printStage} onChange={e=>handleChange('printStage',e.target.value)} disabled={isSaving}><option value="">Select print stage (optional)</option><option>Sample Print</option><option>Final Print</option></select></div>
+              <div className="form-group col-span-2"><h4>Production Process</h4><ProductionProcessLine currentStep={order?.workflowStep || 'artwork'} history={order?.workflowHistory || []}/><small>Save ပြီးနောက် View Process မှာ အဆင့်တစ်ခုချင်း ဆက်လုပ်ပါ။ Status ကို Process မှ Auto ပြောင်းပေးပါသည်။</small></div>
               <div className="form-group col-span-2"><label htmlFor="order-print-file">Print-ready File Link</label><textarea id="order-print-file" rows={3} maxLength={2000} placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing" value={formData.printFileUrl} onChange={e=>handleChange('printFileUrl',e.target.value)} disabled={isSaving}/><small>ပရင့်ထုတ်မည့်ဖိုင်၏ Link အပြည့်ထည့်ပါ။ Restricted ဖိုင်ကို Access ရှိသူသာ ဖွင့်နိုင်ပါသည်။</small>{validationErrors.printFileUrl&&<span role="alert" className="field-error-msg">{validationErrors.printFileUrl}</span>}</div>
               <div className="form-group col-span-2">
                 <label htmlFor="order-spec">Material & Print Specifications</label>
@@ -421,22 +408,6 @@ export function ProductionOrderModal({
 
             <div className="form-grid">
               <div className="form-group">
-                <label htmlFor="order-status">Workflow Status</label>
-                <select
-                  id="order-status"
-                  value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  disabled={isSaving}
-                >
-                  {PRODUCTION_STATUSES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label htmlFor="order-date">Order Date</label>
                 <input
                   id="order-date"
@@ -457,47 +428,6 @@ export function ProductionOrderModal({
                   disabled={isSaving}
                 />
               </div>
-
-              {canApproveProof && (
-                <div
-                  className="form-group col-span-2"
-                  style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                >
-                  <label
-                    htmlFor="order-approve-proof"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      margin: 0,
-                      fontWeight: 600,
-                      color: '#166534'
-                    }}
-                  >
-                    <input
-                      id="order-approve-proof"
-                      type="checkbox"
-                      checked={formData.approveProof}
-                      onChange={(e) => handleChange('approveProof', e.target.checked)}
-                      disabled={isSaving}
-                      style={{ width: '16px', height: '16px' }}
-                    />
-                    <span>Authorize & Sign-off Sample Proof (Head of Brand / Approver)</span>
-                  </label>
-                  {order?.proofApprovedBy && (
-                    <div style={{ fontSize: '11.5px', color: '#15803d', marginTop: '6px' }}>
-                      Currently approved by: <b>{order.proofApprovedBy.name || order.proofApprovedBy.email}</b>
-                      {order.proofApprovedAt ? ` on ${new Date(order.proofApprovedAt).toLocaleDateString()}` : ''}
-                    </div>
-                  )}
-                </div>
-              )}
 
               <div className="form-group col-span-2">
                 <label htmlFor="order-notes">Production Notes & Delivery Instructions</label>

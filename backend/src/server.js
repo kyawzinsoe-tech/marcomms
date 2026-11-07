@@ -26,6 +26,7 @@ async function startServer() {
   // bufferCommands disabled, serving requests earlier causes findOne() to fail.
   await connectDatabaseWithRetry();
   await seedDatabase();
+  await require('./services/creativeRoster').initialize();
   require('./services/backfillMonthlyPaySheet')().catch(error => console.warn('[Monthly report backfill]',error.name));
 
   app.listen(PORT, '0.0.0.0', () => {

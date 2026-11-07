@@ -1,6 +1,24 @@
 const mongoose = require('mongoose');
 
 const importantWorkSchema = new mongoose.Schema({
+  businessUnit:{type:String,enum:['Bank','Pay','Comms'],default:'Bank'},
+  businessHeadEmail:{type:String,default:''},
+  bpEmail:{type:String,default:''},
+  sentAt:Date, sentBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
+  designerEmail: {type:String,default:'',lowercase:true},
+  merchandisingEmail: {type:String,default:'',lowercase:true},
+  designType: { type: String, enum: ['Social', 'Print', 'Video & Photography'], default: 'Print' },
+  designDriveUrl: { type: String, default: '', maxlength: 2000 },
+  designChecked: {type:Boolean,default:false},
+  approvalStatus: { type: String, enum: ['Pending', 'Approved'], default: 'Pending' },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: Date,
+  designApprovals:[{_id:false,slot:{type:String,enum:['Creative Head','Art Director']},actor:{type:mongoose.Schema.Types.ObjectId,ref:'User'},name:String,email:String,at:Date}],
+  handoffTo: { type: String, enum: ['', 'BP', 'Production'], default: '' },
+  recipientName: { type: String, default: '', maxlength: 120 },
+  handedOffAt: Date,
+  productionOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductionOrder' },
+  history: [{ action: String, actor: {type: mongoose.Schema.Types.ObjectId, ref:'User'}, actorName: String, at: {type:Date, default:Date.now}, note:String }],
   title: { type: String, required: true, trim: true, maxlength: 160 },
   designerName: { type: String, required: true, trim: true, maxlength: 120 },
   supervisorName: { type: String, required: true, trim: true, maxlength: 120 },
@@ -20,7 +38,7 @@ const importantWorkSchema = new mongoose.Schema({
   lastReminderSentAt: { type: Date },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency:true });
 
 importantWorkSchema.index({ dueDate: 1, process: 1 });
 module.exports = mongoose.model('ImportantWork', importantWorkSchema);

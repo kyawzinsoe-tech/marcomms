@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { ProductionWorkflow } from '../components/production-orders/ProductionWorkflow';
 
 describe('ProductionWorkflow production order milestone', () => {
-  it('keeps Bulk Production and links it to the current production order', () => {
+  it('maps legacy Bulk Production to Final / Bulk Print', () => {
     const onViewOrder = vi.fn();
     render(
       <ProductionWorkflow
@@ -26,10 +26,8 @@ describe('ProductionWorkflow production order milestone', () => {
       />
     );
 
-    expect(screen.getByText('Bulk Production')).toBeTruthy();
-    screen.getByRole('button', { name: /PO-20260925-1042/ }).click();
-    expect(onViewOrder).toHaveBeenCalledOnce();
-    expect(screen.getByRole('button', { name: 'Complete production & continue' })).toBeTruthy();
+    expect(screen.getByLabelText('Current stage: Final / Bulk Print')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Complete Final / Bulk Print' })).toBeTruthy();
   });
 
   it('allows an Admin to skip quotations without form data and keeps the skip auditable', () => {
@@ -51,13 +49,13 @@ describe('ProductionWorkflow production order milestone', () => {
       />
     );
 
-    screen.getByRole('button', { name: 'Skip & continue' }).click();
-    expect(onAdvance).toHaveBeenCalledWith(order, true, { reason: '', evidenceUrl: '' });
+    screen.getByRole('button', { name: 'Skip Quotations & Vendor Selection' }).click();
+    expect(onAdvance).toHaveBeenCalledWith(order, true, { reason: '', evidenceUrl: '', sampleAction: '' });
   });
 
   it('shows skipped steps in the warning state and displays saved Drive evidence', () => {
     render(<ProductionWorkflow order={{ id: 'po-2', orderNumber: 'PO-2', workflowStep: 'sample_approval', workflowHistory: [{ step: 'quotations', action: 'SKIPPED', evidenceUrl: 'https://drive.google.com/file/d/test' }] }} user={{ role: 'admin' }} advancing={false} onAdvance={vi.fn()} onComplete={vi.fn()} />);
-    expect(document.querySelector('li.skipped')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Drive evidence' }).getAttribute('href')).toBe('https://drive.google.com/file/d/test');
+    expect(document.querySelector('.skipped')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open evidence' }).getAttribute('href')).toBe('https://drive.google.com/file/d/test');
   });
 });

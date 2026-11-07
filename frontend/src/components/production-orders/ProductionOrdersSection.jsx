@@ -1,3 +1,4 @@
+import {fetchProductionTeam,saveProductionTeam,fetchDesignQueue} from '../../services/productionTeamService';
 import { ProductionProgressBar } from './ProductionProcessLine';
 import { ProductionOrderDashboard } from './ProductionOrderDashboard';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -39,7 +40,12 @@ import { ProductionOrderModal } from './ProductionOrderModal';
 import { ProductionWorkflow } from './ProductionWorkflow';
 import { ErrorDialog } from '../common/ErrorDialog';
 
-export function ProductionOrdersSection({ user, onNotify }) {
+export function ProductionOrdersSection({ user, users=[], onNotify }) {
+  const [teamMembers,setTeamMembers]=useState([]);
+  const [teamSelection,setTeamSelection]=useState([]);
+  const [designQueue,setDesignQueue]=useState([]);
+  const [designDraft,setDesignDraft]=useState(null);
+  const [teamBusy,setTeamBusy]=useState(false);
   const [orders, setOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -98,6 +104,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         fetchAssets().catch(() => [])
       ]);
       setOrders(orderData);
+      const [members,queue]=await Promise.all([fetchProductionTeam(),fetchDesignQueue()]);setTeamMembers(members);setTeamSelection(members.map(m=>String(m._id||m.id)));setDesignQueue(queue);
       setSuppliers(supplierData);
       setAssets(assetData);
     } catch (err) {
@@ -233,7 +240,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
 
   const handleSave = async (formData) => {
     try {
-      if (editingOrder) {
+      if (editingOrder?.id) {
         await updateProductionOrder(editingOrder.id, formData);
         onNotify?.(`Updated production order "${formData.campaignName}".`, 'success');
       } else {
@@ -241,7 +248,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
         onNotify?.(`Placed production order "${formData.campaignName}".`, 'success');
       }
       setIsModalOpen(false);
-      setEditingOrder(null);
+      setEditingOrder(null);setDesignDraft(null);
       await loadAllData();
     } catch (err) {
       setErrorMessage(err.message || 'Unable to save production order.');
@@ -346,6 +353,8 @@ export function ProductionOrdersSection({ user, onNotify }) {
 
   return (
     <section className="card" id="production-orders" aria-label="Printing & Production Order Matrix">
+
+      {designQueue.length>0&&<div className="approved-design-queue"><h3>Approved Print Designs · Ready for Production</h3>{designQueue.map(work=><article key={work._id}><div><strong>{work.title}</strong><small>Designer: {work.designerName} · Final Approved</small><a href={work.designDriveUrl} target="_blank" rel="noopener noreferrer">Open Approved Design ↗</a></div>{canCreate&&<button className="btn btn-primary" onClick={()=>{setEditingOrder(null);setDesignDraft(work);setIsModalOpen(true)}}>Create Production Order</button>}</article>)}</div>}
       {/* Module Header */}
       <div className="card-header">
         <div>
@@ -557,7 +566,7 @@ export function ProductionOrdersSection({ user, onNotify }) {
                       {order.campaignName}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {order.itemDescription}{order.printFileUrl&&/^https:\/\//i.test(order.printFileUrl)&&<div><a href={order.printFileUrl} target="_blank" rel="noopener noreferrer">Open Print File ↗</a></div>}
+                      {order.itemDescription}{(order.designApprovals||[]).map(a=><small className="work-design-type" key={a.slot}>{a.slot}: {a.name} · {a.email} · {new Date(a.at).toLocaleString()}</small>)}{order.productionOwnerName&&<small className="work-design-type">Production: {order.productionOwnerName}</small>}{order.printFileUrl&&/^https:\/\//i.test(order.printFileUrl)&&<div><a href={order.printFileUrl} target="_blank" rel="noopener noreferrer">Open Print File ↗</a></div>}
                     </div>
                     {order.assetRef && (
                       <div style={{ marginTop: '4px' }}>
@@ -763,10 +772,12 @@ export function ProductionOrdersSection({ user, onNotify }) {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            setEditingOrder(null);
+            setEditingOrder(null);setDesignDraft(null);
           }}
           onSave={handleSave}
           order={editingOrder}
+          initialDesign={designDraft}
+          teamMembers={teamMembers}
           suppliers={suppliers}
           assets={assets}
           user={user}

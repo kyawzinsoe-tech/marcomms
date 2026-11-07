@@ -691,6 +691,7 @@ function DashboardApp() {
         {/* VIEW 10: PRODUCTION ORDERS MATRIX */}
         {activeSection === 'production-orders' && can(PERMISSIONS.PRODUCTION_ORDER_READ) && (
           <ProductionOrdersSection
+            users={usersList}
             user={user}
             onNotify={showToast}
           />

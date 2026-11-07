@@ -5,6 +5,10 @@ const HISTORICAL_STEPS = [...WORKFLOW_STEPS, 'vendor_procedure', 'invoice_delive
 
 const productionOrderSchema = new mongoose.Schema(
   {
+    designApprovals:[{_id:false,slot:String,name:String,email:String,at:Date,actor:{type:mongoose.Schema.Types.ObjectId,ref:'User'}}],
+  sourceWork: {type:mongoose.Schema.Types.ObjectId,ref:'ImportantWork'},
+    productionOwner: {type:mongoose.Schema.Types.ObjectId,ref:'User'},
+    productionOwnerName: {type:String,default:''},
     orderNumber: {
       type: String,
       required: [true, 'Order number is required'],
@@ -16,7 +20,7 @@ const productionOrderSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Campaign or project name is required'],
       trim: true,
-      maxlength: [120, 'Campaign name cannot exceed 120 characters']
+      maxlength: [160, 'Campaign name cannot exceed 160 characters']
     },
     supplier: {
       type: mongoose.Schema.Types.ObjectId,
@@ -123,5 +127,6 @@ const productionOrderSchema = new mongoose.Schema(
 productionOrderSchema.index({ orderNumber: 1, supplier: 1, status: 1 });
 productionOrderSchema.index({ campaignName: 'text', itemDescription: 'text', notes: 'text' });
 
+productionOrderSchema.index({sourceWork:1},{unique:true,partialFilterExpression:{sourceWork:{$type:'objectId'}}});
 module.exports = mongoose.model('ProductionOrder', productionOrderSchema);
 module.exports.WORKFLOW_STEPS = WORKFLOW_STEPS;

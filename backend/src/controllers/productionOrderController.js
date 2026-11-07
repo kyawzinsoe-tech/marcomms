@@ -1,3 +1,8 @@
+const roster=require('../services/creativeRoster');
+const DesignTeams=require('../models/DesignTeams');
+const ImportantWork=require('../models/ImportantWork');
+const ProductionTeam=require('../models/ProductionTeam');
+const User=require('../models/User');
 const mongoose = require('mongoose');
 const ProductionOrder = require('../models/ProductionOrder');
 const { WORKFLOW_STEPS } = require('../models/ProductionOrder');
@@ -90,6 +95,7 @@ exports.getProductionOrders = async (req, res, next) => {
       count: orders.length,
       productionOrders: orders.map((o) => ({
         id: String(o._id),
+        designApprovals:o.designApprovals||[], sourceWork: o.sourceWork, productionOwner: o.productionOwner, productionOwnerName: o.productionOwnerName,
         orderNumber: o.orderNumber,
         campaignName: o.campaignName,
         supplier: o.supplier
@@ -180,6 +186,7 @@ exports.getProductionOrderById = async (req, res, next) => {
     res.status(200).json({
       productionOrder: {
         id: String(order._id),
+        designApprovals:order.designApprovals||[], sourceWork: order.sourceWork, productionOwner: order.productionOwner, productionOwnerName: order.productionOwnerName,
         orderNumber: order.orderNumber,
         campaignName: order.campaignName,
         supplier: order.supplier,
@@ -261,7 +268,7 @@ exports.createProductionOrder = async (req, res, next) => {
     if (!itemDescription || !itemDescription.trim()) {
       return res.status(400).json({ error: 'Item description is required.' });
     }
-    if (campaignName.trim().length > 120 || itemDescription.trim().length > 300 || String(specification || '').trim().length > 1000 || String(notes || '').trim().length > 2000) {
+    if (campaignName.trim().length > 160 || itemDescription.trim().length > 300 || String(specification || '').trim().length > 1000 || String(notes || '').trim().length > 2000) {
       return res.status(400).json({ error: 'Production order text exceeds the allowed length.' });
     }
 
@@ -277,16 +284,34 @@ exports.createProductionOrder = async (req, res, next) => {
 
     const finalOrderNumber = (orderNumber && orderNumber.trim()) ? orderNumber.trim() : generateOrderNumber();
 
+    let sourceWork=null;
+    if(req.body.sourceWork){
+      if(!mongoose.Types.ObjectId.isValid(req.body.sourceWork))return res.status(400).json({error:'Invalid design reference.'});
+      sourceWork=await ImportantWork.findById(req.body.sourceWork);
+      if(!sourceWork||sourceWork.approvalStatus!=='Approved'||sourceWork.handoffTo!=='Production'||sourceWork.designType!=='Print'||!(sourceWork.designApprovals||[]).some(a=>({'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'})[a.email]===a.slot))return res.status(409).json({error:'This print design is not approved for Production.'});
+      if(await ProductionOrder.exists({sourceWork:sourceWork._id}))return res.status(409).json({error:'A Production order already exists for this design.'});
+    }
+    let owner=null;
+    if(sourceWork?.merchandisingEmail){const assigned=await User.findOne({email:sourceWork.merchandisingEmail});if(!assigned)return res.status(400).json({error:'Assigned Merchandising member needs an existing Portal account.'});req.body.productionOwner=String(assigned._id);}
+    if(req.body.productionOwner){
+      const config=await DesignTeams.findById('design-teams');const member=await User.findById(req.body.productionOwner);
+      if(!(await roster.groups()).Merchandising.includes(member?.email))return res.status(400).json({error:'Select a configured Production Team member.'});
+      owner=await User.findById(req.body.productionOwner);
+      if(!owner||!hasPermission(owner,PERMISSIONS.PRODUCTION_ORDER_UPDATE))return res.status(400).json({error:'Selected owner does not have Production edit access.'});
+    }
+    if(sourceWork&&!owner)return res.status(400).json({error:'Assign this project to the assigned Merchandising member.'});
     const order = await ProductionOrder.create({
+      designApprovals:sourceWork?.designApprovals||[], sourceWork:sourceWork?._id, productionOwner:owner?._id, productionOwnerName:owner?.name||'',
+
       orderNumber: finalOrderNumber,
-      campaignName: campaignName.trim(),
+      campaignName: sourceWork?sourceWork.title:campaignName.trim(),
       supplier,
       assetRef: assetRef && mongoose.Types.ObjectId.isValid(assetRef) ? assetRef : undefined,
       itemDescription: itemDescription.trim(),
       itemCategory: String(itemCategory || '').trim().slice(0, 120),
       itemType: String(itemType || '').trim().slice(0, 120),
       supplierDriveUrl: supplierExists.driveUrl || '',
-      printFileUrl: String(printFileUrl || '').trim(),
+      printFileUrl: sourceWork?sourceWork.designDriveUrl:String(printFileUrl || '').trim(),
       specification: (specification || '').trim(),
       quantity: qty,
       remainingQuantity: Math.max(0, Number(remainingQuantity || 0)),
@@ -295,12 +320,13 @@ exports.createProductionOrder = async (req, res, next) => {
       orderDate: orderDate || new Date().toISOString().slice(0, 10),
       deliveryDeadline: (deliveryDeadline || '').trim(),
       status: 'Draft',
-      workflowStep: 'artwork',
-      workflowHistory: [{ step: 'artwork', action: 'CREATED', actor: req.user._id, actorName: req.user.name, actorRole: req.user.role }],
+      workflowStep: sourceWork?'quotations':'artwork',
+      workflowHistory: [{step:'artwork',action:sourceWork?'COMPLETED':'CREATED',actor:req.user._id,actorName:req.user.name,actorRole:req.user.role,note:sourceWork?'Final design approved in Important Work':'',evidenceUrl:sourceWork?.designDriveUrl||''}],
       notes: (notes || '').trim(),
       createdBy: req.user._id
     });
 
+    if(sourceWork){sourceWork.productionOrder=order._id;sourceWork.history.push({action:'PRODUCTION_ORDER_CREATED',actor:req.user._id,actorName:req.user.name,note:order.orderNumber});await sourceWork.save();}
     const populated = await ProductionOrder.findById(order._id)
       .populate('supplier', 'name code contactPerson phone email driveUrl')
       .populate('assetRef', 'title library fileUrl')
@@ -309,6 +335,7 @@ exports.createProductionOrder = async (req, res, next) => {
     res.status(201).json({
       productionOrder: {
         id: String(populated._id),
+        designApprovals:populated.designApprovals||[], sourceWork: populated.sourceWork, productionOwner: populated.productionOwner, productionOwnerName: populated.productionOwnerName,
         orderNumber: populated.orderNumber,
         campaignName: populated.campaignName,
         supplier: populated.supplier,
@@ -339,7 +366,7 @@ exports.createProductionOrder = async (req, res, next) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'Production order number must be unique.' });
+      return res.status(400).json({ error: 'An order already exists for this design or order number.' });
     }
     next(error);
   }
@@ -351,6 +378,7 @@ exports.advanceWorkflow = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid production order ID format.' });
     const order = await ProductionOrder.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Production order not found.' });
+    if(order.productionOwner&&!isWorkflowApprover(req.user)&&String(order.productionOwner)!==String(req.user._id))return res.status(403).json({error:'Only the assigned Production owner or an authorized Head / Administrator may continue this project.'});
     const currentStep = canonicalStep(order.workflowStep);
     order.workflowStep = currentStep;
     const currentIndex = WORKFLOW_STEPS.indexOf(currentStep);
@@ -477,12 +505,20 @@ exports.updateProductionOrder = async (req, res, next) => {
       return res.status(404).json({ error: 'Production order not found.' });
     }
 
+    if(existing.productionOwner&&!isWorkflowApprover(req.user)&&String(existing.productionOwner)!==String(req.user._id))return res.status(403).json({error:'This project belongs to another Production owner.'});
     const allowedFields = [
       'orderNumber', 'campaignName', 'supplier', 'assetRef', 'itemDescription', 'itemCategory', 'itemType', 'printFileUrl', 'specification',
       'quantity', 'remainingQuantity', 'unitCost', 'totalCost', 'orderDate', 'deliveryDeadline', 'notes', 'archived'
     ];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
 
+    if(existing.sourceWork && (updates.printFileUrl !== undefined && updates.printFileUrl!==existing.printFileUrl || updates.campaignName !== undefined && updates.campaignName!==existing.campaignName))return res.status(409).json({error:'Approved design name and file are linked to Important Work and cannot be replaced here.'});
+    if(req.body.productionOwner!==undefined && req.body.productionOwner!==String(existing.productionOwner||'')){
+      if(!isWorkflowApprover(req.user))return res.status(403).json({error:'Only an authorized Head / Administrator may reassign the Production owner.'});
+      const team=await ProductionTeam.findById('production');
+      if(!team?.members.some(id=>String(id)===req.body.productionOwner))return res.status(400).json({error:'Select a configured Production member.'});
+      const owner=await User.findById(req.body.productionOwner);if(!owner||!hasPermission(owner,PERMISSIONS.PRODUCTION_ORDER_UPDATE))return res.status(400).json({error:'Owner no longer has Production edit access.'});updates.productionOwner=owner._id;updates.productionOwnerName=owner.name;
+    }
     if (updates.supplier) {
       if (!mongoose.Types.ObjectId.isValid(updates.supplier)) return res.status(400).json({error:'Valid supplier reference is required.'});
       const selectedSupplier = await Supplier.findById(updates.supplier);
@@ -511,6 +547,7 @@ exports.updateProductionOrder = async (req, res, next) => {
     res.status(200).json({
       productionOrder: {
         id: String(updated._id),
+        sourceWork: updated.sourceWork, productionOwner: updated.productionOwner, productionOwnerName: updated.productionOwnerName,
         orderNumber: updated.orderNumber,
         campaignName: updated.campaignName,
         supplier: updated.supplier,

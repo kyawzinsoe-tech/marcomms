@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { ProductionProcessLine } from './ProductionProcessLine';
 
+const EMPTY_TEAM_MEMBERS = [];
+
 export function ProductionOrderModal({
   isOpen,
   onClose,
@@ -16,6 +18,8 @@ export function ProductionOrderModal({
   order,
   suppliers = [],
   assets = [],
+  initialDesign=null,
+  teamMembers=EMPTY_TEAM_MEMBERS,
   user
 }) {
   const [formData, setFormData] = useState({
@@ -54,6 +58,7 @@ export function ProductionOrderModal({
       const tCost = order.totalCost !== undefined ? Number(order.totalCost) : qty * uCost;
 
       setFormData({
+        sourceWork:order.sourceWork||'',productionOwner:order.productionOwner||'',
         orderNumber: order.orderNumber || '',
         campaignName: order.campaignName || '',
         supplier: supId,
@@ -75,15 +80,16 @@ export function ProductionOrderModal({
       });
     } else {
       setFormData({
+        sourceWork:initialDesign?._id||'',productionOwner:String(teamMembers.find(m=>m.email===initialDesign?.merchandisingEmail)?._id||teamMembers.find(m=>m.email===initialDesign?.merchandisingEmail)?.id||''),
         orderNumber: '',
-        campaignName: '',
+        campaignName: initialDesign?.title||'',
         supplier: suppliers[0]?.id || '',
         supplierDriveUrl: suppliers[0]?.driveUrl || '',
         assetRef: '',
-        itemDescription: '',
+        itemDescription: initialDesign?.title||'',
         itemCategory: '',
         itemType: '',
-    printFileUrl: '',
+    printFileUrl: initialDesign?.designDriveUrl||'',
         specification: '',
         quantity: 1000,
         remainingQuantity: 0,
@@ -95,7 +101,7 @@ export function ProductionOrderModal({
         notes: '',
       });
     }
-  }, [order, suppliers, isOpen]);
+  }, [order, suppliers, isOpen, initialDesign, teamMembers]);
 
   // Escape key handler
   useEffect(() => {
@@ -144,8 +150,8 @@ export function ProductionOrderModal({
 
     if (!cleanCampaign) {
       errors.campaignName = 'Campaign / project name is required.';
-    } else if (cleanCampaign.length > 120) {
-      errors.campaignName = 'Campaign / project title cannot exceed 120 characters.';
+    } else if (cleanCampaign.length > 160) {
+      errors.campaignName = 'Campaign / project title cannot exceed 160 characters.';
     }
 
     if (!cleanSupplier) {
@@ -164,6 +170,7 @@ export function ProductionOrderModal({
 
     if (formData.printFileUrl) { try { const url = new URL(formData.printFileUrl); if (url.protocol !== 'https:' || url.username || url.password) throw new Error(); } catch { errors.printFileUrl = 'Enter the full HTTPS print file link.'; } }
 
+    if(formData.sourceWork&&!formData.productionOwner)errors.productionOwner='Select a Production owner.';
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
@@ -241,10 +248,10 @@ export function ProductionOrderModal({
                 <input
                   id="order-campaign"
                   type="text"
-                  maxLength={120}
+                  maxLength={160}
                   required
                   placeholder="e.g. KBZPay Thingyan Promo 2026"
-                  value={formData.campaignName}
+                  readOnly={!!formData.sourceWork} value={formData.campaignName}
                   onChange={(e) => handleChange('campaignName', e.target.value)}
                   disabled={isSaving}
                   autoFocus
@@ -331,8 +338,9 @@ export function ProductionOrderModal({
             </div>
 
             <div className="form-grid">
-              <div className="form-group col-span-2"><h4>Production Process</h4><ProductionProcessLine currentStep={order?.workflowStep || 'artwork'} history={order?.workflowHistory || []}/><small>Save ပြီးနောက် View Process မှာ အဆင့်တစ်ခုချင်း ဆက်လုပ်ပါ။ Status ကို Process မှ Auto ပြောင်းပေးပါသည်။</small></div>
-              <div className="form-group col-span-2"><label htmlFor="order-print-file">Print-ready File Link</label><textarea id="order-print-file" rows={3} maxLength={2000} placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing" value={formData.printFileUrl} onChange={e=>handleChange('printFileUrl',e.target.value)} disabled={isSaving}/><small>ပရင့်ထုတ်မည့်ဖိုင်၏ Link အပြည့်ထည့်ပါ။ Restricted ဖိုင်ကို Access ရှိသူသာ ဖွင့်နိုင်ပါသည်။</small>{validationErrors.printFileUrl&&<span role="alert" className="field-error-msg">{validationErrors.printFileUrl}</span>}</div>
+              <div className="form-group col-span-2"><h4>Production Process</h4><div className="form-group"><label htmlFor="production-owner">Production Project Owner{formData.sourceWork?' *':''}</label><select aria-invalid={!!validationErrors.productionOwner} id="production-owner" required={!!formData.sourceWork} value={formData.productionOwner||''} onChange={e=>handleChange('productionOwner',e.target.value)}><option value="">Select Production member</option>{teamMembers.map(m=><option key={m._id||m.id} value={m._id||m.id}>{m.name}</option>)}</select><small>Project တစ်ခုလျှင် Team member တစ်ယောက်ကို တာဝန်ခံသတ်မှတ်ပါ။</small></div>
+              <ProductionProcessLine currentStep={order?.workflowStep || (initialDesign?'quotations':'artwork')} history={order?.workflowHistory || []}/><small>Save ပြီးနောက် View Process မှာ အဆင့်တစ်ခုချင်း ဆက်လုပ်ပါ။ Status ကို Process မှ Auto ပြောင်းပေးပါသည်။</small></div>
+              <div className="form-group col-span-2"><label htmlFor="order-print-file">Print-ready File Link</label><textarea id="order-print-file" rows={3} maxLength={2000} placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing" readOnly={!!formData.sourceWork} value={formData.printFileUrl} onChange={e=>handleChange('printFileUrl',e.target.value)} disabled={isSaving}/><small>ပရင့်ထုတ်မည့်ဖိုင်၏ Link အပြည့်ထည့်ပါ။ Restricted ဖိုင်ကို Access ရှိသူသာ ဖွင့်နိုင်ပါသည်။</small>{validationErrors.printFileUrl&&<span role="alert" className="field-error-msg">{validationErrors.printFileUrl}</span>}</div>
               <div className="form-group col-span-2">
                 <label htmlFor="order-spec">Material & Print Specifications</label>
                 <input

@@ -9,6 +9,8 @@ async function setup(event, context) {
   // Ensure DB connection is established
   await connectDB();
 
+  await require('./services/creativeRoster').initialize();
+
   // Initialize serverless express wrapper
   serverlessExpressInstance = serverlessExpress({ app });
   return serverlessExpressInstance(event, context);

@@ -1,0 +1,12 @@
+const roster=require('../services/creativeRoster');
+const mongoose=require('mongoose');
+const DesignTeams=require('../models/DesignTeams');
+const Team=require('../models/ProductionTeam');
+const User=require('../models/User');
+const Work=require('../models/ImportantWork');
+const Order=require('../models/ProductionOrder');
+const {hasPermission,PERMISSIONS}=require('../config/rbac');
+const {logAuditEvent}=require('../utils/auditLogger');
+exports.get=async(req,res,next)=>{try{if(!hasPermission(req.user,PERMISSIONS.PRODUCTION_ORDER_READ))return res.status(403).json({error:'Production access required.'});const config=await DesignTeams.findById('design-teams');const emails=(await roster.groups()).Merchandising;const members=await User.find({email:{$in:emails}}).select('name email role');res.json({members});}catch(e){next(e)}};
+exports.save=async(req,res)=>res.status(405).json({error:'Manage Production members in Creative Team Members.'});
+exports.queue=async(req,res,next)=>{try{if(!hasPermission(req.user,PERMISSIONS.PRODUCTION_ORDER_READ))return res.status(403).json({error:'Production access required.'});const linked=await Order.find({sourceWork:{$exists:true}}).select('sourceWork').lean();const items=await Work.find({handoffTo:'Production',approvalStatus:'Approved',_id:{$nin:linked.map(o=>o.sourceWork)}}).sort({handedOffAt:-1}).lean();res.json({items:items.filter(item=>(item.designApprovals||[]).some(a=>({'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'})[a.email]===a.slot))});}catch(e){next(e)}};

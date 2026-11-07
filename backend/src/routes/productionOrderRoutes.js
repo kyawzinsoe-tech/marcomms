@@ -18,6 +18,10 @@ router.route('/')
   .get(getProductionOrders)
   .post(createProductionOrder);
 
+const team=require('../controllers/productionTeamController');
+router.get('/team',team.get);
+router.put('/team',team.save);
+router.get('/design-queue',team.queue);
 router.get('/approval-audit', getApprovalAudit);
 router.post('/:id/workflow/advance', advanceWorkflow);
 

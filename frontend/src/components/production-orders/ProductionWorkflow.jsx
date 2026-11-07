@@ -14,7 +14,8 @@ export function ProductionWorkflow({ order, user, advancing, onAdvance, showProg
   const showEvidence = ['artwork','quotations','sample_approval','delivery_confirmation','final_payment'].includes(currentStep);
   const approvalStep = ['sample_approval', 'invoice_head_approval'].includes(currentStep);
   const isApprover = ['admin', 'super_admin'].includes(user?.role) || (user?.role === 'head_brand' && user?.productionApprover === true);
-  const canOperate = ['procurement_officer', 'admin', 'super_admin', 'head_brand'].includes(user?.role);
+  const ownsProject = !order.productionOwner || String(order.productionOwner)===String(user?.id||user?._id) || isApprover;
+  const canOperate = ownsProject && ['procurement_officer', 'admin', 'super_admin', 'head_brand'].includes(user?.role);
   const canAdvance = approvalStep ? isApprover : canOperate;
   const submit = (skip, sampleAction='') => onAdvance(order, skip, { reason: note.trim(), evidenceUrl: evidenceUrl.trim(), sampleAction });
 

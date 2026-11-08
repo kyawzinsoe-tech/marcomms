@@ -7,6 +7,7 @@ router.put('/:id/brief',require('express').raw({type:['application/pdf','image/p
 router.get('/:id/brief',controller.downloadBrief);
 const members=require('../controllers/creativeMemberController');
 router.get('/members',members.list);
+router.get('/members/positions',members.positions);
 router.post('/members',members.create);
 router.put('/members/:memberId',members.update);
 router.delete('/members/:memberId',members.remove);

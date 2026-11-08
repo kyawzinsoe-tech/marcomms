@@ -1,0 +1,1 @@
+module.exports={"Designer": ["Creative Head", "Art Director", "Design Manager", "Senior Designer", "Designer", "Design Specialist"], "Video & Photography": ["Production Director", "Photographer & Videographer", "Videographer"], "Merchandising": ["Merchandising Manager", "Merchandising", "Marketing Runner"], "Copy": ["Content Manager", "Copy Writer"]};

@@ -25,6 +25,7 @@ export const fetchBusinessContacts=()=>request('/contacts').then(d=>d.contacts);
 export const addBusinessContact=item=>request('/contacts',{method:'POST',body:JSON.stringify(item)}).then(d=>d.contacts);
 export const deleteBusinessContact=id=>request(`/contacts/${id}`,{method:'DELETE'}).then(d=>d.contacts);
 export const markDesignSent=id=>request(`/${id}/sent`,{method:'POST'}).then(d=>d.item);
+export const fetchCreativePositions=()=>request('/members/positions').then(d=>d.positions);
 export const fetchCreativeMembers=()=>request('/members').then(d=>d.members);
 export const addCreativeMember=item=>request('/members',{method:'POST',body:JSON.stringify(item)}).then(d=>d.member);
 export const editCreativeMember=(id,item)=>request(`/members/${id}`,{method:'PUT',body:JSON.stringify(item)}).then(d=>d.member);

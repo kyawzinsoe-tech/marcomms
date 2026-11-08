@@ -15,7 +15,7 @@ const canEdit = (user) => EDIT_ROLES.has(normalizeRole(user?.role));
 const approvalRole=user=>user?.designApprovalRole??APPROVERS[String(user?.email||'').toLowerCase()];
 const canReview=user=>['Creative Head','Art Director'].includes(approvalRole(user))&&(user?.designApprovalRole!=null||canEdit(user));
 const canManage=user=>normalizeRole(user?.role)==='super_admin'||canReview(user)||canAssign(user);
-const canAssign=user=>user?.canAssignDesignWork===true;
+const canAssign=user=>normalizeRole(user?.role)==='super_admin'||canReview(user)||user?.canAssignDesignWork===true;
 
 function sanitizeLinks(links) {
   if (!Array.isArray(links)) return [];

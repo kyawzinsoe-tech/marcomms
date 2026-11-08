@@ -5,7 +5,7 @@ import { BellRing, Loader2, Pencil, Save, Trash2, X } from 'lucide-react';
 import { createImportantWork, deleteImportantWork, fetchImportantWork, updateImportantWork, approveImportantWork } from '../services/importantWorkService';
 import './ImportantWorkSection.css';
 import {CreativeMembers} from './CreativeMembers';
-import {fetchCreativeMembers,addCreativeMember,editCreativeMember,deleteCreativeMember} from '../services/importantWorkService';
+import {fetchCreativePositions,fetchCreativeMembers,addCreativeMember,editCreativeMember,deleteCreativeMember} from '../services/importantWorkService';
 import {BusinessContacts} from './BusinessContacts';
 import {fetchBusinessContacts,addBusinessContact,deleteBusinessContact,markDesignSent} from '../services/importantWorkService';
 import {requestDesignRevision,submitDesignRevision,checkAssignedDesigner,emailDesignBP} from '../services/importantWorkService';
@@ -15,7 +15,7 @@ import {fetchDesignTeams,saveDesignTeams} from '../services/importantWorkService
 const EMPTY_FORM = { description:'', title: '', designerName: '', supervisorName: '', process: 'Planned', dueDate: '', designType:'Print',printDestination:'Production',supplierName:'', designDriveUrl:'',designChecked:false,designerEmail:'',merchandisingEmail:'',businessUnit:'Bank',businessHeadEmail:'',bpEmail:'' };
 const EDIT_ROLES = new Set(['super_admin', 'admin', 'head_brand']);
 
-const DEFAULT_DATA_SOURCE={requestDesignRevision,submitDesignRevision,checkAssignedDesigner,emailDesignBP,fetchImportantWork,createImportantWork,updateImportantWork,deleteImportantWork,approveImportantWork,fetchDesignTeams,saveDesignTeams,fetchBusinessContacts,addBusinessContact,deleteBusinessContact,markDesignSent,fetchCreativeMembers,addCreativeMember,editCreativeMember,deleteCreativeMember};
+const DEFAULT_DATA_SOURCE={fetchCreativePositions,requestDesignRevision,submitDesignRevision,checkAssignedDesigner,emailDesignBP,fetchImportantWork,createImportantWork,updateImportantWork,deleteImportantWork,approveImportantWork,fetchDesignTeams,saveDesignTeams,fetchBusinessContacts,addBusinessContact,deleteBusinessContact,markDesignSent,fetchCreativeMembers,addCreativeMember,editCreativeMember,deleteCreativeMember};
 export function ImportantWorkSection({ user, users = [], onNotify, dataSource=DEFAULT_DATA_SOURCE }) {
   const [showForm,setShowForm]=useState(false);
   const [brief,setBrief]=useState(null);
@@ -30,7 +30,7 @@ export function ImportantWorkSection({ user, users = [], onNotify, dataSource=DE
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const canAssign=user?.canAssignDesignWork===true;
+  const canAssign=user?.role==='super_admin'||['Creative Head','Art Director'].includes(user?.designApprovalRole??({'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'}[user?.email]))||user?.canAssignDesignWork===true;
   const approvalRole=user?.designApprovalRole??({'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'}[user?.email]);
   const canEdit=['Creative Head','Art Director'].includes(approvalRole);
   const canManage=user?.role==='super_admin'||canEdit||canAssign;
@@ -84,7 +84,7 @@ export function ImportantWorkSection({ user, users = [], onNotify, dataSource=DE
     {error && <div className="error-banner">{error}</div>}
     {user?.role==='super_admin'&&<CreativeMembers members={members} dataSource={dataSource} onReload={load} onError={setError}/>}
     {user?.role==='super_admin'&&<BusinessContacts contacts={contacts} onChange={setContacts} dataSource={dataSource} user={user} onError={setError}/>}
-    {(canAssign||editingId)&&<button className="btn btn-outline" type="button" aria-expanded={showForm} onClick={()=>setShowForm(v=>!v)}>{showForm?'Hide Important Work Form':'+ Add Important Work'}</button>}
+    {<button className="btn btn-outline" type="button" disabled={!canManage} title={!canManage?"Assign ချခွင့်လိုအပ်ပါသည်":""} aria-expanded={showForm} onClick={()=>setShowForm(v=>!v)}>{showForm?'Hide Important Work Form':'+ Add Important Work'}</button>}
     {canManage && showForm && <form className="important-work-form" onSubmit={save}>
       <h3>{editingId ? 'Edit important work' : 'Add important work'}</h3>
       <label>Work Title<input required maxLength="160" value={form.title} onChange={(e) => setField('title', e.target.value)} /></label>

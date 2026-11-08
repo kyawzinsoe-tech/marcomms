@@ -107,7 +107,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
     password: '',
     role: ROLES.VIEWER,
     department: '',
-    canAssignDesignWork:false,jobLevel: '', menuAccess: [], assignedMenus: []
+    designApprovalRole:null,canAssignDesignWork:false,jobLevel: '', menuAccess: [], assignedMenus: []
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -126,7 +126,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         department: /research/i.test(editingUser.department || '') ? '' : editingUser.department || '',
         jobLevel: editingUser.jobLevel || '',
         menuAccess: editingUser.menuAccess || [],
-        canAssignDesignWork:Boolean(editingUser.canAssignDesignWork),
+        designApprovalRole:editingUser.designApprovalRole??null,canAssignDesignWork:Boolean(editingUser.canAssignDesignWork),
         assignedMenus: editingUser.assignedMenus ?? MENU_DEFINITIONS.map(([id])=>id)
       });
     } else {
@@ -136,7 +136,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
         password: '',
         role: ROLES.VIEWER,
         department: '',
-        canAssignDesignWork:false,jobLevel: '', menuAccess: [], assignedMenus: []
+        designApprovalRole:null,canAssignDesignWork:false,jobLevel: '', menuAccess: [], assignedMenus: []
       });
     }
   }, [editingUser, isOpen]);
@@ -211,7 +211,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
       role: formData.role,
       department: formData.department.trim(),
       jobLevel: formData.jobLevel,
-      ...(currentUserRole === 'super_admin' ? {canAssignDesignWork:Boolean(formData.canAssignDesignWork),menuAccess: formData.menuAccess || [], assignedMenus:formData.assignedMenus || []} : {})
+      ...(currentUserRole === 'super_admin' ? {designApprovalRole:formData.designApprovalRole,canAssignDesignWork:Boolean(formData.canAssignDesignWork),menuAccess: formData.menuAccess || [], assignedMenus:formData.assignedMenus || []} : {})
     };
 
     if (cleanPassword) {
@@ -350,7 +350,7 @@ export function UserModal({ isOpen, onClose, onSave, editingUser, currentUserRol
             </div>
           </div>
 
-          {currentUserRole==='super_admin'&&<div className="modal-form-section"><h3>Design Assignment Access</h3><label style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" checked={Boolean(formData.canAssignDesignWork)} onChange={e=>handleChange('canAssignDesignWork',e.target.checked)}/>Assign design projects (Design Manager / designated Senior Designer)</label><p>Approve ခွင့်မပါပါ။ Creative Head / Art Director သာ Approve ပေးနိုင်မည်။</p></div>}
+          {currentUserRole==='super_admin'&&<div className="modal-form-section"><h3>Design Approval & Management</h3><label>Approval responsibility<select value={formData.designApprovalRole??'Legacy'} onChange={e=>handleChange('designApprovalRole',e.target.value==='Legacy'?null:e.target.value)}><option value="Legacy">Current configured approver</option><option value="None">No approval responsibility</option><option value="Creative Head">Creative Head</option><option value="Art Director">Art Director</option></select></label><p>ရွေးထားသူသည် Open / Edit / Delete နှင့် Review / Approve ပြုလုပ်နိုင်ပါမည်။</p><h3>Design Assignment Access</h3><label style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" checked={Boolean(formData.canAssignDesignWork)} onChange={e=>handleChange('canAssignDesignWork',e.target.checked)}/>Assign design projects (Design Manager / designated Senior Designer)</label><p>Approve ခွင့်မပါပါ။ Creative Head / Art Director သာ Approve ပေးနိုင်မည်။</p></div>}
           {currentUserRole === 'super_admin' && formData.role !== 'super_admin' && <div className="modal-form-section"><h3>Assigned Portal Menus</h3><p>Super Admin သာ Menu တစ်ခုချင်း ရွေးပေးနိုင်ပါသည်။ ရွေးပေးထားသော Menu အတွင်း လုပ်ပိုင်ခွင့်က Assigned Role အတိုင်းဖြစ်ပါမည်။</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>{MENU_DEFINITIONS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" checked={(formData.assignedMenus || []).includes(id)} onChange={e=>handleChange('assignedMenus',e.target.checked?[...(formData.assignedMenus || []),id]:(formData.assignedMenus || []).filter(x=>x!==id))}/>{label}</label>)}</div></div>}
           {currentUserRole === 'super_admin' && <div className="modal-form-section"><h3>Additional Menu Access — View Only</h3><p>Head များ၏ ကိုယ့် Team စီမံခွင့်အပြင် အခြား Team ကို ကြည့်ခွင့်ပေးရန် ရွေးပါ။</p>{MENUS.map(menu => <fieldset key={menu} style={{marginBottom:12,padding:12,border:'1px solid #dbe3ee',borderRadius:10}}><legend>{{properties:'Properties List',posm:'POSM Item Store',reports:'Creative Team Reports'}[menu]}</legend><div style={{display:'flex',gap:12,flexWrap:'wrap'}}>{UNITS.map(unit => <label key={unit}><input type="checkbox" checked={(formData.menuAccess || []).some(g => g.menu === menu && g.units.includes(unit))} onChange={e => { const grants=formData.menuAccess || []; const units=grants.find(g=>g.menu===menu)?.units || []; handleChange('menuAccess',[...grants.filter(g=>g.menu!==menu),{menu,units:e.target.checked?[...units,unit]:units.filter(u=>u!==unit)}]); }}/>{unit}</label>)}</div></fieldset>)}</div>}
           {/* Section 2: Role Assignment (RBAC) */}

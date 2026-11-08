@@ -80,7 +80,7 @@ exports.login = async (req, res, next) => {
         department: user.department || '',
         jobLevel: user.jobLevel || '',
         menuAccess: user.menuAccess || [], assignedMenus:user.assignedMenus ?? null,
-        canAssignDesignWork: Boolean(user.canAssignDesignWork),
+        canAssignDesignWork: Boolean(user.canAssignDesignWork), designApprovalRole:user.designApprovalRole??null,
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar,
         createdAt: user.createdAt
@@ -133,7 +133,7 @@ exports.getMe = async (req, res, next) => {
         department: req.user.department || '',
         jobLevel: req.user.jobLevel || '',
         menuAccess: req.user.menuAccess || [], assignedMenus:req.user.assignedMenus ?? null,
-        canAssignDesignWork: Boolean(req.user.canAssignDesignWork),
+        canAssignDesignWork: Boolean(req.user.canAssignDesignWork), designApprovalRole:req.user.designApprovalRole??null,
         productionApprover: Boolean(req.user.productionApprover),
         avatar: req.user.avatar,
         createdAt: req.user.createdAt

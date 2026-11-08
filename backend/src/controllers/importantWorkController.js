@@ -12,7 +12,9 @@ const LINK_HOSTS = /^(drive\.google\.com|docs\.google\.com|1drv\.ms|[a-z0-9.-]+\
 const safeText = (value, max) => String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
 const APPROVERS={'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'};
 const canEdit = (user) => EDIT_ROLES.has(normalizeRole(user?.role));
-const canReview=user=>canEdit(user)&&Boolean(APPROVERS[String(user?.email||'').toLowerCase()]);
+const approvalRole=user=>user?.designApprovalRole??APPROVERS[String(user?.email||'').toLowerCase()];
+const canReview=user=>['Creative Head','Art Director'].includes(approvalRole(user))&&(user?.designApprovalRole!=null||canEdit(user));
+const canManage=user=>normalizeRole(user?.role)==='super_admin'||canReview(user)||canAssign(user);
 const canAssign=user=>user?.canAssignDesignWork===true;
 
 function sanitizeLinks(links) {
@@ -54,7 +56,7 @@ function payload(body) {
 exports._canAssignDesign=canAssign;
 exports._importantWorkValidation = { sanitizeLinks, payload, validateAssignment };
 exports.list = async (req, res, next) => {
-  try { res.json({ items: await ImportantWork.find((canAssign(req.user)||canReview(req.user))?{}:{$or:[{createdBy:req.user._id},{designerEmail:req.user.email},{businessHeadEmail:req.user.email},{bpEmail:req.user.email},{merchandisingEmail:req.user.email}]}).sort({ dueDate: 1, priority: -1 }).lean() }); } catch (error) { next(error); }
+  try { res.json({ items: await ImportantWork.find(canManage(req.user)?{}:{$or:[{createdBy:req.user._id},{designerEmail:req.user.email},{businessHeadEmail:req.user.email},{bpEmail:req.user.email},{merchandisingEmail:req.user.email}]}).sort({ dueDate: 1, priority: -1 }).lean() }); } catch (error) { next(error); }
 };
 exports.create = async (req, res, next) => {
   try {
@@ -69,7 +71,7 @@ exports.update = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid work ID.' });
     const item = await ImportantWork.findById(req.params.id);
     if (!item) return res.status(404).json({error:'Important work item not found.'});
-    if(!canAssign(req.user)||req.designSubmission){
+    if(!canManage(req.user)||req.designSubmission){
       if(!item.designerEmail||item.designerEmail!==String(req.user.email||'').toLowerCase())return res.status(403).json({error:'Only the assigned designer can update this design link.'});
       if(item.approvalStatus==='Approved'||item.handoffTo)return res.status(409).json({error:'Approved design is locked.'});
       const next=payload({...item.toObject(),designDriveUrl:req.body.designDriveUrl});item.designDriveUrl=next.designDriveUrl;item.designChecked=false;item.designChecks=[];item.designApprovals=[];item.sentAt=undefined;item.sentBy=undefined;item.process='Review';item.revisionSubmittedAt=new Date();item.updatedBy=req.user._id;item.history.push({action:'DESIGN_LINK_UPDATED',actor:req.user._id,actorName:req.user.name});await item.save();return res.json({item});
@@ -86,7 +88,7 @@ exports.update = async (req, res, next) => {
 };
 exports.remove = async (req, res, next) => {
   try {
-    if (!canAssign(req.user)) return res.status(403).json({ error: 'Creative Head or Art Director manages this work.' });
+    if (!canManage(req.user)) return res.status(403).json({ error: 'Creative Head or Art Director manages this work.' });
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid work ID.' });
     if (await ProductionOrder.exists({sourceWork:req.params.id})) return res.status(409).json({error:'Linked production order exists. Keep this approved design for history.'});
     const item = await ImportantWork.findByIdAndDelete(req.params.id);
@@ -103,7 +105,7 @@ exports.approve = async(req,res,next)=>{try{
  if(item.process!=='Review'||!item.designDriveUrl)return res.status(400).json({error:'Submit the final design Drive link for Review before approval.'});
  if(item.designType==='Print'&&item.printDestination!=='Supplier'&&!item.merchandisingEmail)return res.status(400).json({error:'Assign a Merchandising member before final approval.'});
  if(item.designType==='Print'&&item.printDestination==='Supplier'&&!item.supplierName)return res.status(400).json({error:'Enter the external supplier name.'});
- const email=String(req.user.email||'').toLowerCase();const slot=APPROVERS[email];
+ const email=String(req.user.email||'').toLowerCase();const slot=approvalRole(req.user);
  if(!slot)return res.status(403).json({error:'Creative Head or Art Director approval is required.'});
  item.designApprovals=[{slot,actor:req.user._id,name:req.user.name,email,at:new Date()}];
  item.history.push({action:'DESIGN_APPROVAL',actor:req.user._id,actorName:req.user.name,actorEmail:email,designDriveUrl:item.designDriveUrl,note:slot});

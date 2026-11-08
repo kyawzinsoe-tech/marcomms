@@ -39,7 +39,7 @@ exports.getUsers = async (req, res, next) => {
         department: u.department || '',
         jobLevel: u.jobLevel || '',
         menuAccess: u.menuAccess || [], assignedMenus:u.assignedMenus ?? null,
-        canAssignDesignWork: Boolean(u.canAssignDesignWork),
+        canAssignDesignWork: Boolean(u.canAssignDesignWork), designApprovalRole:u.designApprovalRole??null,
         productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
@@ -80,6 +80,7 @@ exports.createUser = async (req, res, next) => {
     const { name, email, password, role, department = '', jobLevel = '' } = req.body;
     if (req.body.menuAccess !== undefined && req.user.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign additional menu access.'});
     const requester = req.user;
+    if(req.body.designApprovalRole!==undefined&&(requester.role!=='super_admin'||![null,'None','Creative Head','Art Director'].includes(req.body.designApprovalRole)))return res.status(403).json({error:'Only Super Admin may select a valid design approval role.'});
     if(req.body.canAssignDesignWork!==undefined&&requester.role!=='super_admin')return res.status(403).json({error:'Only Super Admin can assign design assignment access.'});
     if (req.body.assignedMenus !== undefined && requester.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign portal menus.'});
 
@@ -122,6 +123,7 @@ exports.createUser = async (req, res, next) => {
       role: requestedRole,
       department: String(department).trim(),
       jobLevel,
+      designApprovalRole:req.body.designApprovalRole??null,
       canAssignDesignWork:req.user.role==='super_admin'&&req.body.canAssignDesignWork===true,
       assignedMenus:req.body.assignedMenus === undefined ? [] : validateAssignedMenus(req.body.assignedMenus),
       menuAccess: req.body.menuAccess === undefined ? [] : validateGrants(req.body.menuAccess),
@@ -148,7 +150,7 @@ exports.createUser = async (req, res, next) => {
         department: newUser.department,
         jobLevel: newUser.jobLevel,
         menuAccess: newUser.menuAccess || [], assignedMenus:newUser.assignedMenus ?? null,
-        canAssignDesignWork: Boolean(newUser.canAssignDesignWork),
+        canAssignDesignWork: Boolean(newUser.canAssignDesignWork), designApprovalRole:newUser.designApprovalRole??null,
         productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
@@ -169,6 +171,7 @@ exports.updateUser = async (req, res, next) => {
 
     const { name, email, password, role, department, jobLevel } = req.body;
     const requester = req.user;
+    if(req.body.designApprovalRole!==undefined&&(requester.role!=='super_admin'||![null,'None','Creative Head','Art Director'].includes(req.body.designApprovalRole)))return res.status(403).json({error:'Only Super Admin may select a valid design approval role.'});
     if (req.body.assignedMenus !== undefined && requester.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign portal menus.'});
 
     const user = await findUserFlexible(req.params.id);
@@ -250,6 +253,7 @@ exports.updateUser = async (req, res, next) => {
     if (department !== undefined) user.department = String(department).trim();
     if (jobLevel !== undefined) user.jobLevel = jobLevel;
 
+    if(req.body.designApprovalRole!==undefined){user.designApprovalRole=req.body.designApprovalRole;logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'DESIGN_APPROVER_UPDATED',targetEntity:'User',targetId:user._id,metadata:{role:user.designApprovalRole}});}
     if(req.body.canAssignDesignWork!==undefined){if(typeof req.body.canAssignDesignWork!=='boolean')return res.status(400).json({error:'Invalid design assignment permission.'});user.canAssignDesignWork=req.body.canAssignDesignWork;}
     await user.save();
     if(req.body.canAssignDesignWork!==undefined)logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'DESIGN_ASSIGNMENT_ACCESS_UPDATED',targetEntity:'User',targetId:user._id,metadata:{enabled:user.canAssignDesignWork}});
@@ -276,7 +280,7 @@ exports.updateUser = async (req, res, next) => {
         department: user.department || '',
         jobLevel: user.jobLevel || '',
         menuAccess: user.menuAccess || [], assignedMenus:user.assignedMenus ?? null,
-        canAssignDesignWork: Boolean(user.canAssignDesignWork),
+        canAssignDesignWork: Boolean(user.canAssignDesignWork), designApprovalRole:user.designApprovalRole??null,
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt
@@ -296,6 +300,7 @@ exports.deleteUser = async (req, res, next) => {
     }
 
     const requester = req.user;
+    if(req.body.designApprovalRole!==undefined&&(requester.role!=='super_admin'||![null,'None','Creative Head','Art Director'].includes(req.body.designApprovalRole)))return res.status(403).json({error:'Only Super Admin may select a valid design approval role.'});
     if (req.body.assignedMenus !== undefined && requester.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign portal menus.'});
     const requesterId = String(requester?._id || requester?.id);
 

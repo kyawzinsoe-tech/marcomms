@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    designApprovalRole:{type:String,enum:[null,'None','Creative Head','Art Director'],default:null},
     canAssignDesignWork: {type:Boolean,default:false},
     productionApprover: {
       type: Boolean,

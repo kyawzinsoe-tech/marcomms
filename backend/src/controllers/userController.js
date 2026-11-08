@@ -39,6 +39,7 @@ exports.getUsers = async (req, res, next) => {
         department: u.department || '',
         jobLevel: u.jobLevel || '',
         menuAccess: u.menuAccess || [], assignedMenus:u.assignedMenus ?? null,
+        canAssignDesignWork: Boolean(u.canAssignDesignWork),
         productionApprover: Boolean(u.productionApprover),
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.email)}`,
         createdAt: u.createdAt
@@ -79,6 +80,7 @@ exports.createUser = async (req, res, next) => {
     const { name, email, password, role, department = '', jobLevel = '' } = req.body;
     if (req.body.menuAccess !== undefined && req.user.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign additional menu access.'});
     const requester = req.user;
+    if(req.body.canAssignDesignWork!==undefined&&requester.role!=='super_admin')return res.status(403).json({error:'Only Super Admin can assign design assignment access.'});
     if (req.body.assignedMenus !== undefined && requester.role !== 'super_admin') return res.status(403).json({error:'Only Super Admin can assign portal menus.'});
 
     if (!name || !email || !password) {
@@ -120,6 +122,7 @@ exports.createUser = async (req, res, next) => {
       role: requestedRole,
       department: String(department).trim(),
       jobLevel,
+      canAssignDesignWork:req.user.role==='super_admin'&&req.body.canAssignDesignWork===true,
       assignedMenus:req.body.assignedMenus === undefined ? [] : validateAssignedMenus(req.body.assignedMenus),
       menuAccess: req.body.menuAccess === undefined ? [] : validateGrants(req.body.menuAccess),
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`
@@ -145,6 +148,7 @@ exports.createUser = async (req, res, next) => {
         department: newUser.department,
         jobLevel: newUser.jobLevel,
         menuAccess: newUser.menuAccess || [], assignedMenus:newUser.assignedMenus ?? null,
+        canAssignDesignWork: Boolean(newUser.canAssignDesignWork),
         productionApprover: Boolean(newUser.productionApprover),
         avatar: newUser.avatar,
         createdAt: newUser.createdAt
@@ -246,7 +250,9 @@ exports.updateUser = async (req, res, next) => {
     if (department !== undefined) user.department = String(department).trim();
     if (jobLevel !== undefined) user.jobLevel = jobLevel;
 
+    if(req.body.canAssignDesignWork!==undefined){if(typeof req.body.canAssignDesignWork!=='boolean')return res.status(400).json({error:'Invalid design assignment permission.'});user.canAssignDesignWork=req.body.canAssignDesignWork;}
     await user.save();
+    if(req.body.canAssignDesignWork!==undefined)logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'DESIGN_ASSIGNMENT_ACCESS_UPDATED',targetEntity:'User',targetId:user._id,metadata:{enabled:user.canAssignDesignWork}});
     if(req.body.assignedMenus !== undefined) logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'PORTAL_MENUS_UPDATED',targetEntity:'User',targetId:user._id,ip:req.ip,metadata:{before:req.assignedMenusBefore,after:user.assignedMenus}});
     if (req.body.menuAccess !== undefined) logAuditEvent({actorId:requester._id,actorRole:requester.role,action:'MENU_ACCESS_UPDATED',targetEntity:'User',targetId:user._id,ip:req.ip,metadata:{before:req.menuAccessBefore,after:user.menuAccess}});
 
@@ -270,6 +276,7 @@ exports.updateUser = async (req, res, next) => {
         department: user.department || '',
         jobLevel: user.jobLevel || '',
         menuAccess: user.menuAccess || [], assignedMenus:user.assignedMenus ?? null,
+        canAssignDesignWork: Boolean(user.canAssignDesignWork),
         productionApprover: Boolean(user.productionApprover),
         avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`,
         createdAt: user.createdAt

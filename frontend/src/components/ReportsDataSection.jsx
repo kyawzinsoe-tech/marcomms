@@ -379,7 +379,7 @@ export function ReportsDataSection({
 
       <div className="monthly-project-dashboard">
         <div className="monthly-project-heading">
-          <div><h3>Creative Projects Reports</h3><p>Google Sheets share link သို့မဟုတ် Excel (.xlsx) မှ Sheet ၆ ခုကိုသာ လအလိုက်တင်ပြီး Chart ပြောင်းကြည့်နိုင်သည်။</p></div>
+          <div><h3 className="creative-report-heading">Creative Projects Reports</h3><p>Google Sheets share link သို့မဟုတ် Excel (.xlsx) မှ Sheet ၆ ခုကိုသာ လအလိုက်တင်ပြီး Chart ပြောင်းကြည့်နိုင်သည်။</p></div>
           {canManageMonthly && <><button className="btn btn-outline" type="button" onClick={() => excelInputRef.current?.click()} disabled={isExcelImporting}><Upload size={15} /> Upload .xlsx</button><input ref={excelInputRef} className="hidden-file-input" type="file" accept=".xlsx" onChange={handleExcelImport} /></>}
         </div>
         {canManageMonthly && <div ref={importSectionRef} className="google-sheet-import"><label>Google Sheets Share Link<input type="url" value={googleSheetUrl} onChange={(e) => setGoogleSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/.../edit?usp=sharing" /></label><button className="btn btn-primary" type="button" onClick={handleGoogleSheetImport} disabled={isExcelImporting}>{isExcelImporting ? <Loader2 size={15} className="spin" /> : <Upload size={15} />} {activeProjectReport ? 'Update Link' : 'Import Link'}</button><small>Google Sheet → Share → General access → Anyone with the link → Viewer ဖြစ်ရပါမယ်။ သတ်မှတ်ထားသော tabs မဟုတ်တာများကို မယူပါ။</small></div>}

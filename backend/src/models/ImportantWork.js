@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 
 const importantWorkSchema = new mongoose.Schema({
+  briefData:{type:Buffer,select:false},
+  briefName:{type:String,default:'',maxlength:180},
+  briefMime:{type:String,default:''},
   businessUnit:{type:String,enum:['Bank','Pay','Comms'],default:'Bank'},
   businessHeadEmail:{type:String,default:''},
   bpEmail:{type:String,default:''},
@@ -23,6 +26,8 @@ const importantWorkSchema = new mongoose.Schema({
   handoffTo: { type: String, enum: ['', 'BP', 'Production', 'Supplier'], default: '' },
   recipientName: { type: String, default: '', maxlength: 120 },
   handedOffAt: Date,
+  productionAcceptedAt:Date,
+  productionAcceptedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
   productionOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductionOrder' },
   history: [{ action: String, actor: {type: mongoose.Schema.Types.ObjectId, ref:'User'}, actorName: String, actorEmail:String, designDriveUrl:String, at: {type:Date, default:Date.now}, note:String }],
   title: { type: String, required: true, trim: true, maxlength: 160 },

@@ -1,3 +1,4 @@
+import {acceptProductionDesign} from '../../services/importantWorkService';
 import {fetchProductionTeam,saveProductionTeam,fetchDesignQueue} from '../../services/productionTeamService';
 import { ProductionProgressBar } from './ProductionProcessLine';
 import { ProductionOrderDashboard } from './ProductionOrderDashboard';
@@ -354,7 +355,7 @@ export function ProductionOrdersSection({ user, users=[], onNotify }) {
   return (
     <section className="card" id="production-orders" aria-label="Printing & Production Order Matrix">
 
-      {designQueue.length>0&&<div className="approved-design-queue"><h3>Approved Print Designs · Ready for Production</h3>{designQueue.map(work=><article key={work._id}><div><strong>{work.title}</strong><small>Designer: {work.designerName} · Final Approved</small><a href={work.designDriveUrl} target="_blank" rel="noopener noreferrer">Open Approved Design ↗</a></div>{canCreate&&<button className="btn btn-primary" onClick={()=>{setEditingOrder(null);setDesignDraft(work);setIsModalOpen(true)}}>Create Production Order</button>}</article>)}</div>}
+      {designQueue.length>0&&<div className="approved-design-queue"><h3>Approved Print Designs · Ready for Production</h3>{designQueue.map(work=><article key={work._id}><div><strong>{work.title}</strong><small>Designer: {work.designerName} · Final Approved</small><a href={work.designDriveUrl} target="_blank" rel="noopener noreferrer">Open Approved Design ↗</a></div>{canCreate&&(work.productionAcceptedAt?<button className="btn btn-primary" onClick={()=>{setEditingOrder(null);setDesignDraft(work);setIsModalOpen(true)}}>Create Production Order</button>:work.merchandisingEmail===user?.email?<button className="btn btn-primary" onClick={async()=>{try{await acceptProductionDesign(work._id);setDesignQueue(await fetchDesignQueue())}catch(e){window.alert(e.message)}}}>Accept Project</button>:<small>Waiting for assigned Merchandiser to accept</small>)}</article>)}</div>}
       {/* Module Header */}
       <div className="card-header">
         <div>

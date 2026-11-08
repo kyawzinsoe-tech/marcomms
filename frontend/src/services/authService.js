@@ -115,7 +115,7 @@ export async function loginUser(email, password) {
     role: normalizeRole(data.user.role),
     avatar: data.user.avatar,
     productionApprover: Boolean(data.user.productionApprover),
-    department:data.user.department || '', jobLevel:data.user.jobLevel || '', menuAccess:data.user.menuAccess || [], assignedMenus:data.user.assignedMenus ?? null,
+    canAssignDesignWork:Boolean(data.user.canAssignDesignWork),department:data.user.department || '', jobLevel:data.user.jobLevel || '', menuAccess:data.user.menuAccess || [], assignedMenus:data.user.assignedMenus ?? null,
     token: data.token
   };
 
@@ -171,7 +171,7 @@ export async function fetchUsersApi() {
           role: normalizeRole(u.role),
           department: u.department || '',
           jobLevel: u.jobLevel || '',
-          menuAccess:u.menuAccess || [], assignedMenus:u.assignedMenus ?? null,
+          canAssignDesignWork:Boolean(u.canAssignDesignWork),menuAccess:u.menuAccess || [], assignedMenus:u.assignedMenus ?? null,
           productionApprover: Boolean(u.productionApprover),
           avatar: u.avatar,
           createdAt: u.createdAt

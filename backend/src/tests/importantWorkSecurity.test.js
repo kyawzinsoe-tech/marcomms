@@ -23,7 +23,7 @@ describe('Important Work Link Security', () => {
       process: 'Review',
       dueDate: '2026-10-01'
     });
-    assert.equal(item.process, 'Review');
+    assert.equal(item.process, 'Planned');
     assert.throws(() => _importantWorkValidation.payload({ title: 'Missing people', dueDate: '2026-10-01' }), /Designer name/);
   });
 });

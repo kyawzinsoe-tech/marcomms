@@ -289,6 +289,7 @@ exports.createProductionOrder = async (req, res, next) => {
       if(!mongoose.Types.ObjectId.isValid(req.body.sourceWork))return res.status(400).json({error:'Invalid design reference.'});
       sourceWork=await ImportantWork.findById(req.body.sourceWork);
       if(!sourceWork||sourceWork.approvalStatus!=='Approved'||sourceWork.handoffTo!=='Production'||sourceWork.designType!=='Print'||!(sourceWork.designApprovals||[]).some(a=>({'suhnin.phway@kbzbank.com':'Creative Head','kyawzin.soe@kbzbank.com':'Art Director'})[a.email]===a.slot))return res.status(409).json({error:'This print design is not approved for Production.'});
+      if(!sourceWork.productionAcceptedAt)return res.status(409).json({error:'The assigned Merchandising member must accept this design before creating an order.'});
       if(await ProductionOrder.exists({sourceWork:sourceWork._id}))return res.status(409).json({error:'A Production order already exists for this design.'});
     }
     let owner=null;

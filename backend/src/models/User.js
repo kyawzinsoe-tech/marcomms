@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    canAssignDesignWork: {type:Boolean,default:false},
     productionApprover: {
       type: Boolean,
       default: false

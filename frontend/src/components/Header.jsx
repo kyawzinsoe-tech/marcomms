@@ -3,6 +3,7 @@ import { Calendar, Printer, Sparkles, Crown, Shield, Eye, Search, Sun, Moon, Wif
 
 export function Header({
   activeSection = 'dashboard',
+  reportView = 'reports',
   reportMonth,
   onMonthChange,
   onPrintMonthly,
@@ -64,11 +65,11 @@ export function Header({
         };
       case 'reports':
         return {
-          eyebrow: 'EXECUTIVE EXPORTS & BACKUPS',
-          title: 'Reports & Data Management',
-          desc: 'Generate official executive PDF/Print reports, inspect portfolio KPI analytics, and manage data backups.',
-          showMonthPicker: true,
-          showPrint: true
+          eyebrow: reportView==='workspace'?'CREATIVE TEAM':'REPORTS & DATA',
+          title: reportView==='workspace'?'Creative Team Workspace':'Reports & Data Management',
+          desc: reportView==='workspace'?'Monthly Excel / Sheets · Organization Chart · Approval Slides':'Creative project reports, charts, exports and backups.',
+          showMonthPicker: reportView!=='workspace',
+          showPrint: reportView!=='workspace'
         };
       case 'kbz-bank':
         return {

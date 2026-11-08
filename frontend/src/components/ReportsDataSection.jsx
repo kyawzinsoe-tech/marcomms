@@ -1,4 +1,4 @@
-import {CreativeWorkspace} from './CreativeWorkspace';
+import {canViewCreativeWorkspace,CreativeWorkspace} from './CreativeWorkspace';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FileText,
@@ -97,6 +97,8 @@ export function ProjectChart({ type, data, sheet, timeline, timelineMode }) {
 
 export function ReportsDataSection({
   user,
+  reportView='reports',
+  onViewChange,
   reportMonth,
   selectedYear,
   subscriptions = [],
@@ -109,6 +111,7 @@ export function ReportsDataSection({
   onReset,
   onNotify
 }) {
+  const setReportView=view=>onViewChange?.(view);
   const fileInputRef = useRef(null);
   const excelInputRef = useRef(null);
 
@@ -338,7 +341,8 @@ export function ReportsDataSection({
 
   return (
     <section className="card" id="reports" aria-label="Reports & Enterprise Data Hub">
-      <CreativeWorkspace user={user}/>
+      <nav className="reports-view-tabs" aria-label="Reports or workspace"><button className={'btn '+(reportView==='reports'?'btn-primary':'btn-outline')} onClick={()=>setReportView('reports')}>Reports</button>{canViewCreativeWorkspace(user)&&<button className={'btn '+(reportView==='workspace'?'btn-primary':'btn-outline')} onClick={()=>setReportView('workspace')}>Creative Team Workspace</button>}</nav>
+      {reportView==='workspace'?<CreativeWorkspace user={user}/>:<>
       {/* Module Header */}
       <div className="card-header">
         <div>
@@ -528,6 +532,7 @@ export function ReportsDataSection({
         </div>
       </div>
 
+      </>}
       {/* Safe Demo Reset Confirmation Modal */}
       {isResetModalOpen && (
         <div className="modal-overlay" onClick={() => !isResetting && setIsResetModalOpen(false)}>

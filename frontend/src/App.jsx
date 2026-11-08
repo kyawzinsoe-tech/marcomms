@@ -134,6 +134,7 @@ function DashboardApp() {
   useEffect(()=>{if(!isAuthenticated)return;const refresh=()=>refreshPillars().catch(()=>{});refresh();window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};},[isAuthenticated,refreshPillars]);
   const [hiddenMenus,setHiddenMenus] = useState([]);
   useEffect(()=>{if(!isAuthenticated)return; const refresh=()=>loadPortalMenus().then(setHiddenMenus).catch(()=>{});refresh();window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};},[isAuthenticated]);
+  const [reportView,setReportView]=useState('reports');
   const [activeSection, setActiveSection] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       return getCanonicalSection(window.location.hash);
@@ -498,7 +499,7 @@ function DashboardApp() {
 
       <main className="main-content">
         <button type="button" className="mobile-menu-button" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu">☰ <span>Menu</span></button>
-        <Header
+        <Header reportView={reportView}
           activeSection={activeSection}
           reportMonth={reportMonth}
           onMonthChange={setReportMonth}
@@ -621,7 +622,7 @@ function DashboardApp() {
               </div>
             }
           >
-            <ReportsDataSection
+            <ReportsDataSection reportView={reportView} onViewChange={setReportView}
               user={user}
               canManageMonthly={managedUnits(user).length > 0}
               reportMonth={reportMonth}

@@ -1,0 +1,5 @@
+import React from 'react';
+import {it,expect,vi} from 'vitest';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+import ApprovalSlides from '../components/ApprovalSlides';
+it('saves monthly links and selects a saved presentation',async()=>{const save=vi.fn(async()=>true);render(<ApprovalSlides records={[{month:'2026-10',title:'October',url:'https://docs.google.com/presentation/d/oct/edit'},{month:'2026-11',title:'November',url:'https://docs.google.com/presentation/d/nov/edit'}]} onSave={save}/>);fireEvent.change(screen.getByLabelText('Saved Month'),{target:{value:'2026-11'}});expect(screen.getByTitle('Design Approval Presentation').getAttribute('src')).toContain('/nov/embed');fireEvent.change(screen.getByLabelText('Month'),{target:{value:'2026-12'}});fireEvent.change(screen.getByLabelText('Presentation / Individual Slide Link'),{target:{value:'https://docs.google.com/presentation/d/dec/edit'}});fireEvent.click(screen.getByText('Save Monthly Slides'));await waitFor(()=>expect(save).toHaveBeenCalledWith({month:'2026-12',url:'https://docs.google.com/presentation/d/dec/edit',title:'Approval Slides'}));cleanup()});

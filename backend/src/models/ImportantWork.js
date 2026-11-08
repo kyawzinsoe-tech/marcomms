@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const importantWorkSchema = new mongoose.Schema({
+  boardGroup:{type:String,enum:['Today Urgent','Main Campaign','Tomorrow','WIP'],default:'WIP'},
   briefData:{type:Buffer,select:false},
   briefName:{type:String,default:'',maxlength:180},
   briefMime:{type:String,default:''},

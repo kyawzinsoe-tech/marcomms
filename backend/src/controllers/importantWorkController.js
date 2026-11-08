@@ -44,6 +44,7 @@ function payload(body) {
     designerEmail:safeText(body.designerEmail,254).toLowerCase(), merchandisingEmail:body.designType!=='Print'?'':safeText(body.merchandisingEmail,254).toLowerCase(),
     printDestination:body.printDestination==='Supplier'?'Supplier':'Production', supplierName:safeText(body.supplierName,160),
     designType: ['Social','Video & Photography','Other'].includes(body.designType)?body.designType:'Print', designDriveUrl, designChecked:false,
+    boardGroup:['Today Urgent','Main Campaign','Tomorrow','WIP'].includes(body.boardGroup)?body.boardGroup:'WIP',
     description: safeText(body.description, 2000),
     title: safeText(body.title, 160),
     designerName: safeText(body.designerName, 120),
@@ -53,16 +54,17 @@ function payload(body) {
   };
 }
 
+function visibleWork(item,user){const data=item.toObject?item.toObject():{...item};const allowed=String(data.createdBy)===String(user._id)||data.designerEmail===String(user.email||'').toLowerCase();delete data.briefData;return {...data,canViewBrief:allowed,...(!allowed?{description:'',briefName:'',briefMime:''}:{})};}
 exports._canAssignDesign=canAssign;
 exports._importantWorkValidation = { sanitizeLinks, payload, validateAssignment };
 exports.list = async (req, res, next) => {
-  try { res.json({ items: await ImportantWork.find(canManage(req.user)?{}:{$or:[{createdBy:req.user._id},{designerEmail:req.user.email},{businessHeadEmail:req.user.email},{bpEmail:req.user.email},{merchandisingEmail:req.user.email}]}).sort({ dueDate: 1, priority: -1 }).lean() }); } catch (error) { next(error); }
+  try { res.json({ items: await ImportantWork.find(canManage(req.user)?{}:{$or:[{createdBy:req.user._id},{designerEmail:req.user.email},{businessHeadEmail:req.user.email},{bpEmail:req.user.email},{merchandisingEmail:req.user.email}]}).sort({ dueDate: 1, priority: -1 }).lean().then(items=>items.map(item=>{const canViewBrief=String(item.createdBy)===String(req.user._id)||item.designerEmail===String(req.user.email||'').toLowerCase();return {...item,canViewBrief,...(!canViewBrief?{description:'',briefName:'',briefMime:''}:{})}})) }); } catch (error) { next(error); }
 };
 exports.create = async (req, res, next) => {
   try {
     if (!canAssign(req.user)) return res.status(403).json({ error: 'Only the designated Design Manager or Senior Designer assigns work.' });
     const item = await ImportantWork.create({ ...await validateAssignment(payload(req.body)), createdBy: req.user._id, updatedBy: req.user._id, history:[{action:'CREATED',actor:req.user._id,actorName:req.user.name}] });
-    res.status(201).json({ item });
+    res.status(201).json({ item:visibleWork(item,req.user) });
   } catch (error) { next(error); }
 };
 exports.update = async (req, res, next) => {
@@ -74,7 +76,7 @@ exports.update = async (req, res, next) => {
     if(!canManage(req.user)||req.designSubmission){
       if(!item.designerEmail||item.designerEmail!==String(req.user.email||'').toLowerCase())return res.status(403).json({error:'Only the assigned designer can update this design link.'});
       if(item.approvalStatus==='Approved'||item.handoffTo)return res.status(409).json({error:'Approved design is locked.'});
-      const next=payload({...item.toObject(),designDriveUrl:req.body.designDriveUrl});item.designDriveUrl=next.designDriveUrl;item.designChecked=false;item.designChecks=[];item.designApprovals=[];item.sentAt=undefined;item.sentBy=undefined;item.process='Review';item.revisionSubmittedAt=new Date();item.updatedBy=req.user._id;item.history.push({action:'DESIGN_LINK_UPDATED',actor:req.user._id,actorName:req.user.name});await item.save();return res.json({item});
+      const next=payload({...item.toObject(),designDriveUrl:req.body.designDriveUrl});item.designDriveUrl=next.designDriveUrl;item.designChecked=false;item.designChecks=[];item.designApprovals=[];item.sentAt=undefined;item.sentBy=undefined;item.process='Review';item.revisionSubmittedAt=new Date();item.updatedBy=req.user._id;item.history.push({action:'DESIGN_LINK_UPDATED',actor:req.user._id,actorName:req.user.name});await item.save();return res.json({item:visibleWork(item,req.user)});
     }
     if (item.handoffTo) return res.status(409).json({error:'This design has been handed off. Update the linked production order instead.'});
     const updated=await validateAssignment(payload(req.body));
@@ -83,7 +85,7 @@ exports.update = async (req, res, next) => {
     Object.assign(item,updated,{updatedBy:req.user._id,approvalStatus:'Pending',designChecks:[],designApprovals:[],sentAt:undefined,sentBy:undefined,approvedBy:undefined,approvedAt:undefined});
     item.history.push({action:'UPDATED',actor:req.user._id,actorName:req.user.name,note:'Design changes require a new final approval.'});
     await item.save();
-    res.json({ item });
+    res.json({ item:visibleWork(item,req.user) });
   } catch (error) { next(error); }
 };
 exports.remove = async (req, res, next) => {
@@ -109,7 +111,7 @@ exports.approve = async(req,res,next)=>{try{
  if(!slot)return res.status(403).json({error:'Creative Head or Art Director approval is required.'});
  item.designApprovals=[{slot,actor:req.user._id,name:req.user.name,email,at:new Date()}];
  item.history.push({action:'DESIGN_APPROVAL',actor:req.user._id,actorName:req.user.name,actorEmail:email,designDriveUrl:item.designDriveUrl,note:slot});
- item.approvalStatus='Approved';item.process='Approved';item.approvedBy=req.user._id;item.approvedAt=new Date();if(item.designType==='Print'){item.handoffTo=item.printDestination==='Supplier'?'Supplier':'Production';item.recipientName=item.printDestination==='Supplier'?item.supplierName:item.merchandisingEmail;item.handedOffAt=new Date();item.status='Waiting';item.history.push({action:'READY_FOR_PRODUCTION',actor:req.user._id,actorName:req.user.name,note:item.merchandisingEmail});}if(item.designType==='Social'){item.status='Completed';}item.revisionSubmittedAt=undefined;item.history.push({action:'FINAL_APPROVED',actor:req.user._id,actorName:req.user.name});await item.save();res.json({item});
+ item.approvalStatus='Approved';item.process='Approved';item.approvedBy=req.user._id;item.approvedAt=new Date();if(item.designType==='Print'){item.handoffTo=item.printDestination==='Supplier'?'Supplier':'Production';item.recipientName=item.printDestination==='Supplier'?item.supplierName:item.merchandisingEmail;item.handedOffAt=new Date();item.status='Waiting';item.history.push({action:'READY_FOR_PRODUCTION',actor:req.user._id,actorName:req.user.name,note:item.merchandisingEmail});}if(item.designType==='Social'){item.status='Completed';}item.revisionSubmittedAt=undefined;item.history.push({action:'FINAL_APPROVED',actor:req.user._id,actorName:req.user.name});await item.save();res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};
 exports.teams=async(req,res,next)=>{try{const doc=await DesignTeams.findById('design-teams');res.json({groups:await roster.groups()});}catch(e){next(e)}};
 exports.saveTeams=async(req,res)=>res.status(405).json({error:'Use member Add / Edit / Delete actions.'});
@@ -126,7 +128,7 @@ exports.addContact=async(req,res,next)=>{try{
  if(req.body.contactId){const contact=doc.contacts.id(req.body.contactId);if(!contact)return res.status(404).json({error:'Contact not found.'});Object.assign(contact,{unit,kind,name,email,userId:account._id});}else doc.contacts.push({unit,kind,name,email,userId:account._id});doc.updatedBy=req.user._id;await doc.save();logAuditEvent({actorId:req.user._id,actorRole:req.user.role,action:req.body.contactId?'BUSINESS_CONTACT_UPDATED':'BUSINESS_CONTACT_ADDED',targetEntity:'DesignTeams',targetId:doc._id,metadata:{unit,kind,email}});res.status(201).json({contacts:doc.contacts});
 }catch(e){next(e)}};
 exports.deleteContact=async(req,res,next)=>{try{if(req.user.role!=='super_admin')return res.status(403).json({error:'Super Admin only.'});if(!mongoose.Types.ObjectId.isValid(req.params.contactId))return res.status(400).json({error:'Invalid contact.'});const doc=await DesignTeams.findById('design-teams');if(!doc)return res.status(404).json({error:'Contact not found.'});doc.contacts=doc.contacts.filter(c=>String(c._id)!==req.params.contactId);await doc.save();logAuditEvent({actorId:req.user._id,actorRole:req.user.role,action:'BUSINESS_CONTACT_REMOVED',targetEntity:'DesignTeams',targetId:req.params.contactId});res.json({contacts:doc.contacts});}catch(e){next(e)}};
-exports.sent=async(req,res,next)=>{try{if(!mongoose.Types.ObjectId.isValid(req.params.id))return res.status(400).json({error:'Invalid work.'});const item=await ImportantWork.findById(req.params.id);if(!item)return res.status(404).json({error:'Work not found.'});if(!canReview(req.user)&&item.designerEmail!==req.user.email)return res.status(403).json({error:'Only the assigned creator or Creative Head / Art Director may mark Sent.'});if(item.designType!=='Video & Photography'||item.approvalStatus!=='Approved'||!item.bpEmail)return res.status(409).json({error:'Approve Video work and select its BP recipient first.'});if(item.sentAt)return res.json({item});item.sentAt=new Date();item.sentBy=req.user._id;item.recipientName=item.bpEmail;item.history.push({action:'SENT',actor:req.user._id,actorName:req.user.name,note:`${item.businessUnit} Head: ${item.businessHeadEmail}; BP: ${item.bpEmail}`});await item.save();res.json({item});}catch(e){next(e)}};
+exports.sent=async(req,res,next)=>{try{if(!mongoose.Types.ObjectId.isValid(req.params.id))return res.status(400).json({error:'Invalid work.'});const item=await ImportantWork.findById(req.params.id);if(!item)return res.status(404).json({error:'Work not found.'});if(!canReview(req.user)&&item.designerEmail!==req.user.email)return res.status(403).json({error:'Only the assigned creator or Creative Head / Art Director may mark Sent.'});if(item.designType!=='Video & Photography'||item.approvalStatus!=='Approved'||!item.bpEmail)return res.status(409).json({error:'Approve Video work and select its BP recipient first.'});if(item.sentAt)return res.json({item:visibleWork(item,req.user)});item.sentAt=new Date();item.sentBy=req.user._id;item.recipientName=item.bpEmail;item.history.push({action:'SENT',actor:req.user._id,actorName:req.user.name,note:`${item.businessUnit} Head: ${item.businessHeadEmail}; BP: ${item.bpEmail}`});await item.save();res.json({item:visibleWork(item,req.user)});}catch(e){next(e)}};
 
 // Revision transitions are separate from editing assignment details.
 exports.requestRevision=async(req,res,next)=>{try{
@@ -136,7 +138,7 @@ exports.requestRevision=async(req,res,next)=>{try{
  if(item.handoffTo||item.approvalStatus==='Approved'||item.process!=='Review')return res.status(409).json({error:'Only a pending Review can be returned for revision.'});
  const note=safeText(req.body.note,2000);if(!note)return res.status(400).json({error:'Describe the required revision.'});
  item.revisionNote=note;item.revisionSubmittedAt=undefined;item.process='Revision';item.designChecked=false;item.designChecks=[];item.designApprovals=[];
- item.history.push({action:'REVISION_REQUESTED',actor:req.user._id,actorName:req.user.name,note});await item.save();res.json({item});
+ item.history.push({action:'REVISION_REQUESTED',actor:req.user._id,actorName:req.user.name,note});await item.save();res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};
 exports.submitRevision=async(req,res,next)=>{try{
  if(!mongoose.Types.ObjectId.isValid(req.params.id))return res.status(400).json({error:'Invalid work ID.'});
@@ -145,16 +147,16 @@ exports.submitRevision=async(req,res,next)=>{try{
  if(item.approvalStatus==='Approved'||item.handoffTo||!item.revisionNote||!['Revision','Review'].includes(item.process))return res.status(409).json({error:'No revision is awaiting submission.'});
  const checked=payload({...item.toObject(),designDriveUrl:req.body.designDriveUrl||item.designDriveUrl});if(!checked.designDriveUrl)return res.status(400).json({error:'Add the revised Drive link.'});
  item.designDriveUrl=checked.designDriveUrl;item.process='Review';item.designChecked=false;item.designChecks=[];item.revisionSubmittedAt=new Date();
- item.history.push({action:'REVISION_SUBMITTED',actor:req.user._id,actorName:req.user.name,note:'Ready for Creative Head / Art Director review.'});await item.save();res.json({item});
+ item.history.push({action:'REVISION_SUBMITTED',actor:req.user._id,actorName:req.user.name,note:'Ready for Creative Head / Art Director review.'});await item.save();res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};
 exports.emailBP=async(req,res,next)=>{try{
  if(!canReview(req.user))return res.status(403).json({error:'Creative Head or Art Director sends approved designs.'});
  if(!mongoose.Types.ObjectId.isValid(req.params.id))return res.status(400).json({error:'Invalid work ID.'});
  const item=await ImportantWork.findById(req.params.id);if(!item)return res.status(404).json({error:'Design not found.'});
  if(item.designType!=='Other'||item.approvalStatus!=='Approved'||!item.designDriveUrl||!item.bpEmail)return res.status(409).json({error:'Approve Other design and select its BP before emailing.'});
- if(item.bpEmailMessageId)return res.json({item});
+ if(item.bpEmailMessageId)return res.json({item:visibleWork(item,req.user)});
  const result=await require('../services/emailService').sendDesignDelivery({to:item.bpEmail,title:item.title,url:item.designDriveUrl});
- item.bpEmailMessageId=result.messageId;item.sentAt=new Date();item.sentBy=req.user._id;item.status='Completed';item.history.push({action:'BP_EMAIL_SENT',actor:req.user._id,actorName:req.user.name,note:item.bpEmail});await item.save();res.json({item});
+ item.bpEmailMessageId=result.messageId;item.sentAt=new Date();item.sentBy=req.user._id;item.status='Completed';item.history.push({action:'BP_EMAIL_SENT',actor:req.user._id,actorName:req.user.name,note:item.bpEmail});await item.save();res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};
 
 exports.designerCheck=async(req,res,next)=>{try{
@@ -163,10 +165,10 @@ exports.designerCheck=async(req,res,next)=>{try{
  const email=String(req.user.email||'').toLowerCase();
  if(!item.designerEmail||email!==item.designerEmail)return res.status(403).json({error:'Only the designer assigned to this project may use Designer Check.'});
  if(!item.designDriveUrl||!['Review','Approved','Completed'].includes(item.process))return res.status(409).json({error:'Submit the final design link for review before checking.'});
- if((item.designChecks||[]).some(c=>c.slot==='Designer'&&c.email===email&&c.url===item.designDriveUrl))return res.json({item});
+ if((item.designChecks||[]).some(c=>c.slot==='Designer'&&c.email===email&&c.url===item.designDriveUrl))return res.json({item:visibleWork(item,req.user)});
  const at=new Date();item.designChecks=[...(item.designChecks||[]).filter(c=>c.slot!=='Designer'),{slot:'Designer',actor:req.user._id,name:req.user.name,email,at,url:item.designDriveUrl}];item.updatedBy=req.user._id;
  item.history.push({action:'DESIGNER_CHECKED',actor:req.user._id,actorName:req.user.name,actorEmail:email,at,designDriveUrl:item.designDriveUrl});
- await item.save();res.json({item});
+ await item.save();res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};
 
 // Briefs are private to the assignment creator and the assigned designer.
@@ -193,5 +195,5 @@ exports.acceptProduction=async(req,res,next)=>{try{
  const item=await ImportantWork.findById(req.params.id);if(!item)return res.status(404).json({error:'Project not found.'});
  if(item.merchandisingEmail!==String(req.user.email||'').toLowerCase())return res.status(403).json({error:'Only the assigned Merchandising member can accept this project.'});
  if(item.approvalStatus!=='Approved'||item.handoffTo!=='Production'||item.designType!=='Print')return res.status(409).json({error:'This print design is not ready for Production.'});
- if(!item.productionAcceptedAt){item.productionAcceptedAt=new Date();item.productionAcceptedBy=req.user._id;item.history.push({action:'PRODUCTION_ACCEPTED',actor:req.user._id,actorName:req.user.name,actorEmail:req.user.email});await item.save();}res.json({item});
+ if(!item.productionAcceptedAt){item.productionAcceptedAt=new Date();item.productionAcceptedBy=req.user._id;item.history.push({action:'PRODUCTION_ACCEPTED',actor:req.user._id,actorName:req.user.name,actorEmail:req.user.email});await item.save();}res.json({item:visibleWork(item,req.user)});
 }catch(e){next(e)}};

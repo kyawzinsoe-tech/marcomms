@@ -1,0 +1,4 @@
+import React from 'react';import{it,expect}from'vitest';import{render,screen,cleanup}from'@testing-library/react';import{BriefDetails}from'../components/ImportantWorkSection';
+const item={createdBy:'creator',designerEmail:'designer@example.com',description:'Private brief text'};
+it('brief starts collapsed for creator and assigned designer',()=>{for(const user of [{_id:'creator',email:'creator@example.com'},{_id:'designer',email:'designer@example.com'}]){render(<BriefDetails item={item} user={user}/>);expect(screen.getByText('View Brief · Private').closest('details').open).toBe(false);cleanup()}});
+it('other project viewers receive no brief content',()=>{const {container}=render(<BriefDetails item={item} user={{_id:'other',email:'other@example.com'}}/>);expect(container.textContent).toBe('');cleanup()});
